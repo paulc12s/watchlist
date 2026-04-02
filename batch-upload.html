@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<!--
+  BATCH UPLOAD TOOL FOR WATCHLIST
+
+  Quickly add multiple movies/TV shows/YouTube videos from a list
+
+  Features:
+  - Paste list of titles or YouTube URLs (one per line)
+  - Automatic lookup and disambiguation
+  - Bulk priority and tag assignment
+  - Export to watchlist JSON format
+  - Review and edit before saving
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://image.tmdb.org https://m.media-amazon.com https://i.ytimg.com; connect-src 'self' https://www.omdbapi.com;">
+<title>Batch Upload - Watchlist</title>
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  background: #f9f8f6;
+  color: #1a1714;
+  padding: 20px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.header p {
+  color: #666;
+  font-size: 15px;
+}
+
+.section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 1.5rem;
+  border: 1px solid #e0ddd8;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #1a1714;
+  color: white;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.input-group {
+  margin-bottom: 16px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #666;
+}
+
+textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 12px;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #1a1714;
+}
+
+.input-hint {
+  font-size: 13px;
+  color: #888;
+  margin-top: 6px;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.option-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.option-field label {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: #666;
+}
+
+.option-field select,
+.option-field input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+}
+
+.option-field select:focus,
+.option-field input:focus {
+  outline: none;
+  border-color: #888;
+}
+
+.btn {
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: #1a1714;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2a2724;
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: white;
+  color: #1a1714;
+  border: 1px solid #ddd;
+}
+
+.btn-secondary:hover {
+  background: #f5f5f5;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.progress-section {
+  display: none;
+}
+
+.progress-section.visible {
+  display: block;
+}
+
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background: #e0ddd8;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: #3b6d11;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.progress-text {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.log {
+  background: #fafafa;
+  border: 1px solid #e0ddd8;
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.log-entry {
+  padding: 4px 0;
+}
+
+.log-entry.success {
+  color: #3b6d11;
+}
+
+.log-entry.error {
+  color: #a32d2d;
+}
+
+.log-entry.warning {
+  color: #854F0B;
+}
+
+.results-section {
+  display: none;
+}
+
+.results-section.visible {
+  display: block;
+}
+
+.results-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.result-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: #fafafa;
+  border: 1px solid #e0ddd8;
+  border-radius: 8px;
+  align-items: flex-start;
+}
+
+.result-poster {
+  width: 50px;
+  height: 75px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #ddd;
+  flex-shrink: 0;
+}
+
+.result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.result-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.result-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+.result-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-small:hover {
+  background: #f5f5f5;
+  border-color: #888;
+}
+
+.btn-small.delete {
+  color: #a32d2d;
+}
+
+.btn-small.delete:hover {
+  background: #fcebeb;
+  border-color: #f09595;
+}
+
+.summary {
+  background: #eaf3de;
+  border: 1px solid #b8d4b8;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.summary-text {
+  font-size: 15px;
+  font-weight: 500;
+  color: #3b6d11;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.hidden {
+  display: none;
+}
+
+/* Disambiguation Modal */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal.visible {
+  display: flex;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.modal-options {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.modal-option {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border: 2px solid #e0ddd8;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-option:hover {
+  border-color: #888;
+  background: #fafafa;
+}
+
+.modal-option.selected {
+  border-color: #3b6d11;
+  background: #eaf3de;
+}
+
+.modal-option-poster {
+  width: 40px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #ddd;
+  flex-shrink: 0;
+}
+
+.modal-option-info {
+  flex: 1;
+}
+
+.modal-option-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.modal-option-meta {
+  font-size: 12px;
+  color: #666;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🎬 Batch Upload</h1>
+    <p>Add multiple movies and TV shows to your watchlist at once</p>
+  </div>
+
+  <!-- Step 1: Input -->
+  <div class="section" id="input-section">
+    <div class="section-title">
+      <span class="step-number">1</span>
+      Enter Titles
+    </div>
+
+    <div class="input-group">
+      <label>List of Movies/TV Shows/YouTube Videos (one per line)</label>
+      <textarea id="titles-input" placeholder="The Godfather
+Inception
+Breaking Bad
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+Dune
+The Office
+..."></textarea>
+      <div class="input-hint">Enter one title or YouTube URL per line. For movies: years optional (e.g., "Dune 2021"). For YouTube: paste full URL (you can edit titles after import).</div>
+    </div>
+
+    <div class="input-group">
+      <label>Default Settings (applied to all items)</label>
+      <div class="options-grid">
+        <div class="option-field">
+          <label>Priority</label>
+          <select id="default-priority">
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div class="option-field">
+          <label>Tag (optional)</label>
+          <input type="text" id="default-tag" placeholder="e.g., family, airplane">
+        </div>
+        <div class="option-field">
+          <label>Platform (optional)</label>
+          <input type="text" id="default-platform" list="platform-list" placeholder="e.g., Netflix">
+          <datalist id="platform-list">
+            <option value="Netflix">
+            <option value="Amazon Prime">
+            <option value="Disney+">
+            <option value="Hulu">
+            <option value="HBO Max">
+            <option value="Apple TV+">
+            <option value="Paramount+">
+            <option value="Peacock">
+            <option value="YouTube">
+            <option value="Theater">
+          </datalist>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="process-btn">Process Titles</button>
+  </div>
+
+  <!-- Step 2: Progress -->
+  <div class="section progress-section" id="progress-section">
+    <div class="section-title">
+      <span class="step-number">2</span>
+      Processing...
+    </div>
+
+    <div class="progress-text" id="progress-text">Starting...</div>
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- Step 3: Review -->
+  <div class="section results-section" id="results-section">
+    <div class="section-title">
+      <span class="step-number">3</span>
+      Review & Export
+    </div>
+
+    <div class="summary" id="summary">
+      <div class="summary-text" id="summary-text"></div>
+    </div>
+
+    <div class="results-grid" id="results-grid"></div>
+
+    <div class="action-buttons">
+      <button class="btn btn-secondary" id="reset-btn">Start Over</button>
+      <button class="btn btn-primary" id="export-btn">Export JSON</button>
+      <button class="btn btn-primary" id="copy-btn">Copy to Clipboard</button>
+    </div>
+  </div>
+</div>
+
+<!-- Disambiguation Modal -->
+<div class="modal" id="disambiguation-modal">
+  <div class="modal-content">
+    <div class="modal-header" id="modal-header">Multiple results found for "Title"</div>
+    <div class="modal-options" id="modal-options"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="modal-skip">Skip This Title</button>
+      <button class="btn btn-primary" id="modal-select" disabled>Add Selected</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// Configuration
+const CONFIG = {
+  API: {
+    OMDB_KEY: 'trilogy', // Replace with your own API key from http://www.omdbapi.com/apikey.aspx
+    OMDB_URL: 'https://www.omdbapi.com/'
+  },
+  DELAY_MS: 250 // Delay between API calls to avoid rate limiting
+};
+
+// State
+const state = {
+  items: [],
+  currentTitle: null,
+  selectedResult: null,
+  processing: false
+};
+
+// Security
+const Security = {
+  escapeHtml(str) {
+    if (typeof str !== 'string') return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  },
+
+  escapeAttr(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/[&<>"']/g, char => {
+      const entities = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      };
+      return entities[char] || char;
+    });
+  },
+
+  isSafeUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    const trimmed = url.trim().toLowerCase();
+    return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+  }
+};
+
+// API
+const MovieAPI = {
+  async search(query) {
+    if (!query || query.length < 2) return [];
+
+    try {
+      const url = `${CONFIG.API.OMDB_URL}?apikey=${CONFIG.API.OMDB_KEY}&s=${encodeURIComponent(query)}`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.Response === 'True' && data.Search) {
+        return data.Search.map(item => ({
+          imdbID: item.imdbID,
+          title: item.Title,
+          year: item.Year,
+          type: this.normalizeType(item.Type),
+          poster: item.Poster !== 'N/A' ? item.Poster : ''
+        }));
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Search error:', error);
+      throw error;
+    }
+  },
+
+  async getDetails(imdbID) {
+    try {
+      const url = `${CONFIG.API.OMDB_URL}?apikey=${CONFIG.API.OMDB_KEY}&i=${encodeURIComponent(imdbID)}&plot=short`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.Response === 'True') {
+        return {
+          imdbID: data.imdbID,
+          title: data.Title,
+          type: this.normalizeType(data.Type),
+          year: data.Year,
+          genre: data.Genre !== 'N/A' ? data.Genre : '',
+          rating: data.imdbRating !== 'N/A' ? data.imdbRating : '',
+          plot: data.Plot !== 'N/A' ? data.Plot : '',
+          poster: data.Poster !== 'N/A' ? data.Poster : ''
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Details error:', error);
+      throw error;
+    }
+  },
+
+  normalizeType(omdbType) {
+    // OMDb returns: "movie", "series", "episode", "game"
+    const type = (omdbType || '').toLowerCase();
+
+    if (type === 'series' || type === 'episode') {
+      return 'series';
+    }
+
+    // Default to movie for "movie", "game", or unknown types
+    return 'movie';
+  }
+};
+
+// YouTube Helpers
+const YouTubeAPI = {
+  extractVideoID(input) {
+    // Handle various YouTube URL formats
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+      /^([a-zA-Z0-9_-]{11})$/ // Direct video ID
+    ];
+
+    for (const pattern of patterns) {
+      const match = input.match(pattern);
+      if (match) return match[1];
+    }
+
+    return null;
+  },
+
+  isYoutubeUrl(input) {
+    return this.extractVideoID(input) !== null;
+  }
+};
+
+// UI Elements
+const UI = {
+  titlesInput: document.getElementById('titles-input'),
+  defaultPriority: document.getElementById('default-priority'),
+  defaultTag: document.getElementById('default-tag'),
+  defaultPlatform: document.getElementById('default-platform'),
+  processBtn: document.getElementById('process-btn'),
+  inputSection: document.getElementById('input-section'),
+  progressSection: document.getElementById('progress-section'),
+  progressText: document.getElementById('progress-text'),
+  progressBar: document.getElementById('progress-bar'),
+  log: document.getElementById('log'),
+  resultsSection: document.getElementById('results-section'),
+  summary: document.getElementById('summary'),
+  summaryText: document.getElementById('summary-text'),
+  resultsGrid: document.getElementById('results-grid'),
+  resetBtn: document.getElementById('reset-btn'),
+  exportBtn: document.getElementById('export-btn'),
+  copyBtn: document.getElementById('copy-btn'),
+  disambiguationModal: document.getElementById('disambiguation-modal'),
+  modalHeader: document.getElementById('modal-header'),
+  modalOptions: document.getElementById('modal-options'),
+  modalSkip: document.getElementById('modal-skip'),
+  modalSelect: document.getElementById('modal-select')
+};
+
+// Event Listeners
+UI.processBtn.addEventListener('click', () => processTitles());
+UI.resetBtn.addEventListener('click', () => reset());
+UI.exportBtn.addEventListener('click', () => exportJSON());
+UI.copyBtn.addEventListener('click', () => copyToClipboard());
+UI.modalSkip.addEventListener('click', () => skipDisambiguation());
+UI.modalSelect.addEventListener('click', () => selectDisambiguation());
+
+// Main Processing
+async function processTitles() {
+  const text = UI.titlesInput.value.trim();
+  if (!text) {
+    alert('Please enter at least one title');
+    return;
+  }
+
+  // Parse titles (one per line)
+  const titles = text.split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  if (titles.length === 0) {
+    alert('No valid titles found');
+    return;
+  }
+
+  // Reset state
+  state.items = [];
+  state.processing = true;
+  UI.log.innerHTML = '';
+
+  // Show progress section
+  UI.progressSection.classList.add('visible');
+  UI.resultsSection.classList.remove('visible');
+
+  // Process each title
+  for (let i = 0; i < titles.length; i++) {
+    const title = titles[i];
+    const progress = ((i / titles.length) * 100).toFixed(0);
+
+    UI.progressText.textContent = `Processing ${i + 1} of ${titles.length}: ${title}`;
+    UI.progressBar.style.width = progress + '%';
+
+    try {
+      await processTitle(title);
+
+      // Rate limiting delay
+      if (i < titles.length - 1) {
+        await delay(CONFIG.DELAY_MS);
+      }
+    } catch (error) {
+      addLog(`Error processing "${title}": ${error.message}`, 'error');
+    }
+  }
+
+  // Complete
+  UI.progressBar.style.width = '100%';
+  UI.progressText.textContent = `Complete! Processed ${titles.length} titles.`;
+  state.processing = false;
+
+  // Show results
+  showResults();
+}
+
+async function processTitle(title) {
+  // Check if it's a YouTube URL
+  if (YouTubeAPI.isYoutubeUrl(title)) {
+    addLog(`Adding YouTube URL: ${title}`, 'info');
+
+    try {
+      const videoID = YouTubeAPI.extractVideoID(title);
+
+      // Create a simple YouTube item
+      // User needs to edit the title after import
+      const details = {
+        youtubeID: videoID,
+        title: `YouTube Video (${videoID})`,
+        type: 'youtube',
+        plot: title, // Store URL
+        poster: videoID ? `https://i.ytimg.com/vi/${videoID}/hqdefault.jpg` : '',
+        genre: '',
+        rating: '',
+        duration: ''
+      };
+
+      addItem(details);
+      addLog(`✓ Added YouTube video (edit title after import)`, 'success');
+    } catch (error) {
+      addLog(`Error adding YouTube video: ${error.message}`, 'error');
+    }
+
+    return;
+  }
+
+  // Otherwise, search for movie/TV show
+  addLog(`Searching for: ${title}`, 'info');
+
+  try {
+    const results = await MovieAPI.search(title);
+
+    if (results.length === 0) {
+      addLog(`No results found for "${title}"`, 'warning');
+      return;
+    }
+
+    if (results.length === 1) {
+      // Only one result, add it automatically
+      const details = await MovieAPI.getDetails(results[0].imdbID);
+      if (details) {
+        addItem(details);
+        addLog(`✓ Added: ${details.title} (${details.year})`, 'success');
+      }
+    } else {
+      // Multiple results, need disambiguation
+      addLog(`Multiple results found for "${title}"`, 'warning');
+      const selected = await disambiguate(title, results);
+
+      if (selected) {
+        const details = await MovieAPI.getDetails(selected.imdbID);
+        if (details) {
+          addItem(details);
+          addLog(`✓ Added: ${details.title} (${details.year})`, 'success');
+        }
+      } else {
+        addLog(`Skipped: ${title}`, 'warning');
+      }
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
+function addItem(details) {
+  // Check for duplicates by unique identifier
+  const isDuplicate = state.items.some(existingItem => {
+    // For OMDb items: check by imdbID
+    if (details.imdbID && existingItem.imdbID) {
+      return details.imdbID === existingItem.imdbID;
+    }
+    // For YouTube videos: check by youtubeID
+    if (details.youtubeID && existingItem.youtubeID) {
+      return details.youtubeID === existingItem.youtubeID;
+    }
+    // No unique identifier to check
+    return false;
+  });
+
+  if (isDuplicate) {
+    addLog(`Skipped duplicate: ${details.title}`, 'warning');
+    return;
+  }
+
+  const item = {
+    id: Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+    title: details.title,
+    type: details.type,
+    genre: details.genre || '',
+    rating: details.rating || '',
+    plot: details.plot || '',
+    poster: details.poster || '',
+    imdbID: details.imdbID || '',
+    youtubeID: details.youtubeID || '',
+    duration: details.duration || '',
+    priority: UI.defaultPriority.value,
+    tag: UI.defaultTag.value.trim(),
+    platform: details.type === 'youtube' ? 'YouTube' : UI.defaultPlatform.value.trim(),
+    watched: false
+  };
+
+  state.items.push(item);
+}
+
+function disambiguate(title, results) {
+  return new Promise((resolve) => {
+    state.currentTitle = title;
+    state.selectedResult = null;
+
+    UI.modalHeader.textContent = `Multiple results found for "${title}"`;
+
+    // Render options
+    UI.modalOptions.innerHTML = results.map((result, index) => {
+      const posterImg = result.poster
+        ? `<img src="${Security.escapeAttr(result.poster)}" class="modal-option-poster" alt="${Security.escapeAttr(result.title)}">`
+        : '<div class="modal-option-poster"></div>';
+
+      return `
+        <div class="modal-option" data-index="${index}">
+          ${posterImg}
+          <div class="modal-option-info">
+            <div class="modal-option-title">${Security.escapeHtml(result.title)}</div>
+            <div class="modal-option-meta">${Security.escapeHtml(result.year)} • ${Security.escapeHtml(result.type === 'series' ? 'TV Series' : 'Movie')}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Add click handlers
+    document.querySelectorAll('.modal-option').forEach(option => {
+      option.addEventListener('click', function() {
+        document.querySelectorAll('.modal-option').forEach(o => o.classList.remove('selected'));
+        this.classList.add('selected');
+        state.selectedResult = results[parseInt(this.dataset.index)];
+        UI.modalSelect.disabled = false;
+      });
+    });
+
+    // Setup buttons
+    const skipHandler = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const selectHandler = () => {
+      const selected = state.selectedResult;
+      cleanup();
+      resolve(selected);
+    };
+
+    function cleanup() {
+      UI.disambiguationModal.classList.remove('visible');
+      UI.modalSkip.removeEventListener('click', skipHandler);
+      UI.modalSelect.removeEventListener('click', selectHandler);
+    }
+
+    UI.modalSkip.addEventListener('click', skipHandler);
+    UI.modalSelect.addEventListener('click', selectHandler);
+
+    UI.modalSelect.disabled = true;
+    UI.disambiguationModal.classList.add('visible');
+  });
+}
+
+function skipDisambiguation() {
+  // This is handled by the promise
+}
+
+function selectDisambiguation() {
+  // This is handled by the promise
+}
+
+function showResults() {
+  if (state.items.length === 0) {
+    UI.summaryText.textContent = 'No items were added. Try different titles.';
+    UI.resultsGrid.innerHTML = '<p style="text-align:center;color:#888;padding:2rem;">No items to display</p>';
+  } else {
+    UI.summaryText.textContent = `Successfully added ${state.items.length} item${state.items.length === 1 ? '' : 's'} to your watchlist`;
+    renderResults();
+  }
+
+  UI.resultsSection.classList.add('visible');
+}
+
+function renderResults() {
+  UI.resultsGrid.innerHTML = state.items.map((item, index) => {
+    const posterImg = item.poster && Security.isSafeUrl(item.poster)
+      ? `<img src="${Security.escapeAttr(item.poster)}" class="result-poster" alt="${Security.escapeAttr(item.title)}">`
+      : '<div class="result-poster"></div>';
+
+    // Type display
+    let typeDisplay = 'Movie';
+    if (item.type === 'series') typeDisplay = 'TV Series';
+    if (item.type === 'youtube') typeDisplay = '📺 YouTube';
+
+    return `
+      <div class="result-item" data-index="${index}">
+        ${posterImg}
+        <div class="result-info">
+          <div class="result-title">${Security.escapeHtml(item.title)}</div>
+          <div class="result-meta">
+            ${Security.escapeHtml(typeDisplay)}
+            ${item.type === 'youtube' && item.duration ? ' • ⏱ ' + Security.escapeHtml(item.duration) : ''}
+            ${item.type !== 'youtube' && item.rating ? ' • ⭐ ' + Security.escapeHtml(item.rating) : ''}
+            ${item.genre ? ' • ' + Security.escapeHtml(item.type === 'youtube' ? item.genre : item.genre.split(',')[0]) : ''}
+          </div>
+          <div class="result-meta">
+            Priority: ${Security.escapeHtml(item.priority)}
+            ${item.tag ? ' • Tag: ' + Security.escapeHtml(item.tag) : ''}
+            ${item.platform ? ' • ' + Security.escapeHtml(item.platform) : ''}
+          </div>
+        </div>
+        <div class="result-actions">
+          <button class="btn-small delete" onclick="removeItem(${index})">Remove</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function removeItem(index) {
+  state.items.splice(index, 1);
+  renderResults();
+
+  if (state.items.length === 0) {
+    UI.summaryText.textContent = 'All items removed. Start over to add more.';
+  } else {
+    UI.summaryText.textContent = `${state.items.length} item${state.items.length === 1 ? '' : 's'} in your watchlist`;
+  }
+}
+
+function exportJSON() {
+  if (state.items.length === 0) {
+    alert('No items to export');
+    return;
+  }
+
+  const data = {
+    unwatched: state.items,
+    watched: [],
+    exportDate: new Date().toISOString()
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `watchlist-batch-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  addLog('✓ JSON file downloaded', 'success');
+}
+
+async function copyToClipboard() {
+  if (state.items.length === 0) {
+    alert('No items to copy');
+    return;
+  }
+
+  const data = {
+    unwatched: state.items,
+    watched: [],
+    exportDate: new Date().toISOString()
+  };
+
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+    UI.copyBtn.textContent = '✓ Copied!';
+    setTimeout(() => {
+      UI.copyBtn.textContent = 'Copy to Clipboard';
+    }, 2000);
+  } catch (error) {
+    alert('Failed to copy to clipboard. Use Export JSON instead.');
+  }
+}
+
+function reset() {
+  state.items = [];
+  state.processing = false;
+  UI.titlesInput.value = '';
+  UI.log.innerHTML = '';
+  UI.resultsGrid.innerHTML = '';
+  UI.progressSection.classList.remove('visible');
+  UI.resultsSection.classList.remove('visible');
+  UI.progressBar.style.width = '0%';
+}
+
+function addLog(message, type = 'info') {
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  entry.textContent = message;
+  UI.log.appendChild(entry);
+  UI.log.scrollTop = UI.log.scrollHeight;
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+</script>
+</body>
+</html>

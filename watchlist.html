@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<!--
+  MOVIE & TV WATCHLIST
+
+  A personal watchlist for tracking movies and TV shows to watch
+
+  Features:
+  - Movie/TV lookup with disambiguation
+  - Automatic metadata fetching (type, rating, genre, poster)
+  - Custom tags (family, airplane, art, etc.)
+  - Priority sorting for what to watch next
+  - IndexedDB for persistent local storage
+  - Local import/export functionality
+  - Comprehensive XSS protection
+
+  Security:
+  - All user input sanitized and escaped
+  - URL validation to prevent malicious links
+  - CSP headers restrict script execution
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://image.tmdb.org https://m.media-amazon.com https://i.ytimg.com; connect-src 'self' https://www.omdbapi.com https://www.google.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#1a1714" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121212" media="(prefers-color-scheme: dark)">
+<title>Watchlist</title>
+<link rel="stylesheet" href="watchlist.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <h1>🎬 Watchlist</h1>
+    <div class="header-actions">
+      <button class="btn" id="add-btn">+ Add</button>
+      <button class="btn" id="export-btn">Export</button>
+      <button class="btn" id="import-btn">Import</button>
+      <input type="file" id="import-file" accept=".json" class="hidden">
+      <span class="status" id="status">loading...</span>
+    </div>
+  </header>
+
+  <div class="add-form" id="add-form">
+    <div class="form-main">
+      <input type="text" id="search-input" placeholder="Search for a movie or TV show..." autocomplete="off">
+      <div class="search-hint">Enter a title and we'll find details automatically</div>
+    </div>
+
+    <div id="search-results"></div>
+
+    <div class="manual-toggle">
+      <span class="manual-link" id="manual-toggle">Or enter manually</span>
+      <span style="color: #888; margin: 0 8px;">•</span>
+      <span class="manual-link" id="youtube-toggle">Or add YouTube video</span>
+    </div>
+
+    <div id="youtube-form" class="hidden">
+      <div class="form-main">
+        <input type="text" id="youtube-title" placeholder="Video title">
+      </div>
+      <div class="form-main">
+        <input type="text" id="youtube-url" placeholder="YouTube URL (e.g., https://www.youtube.com/watch?v=...)">
+        <div class="search-hint">Paste the full YouTube URL</div>
+      </div>
+      <div class="form-options">
+        <select id="youtube-priority">
+          <option value="high">High Priority</option>
+          <option value="medium" selected>Medium Priority</option>
+          <option value="low">Low Priority</option>
+        </select>
+        <input type="text" id="youtube-tag" list="tag-list" placeholder="Tag (optional)" autocomplete="off">
+      </div>
+      <div class="form-actions">
+        <button class="btn" id="add-youtube-btn">Add Video</button>
+        <button class="btn" id="cancel-youtube-btn">Cancel</button>
+      </div>
+    </div>
+
+    <div id="manual-form" class="hidden">
+      <div class="form-main">
+        <input type="text" id="manual-title" placeholder="Title">
+      </div>
+      <div class="form-options">
+        <select id="manual-type">
+          <option value="movie">Movie</option>
+          <option value="series">TV Series</option>
+          <option value="youtube">YouTube Video</option>
+        </select>
+        <input type="text" id="manual-genre" placeholder="Genre (optional)">
+        <input type="text" id="manual-rating" placeholder="Rating (optional)">
+      </div>
+      <div class="form-options">
+        <select id="manual-priority">
+          <option value="high">High Priority</option>
+          <option value="medium" selected>Medium Priority</option>
+          <option value="low">Low Priority</option>
+        </select>
+        <input type="text" id="manual-tag" list="tag-list" placeholder="Tag (family, airplane, art...)" autocomplete="off">
+        <datalist id="tag-list"></datalist>
+      </div>
+      <div class="form-options">
+        <input type="text" id="manual-platform" list="platform-list" placeholder="Streaming platform (optional)" autocomplete="off">
+        <datalist id="platform-list"></datalist>
+      </div>
+      <div class="form-actions">
+        <button class="btn" id="save-manual-btn">Add to Watchlist</button>
+        <button class="btn" id="cancel-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="filters" id="filters"></div>
+  <div id="item-list"></div>
+  <div class="stats" id="stats"></div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal" id="edit-modal">
+  <div class="modal-content">
+    <div class="modal-header">Edit Item</div>
+    <div class="modal-body">
+      <div class="edit-field">
+        <label>Title</label>
+        <input type="text" id="edit-title">
+      </div>
+      <div class="edit-field">
+        <label>Type</label>
+        <select id="edit-type">
+          <option value="movie">Movie</option>
+          <option value="series">TV Series</option>
+          <option value="youtube">YouTube Video</option>
+        </select>
+      </div>
+      <div class="edit-field">
+        <label>Priority</label>
+        <select id="edit-priority">
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+      <div class="edit-field">
+        <label>Tag</label>
+        <input type="text" id="edit-tag" list="tag-list" placeholder="family, airplane, art...">
+      </div>
+      <div class="edit-field">
+        <label>Streaming Platform</label>
+        <input type="text" id="edit-platform" list="platform-list" placeholder="Netflix, Amazon Prime, etc.">
+      </div>
+      <div class="edit-field">
+        <label>Genre</label>
+        <input type="text" id="edit-genre">
+      </div>
+      <div class="edit-field">
+        <label>Rating</label>
+        <input type="text" id="edit-rating">
+      </div>
+      <div class="edit-field">
+        <label>Plot</label>
+        <textarea id="edit-plot"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn" id="edit-cancel">Cancel</button>
+      <button class="modal-btn primary" id="edit-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="undo-bar" id="undo-bar">
+  <button class="undo-bar-btn" id="undo-btn">↶ Undo</button>
+</div>
+
+<!-- JavaScript Modules -->
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/security.js"></script>
+<script src="js/database.js"></script>
+<script src="js/movie-api.js"></script>
+<script src="js/youtube-api.js"></script>
+<script src="js/item-manager.js"></script>
+<script src="js/undo-manager.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
