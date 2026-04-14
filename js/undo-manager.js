@@ -17,12 +17,7 @@ const UndoManager = {
   },
 
   updateUI() {
-    const bar = document.getElementById('undo-bar');
-    if (state.undoStack.length === 0) {
-      bar.classList.remove('visible');
-    } else {
-      bar.classList.add('visible');
-    }
+    UI.elements.undoBar.classList.toggle('visible', state.undoStack.length > 0);
   },
 
   undo() {

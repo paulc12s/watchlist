@@ -41,6 +41,8 @@ const UI = {
       stats: document.getElementById('stats'),
       undoBar: document.getElementById('undo-bar'),
       undoBtn: document.getElementById('undo-btn'),
+      quickSearch: document.getElementById('quick-search'),
+      quickSearchClear: document.getElementById('quick-search-clear'),
       editModal: document.getElementById('edit-modal'),
       editTitle: document.getElementById('edit-title'),
       editType: document.getElementById('edit-type'),
@@ -67,6 +69,20 @@ const UI = {
     // Search
     this.elements.searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
 
+    // Quick search
+    this.elements.quickSearch.addEventListener('input', (e) => {
+      state.quickSearch = e.target.value.trim();
+      this.elements.quickSearchClear.classList.toggle('hidden', !state.quickSearch);
+      this.renderItems();
+    });
+    this.elements.quickSearchClear.addEventListener('click', () => {
+      state.quickSearch = '';
+      this.elements.quickSearch.value = '';
+      this.elements.quickSearchClear.classList.add('hidden');
+      this.elements.quickSearch.focus();
+      this.renderItems();
+    });
+
     // Manual toggle
     this.elements.manualToggle.addEventListener('click', () => this.toggleManualForm());
     this.elements.youtubeToggle.addEventListener('click', () => this.toggleYoutubeForm());
@@ -92,7 +108,10 @@ const UI = {
     this.elements.filters.addEventListener('click', (e) => {
       if (e.target.classList.contains('filter-btn')) {
         const clickedFilter = e.target.dataset.filter;
-        if (state.filter === clickedFilter && clickedFilter !== 'all') {
+        if (clickedFilter === 'watched') {
+          state.watchedMode = !state.watchedMode;
+          this.render();
+        } else if (state.filter === clickedFilter && clickedFilter !== 'all') {
           this.setFilter('all');
         } else {
           this.setFilter(clickedFilter);
@@ -139,15 +158,19 @@ const UI = {
     this.elements.manualForm.classList.add('hidden');
     this.elements.youtubeForm.classList.add('hidden');
     this.elements.manualTitle.value = '';
+    this.elements.manualType.value = 'movie';
     this.elements.manualGenre.value = '';
     this.elements.manualRating.value = '';
     this.elements.manualTag.value = '';
     this.elements.manualPlatform.value = '';
     this.elements.manualPriority.value = 'medium';
+    this.elements.manualToggle.textContent = 'Or enter manually';
+    this.elements.saveManualBtn.textContent = 'Add to Watchlist';
     this.elements.youtubeTitle.value = '';
     this.elements.youtubeUrl.value = '';
     this.elements.youtubePriority.value = 'medium';
     this.elements.youtubeTag.value = '';
+    this.elements.youtubeToggle.textContent = 'Or add YouTube video';
     state.selectedSearchResult = null;
     state.searchResults = [];
   },
@@ -226,8 +249,6 @@ const UI = {
     if (success) {
       this.toggleAddForm();
       this.render();
-      this.setStatus('YouTube video added', true);
-      setTimeout(() => this.setStatus('saved', true), 2000);
     }
   },
 
@@ -332,6 +353,11 @@ const UI = {
     this.elements.manualForm.classList.remove('hidden');
     this.elements.manualToggle.textContent = 'Choose different result';
 
+    // Seed type dropdown from search result
+    if (details.type === 'movie' || details.type === 'series') {
+      this.elements.manualType.value = details.type;
+    }
+
     // Update save button
     this.elements.saveManualBtn.textContent = 'Add to Watchlist';
   },
@@ -340,11 +366,11 @@ const UI = {
     let itemData;
 
     if (state.selectedSearchResult) {
-      // Adding from search result
+      // Adding from search result — type dropdown is seeded from API but user can override
       itemData = {
         id: Date.now() + '',
         title: state.selectedSearchResult.title,
-        type: state.selectedSearchResult.type,
+        type: this.elements.manualType.value,
         genre: state.selectedSearchResult.genre,
         rating: state.selectedSearchResult.rating,
         plot: state.selectedSearchResult.plot,
@@ -703,7 +729,8 @@ const UI = {
 
     this.elements.filters.innerHTML = filters
       .map(f => {
-        const activeClass = state.filter === f.key ? ' active' : '';
+        const isActive = f.key === 'watched' ? state.watchedMode : state.filter === f.key;
+        const activeClass = isActive ? ' active' : '';
         return `<button class="filter-btn${activeClass}" data-filter="${Security.escapeAttr(f.key)}">${Security.escapeHtml(f.label)}</button>`;
       })
       .join('');
@@ -717,26 +744,20 @@ const UI = {
       return;
     }
 
-    // Sort items by priority
-    const priorityOrder = { high: 0, medium: 1, low: 2 };
-    const sorted = [...filtered].sort((a, b) => {
-      return (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
-    });
-
-    // Group by priority
+    // Group by priority — render order is fixed by priorityOrder iteration
     const byPriority = {};
-    sorted.forEach(item => {
+    filtered.forEach(item => {
       const pri = item.priority || 'medium';
       if (!byPriority[pri]) byPriority[pri] = [];
       byPriority[pri].push(item);
     });
 
     const priorityLabels = { high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority' };
-    const priorityOrder2 = ['high', 'medium', 'low'];
+    const priorityOrder = ['high', 'medium', 'low'];
 
     let html = '';
 
-    for (const priority of priorityOrder2) {
+    for (const priority of priorityOrder) {
       if (!byPriority[priority]) continue;
 
       html += `<div class="item-group-label">${priorityLabels[priority]}</div>`;

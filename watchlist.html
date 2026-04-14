@@ -32,7 +32,6 @@
 <link rel="icon" type="image/png" href="/watchlist/movie.png">
 <title>Watchlist</title>
 <link rel="stylesheet" href="watchlist.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
 </head>
 <body>
 <div class="container">
@@ -53,11 +52,11 @@
       <div class="search-hint">Enter a title and we'll find details automatically</div>
     </div>
 
-    <div id="search-results"></div>
+    <div class="search-results" id="search-results"></div>
 
     <div class="manual-toggle">
       <span class="manual-link" id="manual-toggle">Or enter manually</span>
-      <span style="color: #888; margin: 0 8px;">•</span>
+      <span class="manual-separator">•</span>
       <span class="manual-link" id="youtube-toggle">Or add YouTube video</span>
     </div>
 
@@ -117,6 +116,10 @@
   </div>
 
   <div class="filters" id="filters"></div>
+  <div class="quick-search-bar">
+    <input type="text" id="quick-search" placeholder="Filter by title..." autocomplete="off">
+    <button class="quick-search-clear hidden" id="quick-search-clear">✕</button>
+  </div>
   <div id="item-list"></div>
   <div class="stats" id="stats"></div>
 </div>

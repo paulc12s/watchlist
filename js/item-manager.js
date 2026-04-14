@@ -186,29 +186,23 @@ const ItemManager = {
   },
 
   getFiltered() {
-    const { items, filter } = state;
+    const { items, filter, watchedMode, quickSearch } = state;
+    const query = quickSearch.toLowerCase();
 
-    if (filter === 'watched') {
-      return items.filter(i => i.watched);
+    const matchesSearch = (i) => !query || i.title.toLowerCase().includes(query);
+
+    const matchesSecondaryFilter = (i) => {
+      if (filter === 'all') return true;
+      if (filter === 'movie' || filter === 'series' || filter === 'youtube') return i.type === filter;
+      if (CONFIG.PRIORITIES.includes(filter)) return i.priority === filter;
+      return i.platform === filter || i.tag === filter;
+    };
+
+    if (watchedMode) {
+      return items.filter(i => i.watched && matchesSecondaryFilter(i) && matchesSearch(i));
     }
 
-    if (filter === 'all') {
-      return items.filter(i => !i.watched);
-    }
-
-    if (filter === 'movie' || filter === 'series' || filter === 'youtube') {
-      return items.filter(i => i.type === filter && !i.watched);
-    }
-
-    if (CONFIG.PRIORITIES.includes(filter)) {
-      return items.filter(i => i.priority === filter && !i.watched);
-    }
-
-    // Check if it's a platform or tag filter
-    // This will match any platform or tag that exists
-    return items.filter(i =>
-      !i.watched && (i.platform === filter || i.tag === filter)
-    );
+    return items.filter(i => !i.watched && matchesSecondaryFilter(i) && matchesSearch(i));
   },
 
   export() {

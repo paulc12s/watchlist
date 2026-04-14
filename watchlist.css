@@ -254,7 +254,7 @@ body {
 }
 
 /* Search Results */
-.search-results {
+.search-results:not(:empty) {
   margin: 16px 0;
   max-height: 400px;
   overflow-y: auto;
@@ -356,6 +356,11 @@ body {
   color: var(--color-success);
 }
 
+.manual-separator {
+  color: var(--color-text-tertiary);
+  margin: 0 8px;
+}
+
 /* Form Options */
 .form-options {
   display: flex;
@@ -426,7 +431,50 @@ body {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.quick-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 1.5rem;
+}
+
+.quick-search-bar input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1.5px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.quick-search-bar input:focus {
+  border-color: var(--color-border-focus);
+}
+
+.quick-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  transition: color var(--transition-fast);
+}
+
+.quick-search-clear:hover {
+  color: var(--color-text-primary);
+}
+
+.quick-search-clear.hidden {
+  display: none;
 }
 
 .filter-btn {
@@ -1020,6 +1068,16 @@ body {
   box-shadow: var(--shadow-lg);
 }
 
+.undo-bar-btn:hover {
+  background: rgba(26, 23, 20, 1);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl);
+}
+
+.undo-bar-btn:active {
+  transform: translateY(0);
+}
+
 @media (prefers-color-scheme: dark) {
   .undo-bar-btn {
     background: rgba(232, 230, 227, 0.92);
@@ -1029,16 +1087,6 @@ body {
   .undo-bar-btn:hover {
     background: rgba(255, 255, 255, 0.98);
   }
-}
-
-.undo-bar-btn:hover {
-  background: rgba(26, 23, 20, 1);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-xl);
-}
-
-.undo-bar-btn:active {
-  transform: translateY(0);
 }
 
 /* ============================================================================
@@ -1343,6 +1391,7 @@ body {
   .header-actions,
   .add-form,
   .filters,
+  .quick-search-bar,
   .item-actions,
   .undo-bar,
   .modal {
