@@ -16,8 +16,18 @@ const UndoManager = {
     this.updateUI();
   },
 
+  // Shows the latest undoable action for a few seconds; the stack itself is kept
   updateUI() {
-    UI.elements.undoBar.classList.toggle('visible', state.undoStack.length > 0);
+    clearTimeout(this.hideTimer);
+
+    const latest = state.undoStack[state.undoStack.length - 1];
+    UI.elements.undoBar.classList.toggle('visible', Boolean(latest));
+    if (!latest) return;
+
+    UI.elements.undoMessage.textContent = latest.message;
+    this.hideTimer = setTimeout(() => {
+      UI.elements.undoBar.classList.remove('visible');
+    }, CONFIG.UNDO_TIMEOUT);
   },
 
   undo() {

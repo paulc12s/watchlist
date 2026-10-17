@@ -31,6 +31,7 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 ## Usage
 
 - **Add** — click `+ Add`, search for a title, select a result, set priority/tag/platform, and save
+- **Search tips** — add a year to narrow (`dune 1984`), use the All / Movies / TV toggle, or paste an IMDb link or `tt…` ID to jump straight to a title. Exact title matches and recent releases rank first; top results show director and cast to tell same-named titles apart
 - **Filter** — use the filter buttons (type, priority, tag, platform) and/or type in the quick search bar
 - **Watched** — check the checkbox to mark watched; click the Watched filter to view them; click another filter while in watched mode to narrow further
 - **Edit** — click a badge to edit inline, or click Edit for the full modal

@@ -41,6 +41,8 @@ const UI = {
       stats: document.getElementById('stats'),
       undoBar: document.getElementById('undo-bar'),
       undoBtn: document.getElementById('undo-btn'),
+      undoMessage: document.getElementById('undo-message'),
+      searchType: document.getElementById('search-type'),
       quickSearch: document.getElementById('quick-search'),
       quickSearchClear: document.getElementById('quick-search-clear'),
       editModal: document.getElementById('edit-modal'),
@@ -68,6 +70,14 @@ const UI = {
 
     // Search
     this.elements.searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
+    this.elements.searchType.addEventListener('click', (e) => {
+      const btn = e.target.closest('.search-type-btn');
+      if (!btn) return;
+      state.searchType = btn.dataset.type;
+      this.elements.searchType.querySelectorAll('.search-type-btn')
+        .forEach(b => b.classList.toggle('active', b === btn));
+      this.handleSearch(this.elements.searchInput.value);
+    });
 
     // Quick search
     this.elements.quickSearch.addEventListener('input', (e) => {
@@ -84,7 +94,13 @@ const UI = {
     });
 
     // Manual toggle
-    this.elements.manualToggle.addEventListener('click', () => this.toggleManualForm());
+    this.elements.manualToggle.addEventListener('click', () => {
+      if (state.selectedSearchResult) {
+        this.backToSearchResults();
+      } else {
+        this.toggleManualForm();
+      }
+    });
     this.elements.youtubeToggle.addEventListener('click', () => this.toggleYoutubeForm());
 
     // Manual form
@@ -118,6 +134,16 @@ const UI = {
         }
       }
     });
+
+    // Swap broken posters for the empty placeholder (the CSP blocks inline onerror handlers)
+    const replaceBrokenImage = (e) => {
+      if (e.target.tagName !== 'IMG') return;
+      const placeholder = document.createElement('div');
+      placeholder.className = e.target.className;
+      e.target.replaceWith(placeholder);
+    };
+    this.elements.itemList.addEventListener('error', replaceBrokenImage, true);
+    this.elements.searchResults.addEventListener('error', replaceBrokenImage, true);
 
     // Item list
     this.elements.itemList.addEventListener('click', (e) => this.handleItemClick(e));
@@ -156,6 +182,7 @@ const UI = {
     this.elements.searchInput.value = '';
     this.elements.searchResults.innerHTML = '';
     this.elements.manualForm.classList.add('hidden');
+    this.elements.manualForm.classList.remove('from-search');
     this.elements.youtubeForm.classList.add('hidden');
     this.elements.manualTitle.value = '';
     this.elements.manualType.value = 'movie';
@@ -173,6 +200,8 @@ const UI = {
     this.elements.youtubeToggle.textContent = 'Or add YouTube video';
     state.selectedSearchResult = null;
     state.searchResults = [];
+    clearTimeout(state.searchTimeout);
+    state.searchSeq++;
   },
 
   toggleManualForm() {
@@ -252,13 +281,19 @@ const UI = {
     }
   },
 
-  async handleSearch(query) {
-    if (state.searchTimeout) {
-      clearTimeout(state.searchTimeout);
+  handleSearch(query) {
+    clearTimeout(state.searchTimeout);
+
+    // Any response for an earlier query is stale from here on
+    const seq = ++state.searchSeq;
+
+    if (state.selectedSearchResult) {
+      this.clearSelection();
     }
 
-    if (!query || query.length < 2) {
+    if (!query || query.trim().length < 2) {
       this.elements.searchResults.innerHTML = '';
+      state.searchResults = [];
       return;
     }
 
@@ -266,15 +301,21 @@ const UI = {
       this.elements.searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
 
       try {
-        const results = await MovieAPI.search(query);
+        const { results, tooMany } = await MovieAPI.search(query, state.searchType);
+        if (seq !== state.searchSeq) return;
+
         state.searchResults = results;
 
         if (results.length === 0) {
-          this.elements.searchResults.innerHTML = '<div class="search-empty">No results found. Try a different search or enter manually.</div>';
+          const message = tooMany
+            ? 'Too many matches. Keep typing, or add a year (e.g. "dune 1984").'
+            : 'No results found. Try a different search or enter manually.';
+          this.elements.searchResults.innerHTML = `<div class="search-empty">${Security.escapeHtml(message)}</div>`;
         } else {
           this.renderSearchResults(results);
         }
       } catch (error) {
+        if (seq !== state.searchSeq) return;
         const errorMsg = error.message || 'Search failed. Please try again or enter manually.';
         this.elements.searchResults.innerHTML = `<div class="search-error">${Security.escapeHtml(errorMsg)}</div>`;
         console.error('Search failed:', error);
@@ -283,26 +324,80 @@ const UI = {
   },
 
   renderSearchResults(results) {
-    const html = results.map((result, index) => {
-      const posterImg = result.poster
-        ? `<img src="${Security.escapeAttr(result.poster)}" class="result-poster" alt="${Security.escapeAttr(result.title)}" loading="lazy" onerror="this.style.display='none'">`
-        : '<div class="result-poster"></div>';
+    this.elements.searchResults.innerHTML = results
+      .map((result, index) => this.searchResultHTML(result, index))
+      .join('');
+    this.prefetchResultDetails(results, state.searchSeq);
+  },
 
-      return `
-        <div class="search-result" data-index="${index}">
-          ${posterImg}
-          <div class="result-info">
-            <div class="result-title">${Security.escapeHtml(result.title)}</div>
-            <div class="result-meta">${Security.escapeHtml(result.year)} • ${Security.escapeHtml(result.type === 'series' ? 'TV Series' : 'Movie')}</div>
-          </div>
+  searchResultHTML(result, index) {
+    const posterImg = result.poster
+      ? `<img src="${Security.escapeAttr(result.poster)}" class="result-poster" alt="${Security.escapeAttr(result.title)}" loading="lazy">`
+      : '<div class="result-poster"></div>';
+
+    return `
+      <div class="search-result" data-index="${index}">
+        ${posterImg}
+        <div class="result-info">
+          <div class="result-title">${Security.escapeHtml(result.title)}</div>
+          <div class="result-details">${this.resultDetailsHTML(result)}</div>
         </div>
-      `;
-    }).join('');
+      </div>
+    `;
+  },
 
-    this.elements.searchResults.innerHTML = html;
+  resultDetailsHTML(result) {
+    const details = MovieAPI.detailsCache.get(result.imdbID) || result;
+    const meta = [details.year, details.type === 'series' ? 'TV Series' : 'Movie'];
+    if (details.rating) meta.push(`⭐ ${details.rating}`);
+
+    let html = `<div class="result-meta">${Security.escapeHtml(meta.filter(Boolean).join(' • '))}</div>`;
+    const credits = this.creditsText(details);
+    if (credits) {
+      html += `<div class="result-credits">${Security.escapeHtml(credits)}</div>`;
+    }
+    return html;
+  },
+
+  // "Dir. Denis Villeneuve · Ryan Gosling, Harrison Ford" — enough to tell same-named titles apart
+  creditsText(details) {
+    const firstNames = (list, count) => (list || '')
+      .split(',')
+      .map(name => name.replace(/\(.*?\)/g, '').trim())
+      .filter(Boolean)
+      .slice(0, count)
+      .join(', ');
+
+    // Series rarely list a director; OMDb's writer field holds the creators
+    const isSeries = details.type === 'series';
+    const makers = firstNames(isSeries ? details.writer : details.director, 2);
+    const cast = firstNames(details.actors, 2);
+
+    return [makers && (isSeries ? 'Created by ' : 'Dir. ') + makers, cast]
+      .filter(Boolean)
+      .join(' · ');
+  },
+
+  // Fill in director/cast for the top results so same-named titles can be told apart
+  prefetchResultDetails(results, seq) {
+    results.slice(0, CONFIG.SEARCH.DETAIL_PREFETCH).forEach(async (result, index) => {
+      if (MovieAPI.detailsCache.has(result.imdbID)) return;
+
+      try {
+        await MovieAPI.getDetails(result.imdbID);
+      } catch (error) {
+        return; // Credits are optional; the result is still selectable
+      }
+
+      if (seq !== state.searchSeq || state.selectedSearchResult) return;
+      const el = this.elements.searchResults.querySelector(`.search-result[data-index="${index}"] .result-details`);
+      if (el) el.innerHTML = this.resultDetailsHTML(result);
+    });
   },
 
   async handleSearchResultClick(e) {
+    if (state.selectedSearchResult) return;
+
     const resultEl = e.target.closest('.search-result');
     if (!resultEl) return;
 
@@ -311,11 +406,14 @@ const UI = {
 
     if (!result) return;
 
+    const seq = state.searchSeq;
+
     // Show loading
     this.elements.searchResults.innerHTML = '<div class="search-loading">Loading details...</div>';
 
     try {
       const details = await MovieAPI.getDetails(result.imdbID);
+      if (seq !== state.searchSeq) return;
 
       if (details) {
         // Show confirmation with details
@@ -324,7 +422,8 @@ const UI = {
         this.elements.searchResults.innerHTML = '<div class="search-error">Could not load details. Please try again.</div>';
       }
     } catch (error) {
-      this.elements.searchResults.innerHTML = '<div class="search-error">Failed to load details. Please try again.</div>';
+      if (seq !== state.searchSeq) return;
+      this.elements.searchResults.innerHTML = `<div class="search-error">${Security.escapeHtml(error.message || 'Failed to load details. Please try again.')}</div>`;
     }
   },
 
@@ -332,8 +431,9 @@ const UI = {
     state.selectedSearchResult = details;
 
     const posterImg = details.poster
-      ? `<img src="${Security.escapeAttr(details.poster)}" class="result-poster" alt="${Security.escapeAttr(details.title)}" loading="lazy" onerror="this.style.display='none'">`
+      ? `<img src="${Security.escapeAttr(details.poster)}" class="result-poster" alt="${Security.escapeAttr(details.title)}" loading="lazy">`
       : '<div class="result-poster"></div>';
+    const credits = this.creditsText(details);
 
     const html = `
       <div class="search-result selected">
@@ -342,6 +442,7 @@ const UI = {
           <div class="result-title">${Security.escapeHtml(details.title)} (${Security.escapeHtml(details.year)})</div>
           <div class="result-meta">${Security.escapeHtml(details.type === 'series' ? 'TV Series' : 'Movie')} ${details.genre ? '• ' + Security.escapeHtml(details.genre) : ''}</div>
           ${details.rating ? '<div class="result-meta">⭐ ' + Security.escapeHtml(details.rating) + '/10</div>' : ''}
+          ${credits ? '<div class="result-credits">' + Security.escapeHtml(credits) + '</div>' : ''}
           ${details.plot ? '<div class="result-plot">' + Security.escapeHtml(details.plot) + '</div>' : ''}
         </div>
       </div>
@@ -349,8 +450,9 @@ const UI = {
 
     this.elements.searchResults.innerHTML = html;
 
-    // Show manual form for priority/tag selection
+    // Show manual form for priority/tag selection, minus the fields the search already filled
     this.elements.manualForm.classList.remove('hidden');
+    this.elements.manualForm.classList.add('from-search');
     this.elements.manualToggle.textContent = 'Choose different result';
 
     // Seed type dropdown from search result
@@ -360,6 +462,18 @@ const UI = {
 
     // Update save button
     this.elements.saveManualBtn.textContent = 'Add to Watchlist';
+  },
+
+  clearSelection() {
+    state.selectedSearchResult = null;
+    this.elements.manualForm.classList.add('hidden');
+    this.elements.manualForm.classList.remove('from-search');
+    this.elements.manualToggle.textContent = 'Or enter manually';
+  },
+
+  backToSearchResults() {
+    this.clearSelection();
+    this.renderSearchResults(state.searchResults);
   },
 
   handleManualAdd() {
@@ -600,19 +714,17 @@ const UI = {
     } else if (field === 'tag') {
       if (newValue) {
         badge.textContent = newValue;
-        badge.style.opacity = '1';
       } else {
         badge.textContent = '+ tag';
-        badge.style.opacity = '0.5';
       }
+      badge.classList.toggle('empty', !newValue);
     } else if (field === 'platform') {
       if (newValue) {
         badge.textContent = '📺 ' + newValue;
-        badge.style.opacity = '1';
       } else {
         badge.textContent = '📺 add platform';
-        badge.style.opacity = '0.5';
       }
+      badge.classList.toggle('empty', !newValue);
     }
   },
 
@@ -765,7 +877,7 @@ const UI = {
       byPriority[priority].forEach(item => {
         const safeId = Security.escapeAttr(item.id);
         const posterImg = item.poster && Security.isSafeUrl(item.poster)
-          ? `<img src="${Security.escapeAttr(item.poster)}" class="item-poster" alt="${Security.escapeAttr(item.title)}" loading="lazy" onerror="this.style.display='none'">`
+          ? `<img src="${Security.escapeAttr(item.poster)}" class="item-poster" alt="${Security.escapeAttr(item.title)}" loading="lazy">`
           : '<div class="item-poster"></div>';
 
         let itemClasses = 'item';
@@ -784,7 +896,7 @@ const UI = {
         if (item.type === 'youtube') {
           html += `<span class="badge youtube">📺 YouTube</span>`;
           if (item.youtubeID) {
-            html += `<a href="https://www.youtube.com/watch?v=${Security.escapeAttr(item.youtubeID)}" target="_blank" rel="noopener" class="badge rating" style="text-decoration: none; cursor: pointer;">▶ Watch</a>`;
+            html += `<a href="https://www.youtube.com/watch?v=${Security.escapeAttr(item.youtubeID)}" target="_blank" rel="noopener" class="badge rating badge-link">▶ Watch</a>`;
           }
         } else {
           html += `<span class="badge ${item.type}">${item.type === 'series' ? 'TV Series' : 'Movie'}</span>`;
@@ -799,7 +911,7 @@ const UI = {
           if (item.platform) {
             html += `<span class="badge platform editable" data-field="platform" data-item-id="${safeId}" title="Click to edit platform">📺 ${Security.escapeHtml(item.platform)}</span>`;
           } else {
-            html += `<span class="badge platform editable" data-field="platform" data-item-id="${safeId}" title="Click to add platform" style="opacity: 0.5;">📺 add platform</span>`;
+            html += `<span class="badge platform editable empty" data-field="platform" data-item-id="${safeId}" title="Click to add platform">📺 add platform</span>`;
           }
         }
 
@@ -822,7 +934,7 @@ const UI = {
         if (item.tag) {
           html += `<span class="badge tag editable" data-field="tag" data-item-id="${safeId}" title="Click to edit tag">${Security.escapeHtml(item.tag)}</span>`;
         } else {
-          html += `<span class="badge tag editable" data-field="tag" data-item-id="${safeId}" title="Click to add tag" style="opacity: 0.5;">+ tag</span>`;
+          html += `<span class="badge tag editable empty" data-field="tag" data-item-id="${safeId}" title="Click to add tag">+ tag</span>`;
         }
 
         html += '</div>';

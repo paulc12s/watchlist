@@ -9,6 +9,8 @@ const state = {
   selectedSearchResult: null,
   searchResults: [],
   searchTimeout: null,
+  searchSeq: 0,
+  searchType: '',
   editingId: null,
   quickSearch: '',
   db: null,

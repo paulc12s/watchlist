@@ -37,6 +37,12 @@ const CONFIG = {
     OMDB_KEY: 'trilogy', // Replace with your own API key
     OMDB_URL: 'https://www.omdbapi.com/'
   },
+  SEARCH: {
+    MAX_PAGES: 3,        // OMDb returns 10 results per page
+    MAX_RESULTS: 25,
+    DETAIL_PREFETCH: 5   // Top results get director/cast loaded for disambiguation
+  },
+  UNDO_TIMEOUT: 6000,
   LIMITS: {
     MAX_TITLE_LENGTH: 500,
     MAX_TAG_LENGTH: 100,

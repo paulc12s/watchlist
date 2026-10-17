@@ -21,7 +21,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://image.tmdb.org https://m.media-amazon.com https://i.ytimg.com; connect-src 'self' https://www.omdbapi.com https://www.google.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;">
@@ -48,8 +48,13 @@
 
   <div class="add-form" id="add-form">
     <div class="form-main">
-      <input type="text" id="search-input" placeholder="Search for a movie or TV show..." autocomplete="off">
-      <div class="search-hint">Enter a title and we'll find details automatically</div>
+      <input type="search" id="search-input" placeholder="Search for a movie or TV show..." autocomplete="off" autocorrect="off" enterkeyhint="search">
+      <div class="search-type" id="search-type" role="group" aria-label="Search type">
+        <button type="button" class="search-type-btn active" data-type="">All</button>
+        <button type="button" class="search-type-btn" data-type="movie">Movies</button>
+        <button type="button" class="search-type-btn" data-type="series">TV</button>
+      </div>
+      <div class="search-hint">Tip: add a year ("dune 1984") or paste an IMDb link</div>
     </div>
 
     <div class="search-results" id="search-results"></div>
@@ -83,7 +88,7 @@
     </div>
 
     <div id="manual-form" class="hidden">
-      <div class="form-main">
+      <div class="form-main manual-only">
         <input type="text" id="manual-title" placeholder="Title">
       </div>
       <div class="form-options">
@@ -92,8 +97,8 @@
           <option value="series">TV Series</option>
           <option value="youtube">YouTube Video</option>
         </select>
-        <input type="text" id="manual-genre" placeholder="Genre (optional)">
-        <input type="text" id="manual-rating" placeholder="Rating (optional)">
+        <input type="text" id="manual-genre" class="manual-only" placeholder="Genre (optional)">
+        <input type="text" id="manual-rating" class="manual-only" placeholder="Rating (optional)">
       </div>
       <div class="form-options">
         <select id="manual-priority">
@@ -178,7 +183,7 @@
 </div>
 
 <div class="undo-bar" id="undo-bar">
-  <button class="undo-bar-btn" id="undo-btn">↶ Undo</button>
+  <button class="undo-bar-btn" id="undo-btn"><span class="undo-message" id="undo-message"></span>↶ Undo</button>
 </div>
 
 <!-- JavaScript Modules -->
