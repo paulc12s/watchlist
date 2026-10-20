@@ -1,0 +1,49 @@
+# Tests, stamps the commit hash into the app, and publishes to GitHub Pages.
+# The stamp lets installed copies (e.g. iOS home-screen apps) notice a new
+# deploy and reload; see js/version-check.js.
+#
+# Requires Settings → Pages → Build and deployment → Source: "GitHub Actions".
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Run tests
+        run: node --test tests/watchlist.test.js
+
+      - name: Stamp version
+        run: |
+          VERSION="${GITHUB_SHA::7}"
+          sed -i "s/__APP_VERSION__/$VERSION/g" watchlist.html batch-upload.html js/config.js version.json
+          if grep -rl "__APP_VERSION__" --include='*.html' --include='*.js' --include='*.json' . | grep -v '^./tests/'; then
+            echo "Unstamped files remain" && exit 1
+          fi
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v5

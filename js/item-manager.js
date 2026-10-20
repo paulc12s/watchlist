@@ -24,8 +24,8 @@ const ItemManager = {
       } else {
         state.items = [];
       }
-
-      await this.save(true);
+      // No save here: rewriting storage on every launch would let an
+      // out-of-date copy of the app clobber data written by a newer one
     } catch (error) {
       console.error('Load error:', error);
       state.items = [];
@@ -90,6 +90,15 @@ const ItemManager = {
     }
   },
 
+  // Write any pending change now; used when the app is backgrounded or closed,
+  // where iOS may suspend the page before the debounced save fires
+  flush() {
+    if (!this.saveTimer) return Promise.resolve();
+    clearTimeout(this.saveTimer);
+    this.saveTimer = null;
+    return this.save(true);
+  },
+
   scheduleSave() {
     if (this.saveTimer) {
       clearTimeout(this.saveTimer);
@@ -100,28 +109,14 @@ const ItemManager = {
     }, 500);
   },
 
-  add(itemData) {
-    const newItem = Security.sanitizeItem(itemData);
+  add(fields) {
+    const newItem = ItemModel.create(fields);
     if (!newItem) {
       UI.setStatus('invalid item data', false);
       return false;
     }
 
-    // Check for duplicates by unique identifier
-    const isDuplicate = state.items.some(existingItem => {
-      // For OMDb items: check by imdbID
-      if (newItem.imdbID && existingItem.imdbID) {
-        return newItem.imdbID === existingItem.imdbID;
-      }
-      // For YouTube videos: check by youtubeID
-      if (newItem.youtubeID && existingItem.youtubeID) {
-        return newItem.youtubeID === existingItem.youtubeID;
-      }
-      // No unique identifier to check
-      return false;
-    });
-
-    if (isDuplicate) {
+    if (ItemModel.isDuplicate(newItem, ItemModel.keySet(state.items))) {
       UI.setStatus('duplicate item', false);
       setTimeout(() => UI.setStatus('saved', true), 2000);
       return false;
@@ -194,7 +189,7 @@ const ItemManager = {
     const matchesSecondaryFilter = (i) => {
       if (filter === 'all') return true;
       if (filter === 'movie' || filter === 'series' || filter === 'youtube') return i.type === filter;
-      if (CONFIG.PRIORITIES.includes(filter)) return i.priority === filter;
+      if (CONFIG.PRIORITIES.includes(filter)) return ItemModel.displayPriority(i) === filter;
       return i.platform === filter || i.tag === filter;
     };
 
@@ -278,40 +273,24 @@ const ItemManager = {
         throw new Error('No valid items found - all items failed validation');
       }
 
-      // Merge with existing items, avoiding duplicates
+      // Merge with existing items, avoiding duplicates (including within the file)
+      const keys = ItemModel.keySet(state.items);
       let addedCount = 0;
       let skippedCount = 0;
-      const addedIds = new Set();
 
       sanitized.forEach(newItem => {
-        // Check for duplicates by unique identifier
-        const isDuplicate = state.items.some(existingItem => {
-          // For OMDb items: check by imdbID
-          if (newItem.imdbID && existingItem.imdbID) {
-            return newItem.imdbID === existingItem.imdbID;
-          }
-          // For YouTube videos: check by youtubeID
-          if (newItem.youtubeID && existingItem.youtubeID) {
-            return newItem.youtubeID === existingItem.youtubeID;
-          }
-          return false;
-        });
-
-        // Also check for duplicates within the imported batch
-        const batchDuplicate = addedIds.has(newItem.imdbID || newItem.youtubeID || newItem.title);
-
-        if (!isDuplicate && !batchDuplicate) {
-          // Ensure unique ID for new items
-          newItem.id = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-          state.items.unshift(newItem);
-          addedCount++;
-
-          // Track added items to prevent duplicates in the same import
-          if (newItem.imdbID) addedIds.add(newItem.imdbID);
-          if (newItem.youtubeID) addedIds.add(newItem.youtubeID);
-        } else {
+        if (ItemModel.isDuplicate(newItem, keys)) {
           skippedCount++;
+          return;
         }
+
+        const key = ItemModel.key(newItem);
+        if (key) keys.add(key);
+
+        // Fresh ID so imported items can't collide with existing ones
+        newItem.id = ItemModel.newId();
+        state.items.unshift(newItem);
+        addedCount++;
       });
 
       this.save(false);

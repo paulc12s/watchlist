@@ -13,6 +13,7 @@ const state = {
   searchType: '',
   editingId: null,
   quickSearch: '',
+  compactView: false,
   db: null,
   undoStack: []
 };

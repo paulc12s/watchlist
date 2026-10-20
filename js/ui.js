@@ -45,6 +45,7 @@ const UI = {
       searchType: document.getElementById('search-type'),
       quickSearch: document.getElementById('quick-search'),
       quickSearchClear: document.getElementById('quick-search-clear'),
+      viewToggle: document.getElementById('view-toggle'),
       editModal: document.getElementById('edit-modal'),
       editTitle: document.getElementById('edit-title'),
       editType: document.getElementById('edit-type'),
@@ -60,6 +61,7 @@ const UI = {
 
     this.attachEventListeners();
     this.populatePlatformList();
+    this.initViewToggle();
   },
 
   attachEventListeners() {
@@ -83,9 +85,12 @@ const UI = {
     this.elements.quickSearch.addEventListener('input', (e) => {
       state.quickSearch = e.target.value.trim();
       this.elements.quickSearchClear.classList.toggle('hidden', !state.quickSearch);
-      this.renderItems();
+      // Re-rendering rebuilds every card, so wait for a pause in typing
+      clearTimeout(this.quickSearchTimer);
+      this.quickSearchTimer = setTimeout(() => this.renderItems(), 150);
     });
     this.elements.quickSearchClear.addEventListener('click', () => {
+      clearTimeout(this.quickSearchTimer);
       state.quickSearch = '';
       this.elements.quickSearch.value = '';
       this.elements.quickSearchClear.classList.add('hidden');
@@ -160,10 +165,34 @@ const UI = {
     });
   },
 
+  // Compact view is a per-device preference, so it lives in localStorage rather than the watchlist data
+  initViewToggle() {
+    try {
+      state.compactView = localStorage.getItem(CONFIG.VIEW_STORAGE_KEY) === '1';
+    } catch (error) {
+      state.compactView = false;
+    }
+    this.applyViewMode();
+
+    this.elements.viewToggle.addEventListener('click', () => {
+      state.compactView = !state.compactView;
+      try {
+        localStorage.setItem(CONFIG.VIEW_STORAGE_KEY, state.compactView ? '1' : '0');
+      } catch (error) {
+        // Preference just won't persist
+      }
+      this.applyViewMode();
+    });
+  },
+
+  applyViewMode() {
+    this.elements.itemList.classList.toggle('compact', state.compactView);
+    this.elements.viewToggle.textContent = state.compactView ? 'Expand' : 'Collapse';
+    this.elements.viewToggle.setAttribute('aria-pressed', String(state.compactView));
+  },
+
   populatePlatformList() {
-    this.elements.platformList.innerHTML = CONFIG.PLATFORMS
-      .map(p => `<option value="${Security.escapeAttr(p)}">`)
-      .join('');
+    this.elements.platformList.innerHTML = html`${CONFIG.PLATFORMS.map(p => html`<option value="${p}">`)}`;
   },
 
   toggleAddForm() {
@@ -246,34 +275,20 @@ const UI = {
       return;
     }
 
-    // Extract video ID for thumbnail and watch link
+    // Video ID gives the thumbnail and the watch link
     const videoID = YouTubeAPI.extractVideoID(url);
 
-    // Generate thumbnail URL if we have a video ID
-    let poster = '';
-    if (videoID) {
-      poster = `https://i.ytimg.com/vi/${videoID}/hqdefault.jpg`;
-    }
-
-    // Add to watchlist
-    const itemData = {
-      id: Date.now() + '',
-      title: title,
+    const success = ItemManager.add({
+      title,
       type: 'youtube',
-      genre: '',
-      rating: '',
-      plot: url, // Store URL in plot field
-      poster: poster,
-      imdbID: '',
+      poster: videoID ? `https://i.ytimg.com/vi/${videoID}/hqdefault.jpg` : '',
       youtubeID: videoID || '',
-      duration: '',
+      // Without an ID the URL is the only link to the video, so keep it visible
+      plot: videoID ? '' : url,
       priority: this.elements.youtubePriority.value,
       tag: this.elements.youtubeTag.value.trim(),
-      platform: 'YouTube',
-      watched: false
-    };
-
-    const success = ItemManager.add(itemData);
+      platform: 'YouTube'
+    });
 
     if (success) {
       this.toggleAddForm();
@@ -310,36 +325,36 @@ const UI = {
           const message = tooMany
             ? 'Too many matches. Keep typing, or add a year (e.g. "dune 1984").'
             : 'No results found. Try a different search or enter manually.';
-          this.elements.searchResults.innerHTML = `<div class="search-empty">${Security.escapeHtml(message)}</div>`;
+          this.elements.searchResults.innerHTML = html`<div class="search-empty">${message}</div>`;
         } else {
           this.renderSearchResults(results);
         }
       } catch (error) {
         if (seq !== state.searchSeq) return;
         const errorMsg = error.message || 'Search failed. Please try again or enter manually.';
-        this.elements.searchResults.innerHTML = `<div class="search-error">${Security.escapeHtml(errorMsg)}</div>`;
+        this.elements.searchResults.innerHTML = html`<div class="search-error">${errorMsg}</div>`;
         console.error('Search failed:', error);
       }
     }, 500);
   },
 
   renderSearchResults(results) {
-    this.elements.searchResults.innerHTML = results
-      .map((result, index) => this.searchResultHTML(result, index))
-      .join('');
+    this.elements.searchResults.innerHTML = html`${results.map((result, index) => this.searchResultHTML(result, index))}`;
     this.prefetchResultDetails(results, state.searchSeq);
   },
 
-  searchResultHTML(result, index) {
-    const posterImg = result.poster
-      ? `<img src="${Security.escapeAttr(result.poster)}" class="result-poster" alt="${Security.escapeAttr(result.title)}" loading="lazy">`
-      : '<div class="result-poster"></div>';
+  posterHTML(item, className) {
+    return item.poster && Security.isSafeUrl(item.poster)
+      ? html`<img src="${item.poster}" class="${className}" alt="${item.title}" loading="lazy">`
+      : html`<div class="${className}"></div>`;
+  },
 
-    return `
+  searchResultHTML(result, index) {
+    return html`
       <div class="search-result" data-index="${index}">
-        ${posterImg}
+        ${this.posterHTML(result, 'result-poster')}
         <div class="result-info">
-          <div class="result-title">${Security.escapeHtml(result.title)}</div>
+          <div class="result-title">${result.title}</div>
           <div class="result-details">${this.resultDetailsHTML(result)}</div>
         </div>
       </div>
@@ -350,13 +365,12 @@ const UI = {
     const details = MovieAPI.detailsCache.get(result.imdbID) || result;
     const meta = [details.year, details.type === 'series' ? 'TV Series' : 'Movie'];
     if (details.rating) meta.push(`⭐ ${details.rating}`);
-
-    let html = `<div class="result-meta">${Security.escapeHtml(meta.filter(Boolean).join(' • '))}</div>`;
     const credits = this.creditsText(details);
-    if (credits) {
-      html += `<div class="result-credits">${Security.escapeHtml(credits)}</div>`;
-    }
-    return html;
+
+    return html`
+      <div class="result-meta">${meta.filter(Boolean).join(' • ')}</div>
+      ${credits && html`<div class="result-credits">${credits}</div>`}
+    `;
   },
 
   // "Dir. Denis Villeneuve · Ryan Gosling, Harrison Ford" — enough to tell same-named titles apart
@@ -423,32 +437,27 @@ const UI = {
       }
     } catch (error) {
       if (seq !== state.searchSeq) return;
-      this.elements.searchResults.innerHTML = `<div class="search-error">${Security.escapeHtml(error.message || 'Failed to load details. Please try again.')}</div>`;
+      this.elements.searchResults.innerHTML = html`<div class="search-error">${error.message || 'Failed to load details. Please try again.'}</div>`;
     }
   },
 
   showAddConfirmation(details) {
     state.selectedSearchResult = details;
 
-    const posterImg = details.poster
-      ? `<img src="${Security.escapeAttr(details.poster)}" class="result-poster" alt="${Security.escapeAttr(details.title)}" loading="lazy">`
-      : '<div class="result-poster"></div>';
     const credits = this.creditsText(details);
 
-    const html = `
+    this.elements.searchResults.innerHTML = html`
       <div class="search-result selected">
-        ${posterImg}
+        ${this.posterHTML(details, 'result-poster')}
         <div class="result-info">
-          <div class="result-title">${Security.escapeHtml(details.title)} (${Security.escapeHtml(details.year)})</div>
-          <div class="result-meta">${Security.escapeHtml(details.type === 'series' ? 'TV Series' : 'Movie')} ${details.genre ? '• ' + Security.escapeHtml(details.genre) : ''}</div>
-          ${details.rating ? '<div class="result-meta">⭐ ' + Security.escapeHtml(details.rating) + '/10</div>' : ''}
-          ${credits ? '<div class="result-credits">' + Security.escapeHtml(credits) + '</div>' : ''}
-          ${details.plot ? '<div class="result-plot">' + Security.escapeHtml(details.plot) + '</div>' : ''}
+          <div class="result-title">${details.title} (${details.year})</div>
+          <div class="result-meta">${details.type === 'series' ? 'TV Series' : 'Movie'} ${details.genre && `• ${details.genre}`}</div>
+          ${details.rating && html`<div class="result-meta">⭐ ${details.rating}/10</div>`}
+          ${credits && html`<div class="result-credits">${credits}</div>`}
+          ${details.plot && html`<div class="result-plot">${details.plot}</div>`}
         </div>
       </div>
     `;
-
-    this.elements.searchResults.innerHTML = html;
 
     // Show manual form for priority/tag selection, minus the fields the search already filled
     this.elements.manualForm.classList.remove('hidden');
@@ -477,48 +486,32 @@ const UI = {
   },
 
   handleManualAdd() {
-    let itemData;
+    const choices = {
+      type: this.elements.manualType.value,
+      priority: this.elements.manualPriority.value,
+      tag: this.elements.manualTag.value.trim(),
+      platform: this.elements.manualPlatform.value.trim()
+    };
+    let fields;
 
     if (state.selectedSearchResult) {
       // Adding from search result — type dropdown is seeded from API but user can override
-      itemData = {
-        id: Date.now() + '',
-        title: state.selectedSearchResult.title,
-        type: this.elements.manualType.value,
-        genre: state.selectedSearchResult.genre,
-        rating: state.selectedSearchResult.rating,
-        plot: state.selectedSearchResult.plot,
-        poster: state.selectedSearchResult.poster,
-        imdbID: state.selectedSearchResult.imdbID,
-        priority: this.elements.manualPriority.value,
-        tag: this.elements.manualTag.value.trim(),
-        platform: this.elements.manualPlatform.value.trim(),
-        watched: false
-      };
+      const { title, genre, rating, plot, poster, imdbID } = state.selectedSearchResult;
+      fields = { title, genre, rating, plot, poster, imdbID, ...choices };
     } else {
       // Manual entry
       const title = this.elements.manualTitle.value.trim();
       if (!title) return;
 
-      itemData = {
-        id: Date.now() + '',
-        title: title,
-        type: this.elements.manualType.value,
+      fields = {
+        title,
         genre: this.elements.manualGenre.value.trim(),
         rating: this.elements.manualRating.value.trim(),
-        plot: '',
-        poster: '',
-        imdbID: '',
-        priority: this.elements.manualPriority.value,
-        tag: this.elements.manualTag.value.trim(),
-        platform: this.elements.manualPlatform.value.trim(),
-        watched: false
+        ...choices
       };
     }
 
-    const success = ItemManager.add(itemData);
-
-    if (success) {
+    if (ItemManager.add(fields)) {
       this.toggleAddForm();
       this.render();
     }
@@ -613,7 +606,7 @@ const UI = {
     const item = state.items.find(i => i.id === itemId);
     if (!item) return;
 
-    const currentValue = item[field] || '';
+    const currentValue = field === 'priority' ? ItemModel.displayPriority(item) : item[field] || '';
 
     let input;
     const blurHandler = () => {
@@ -638,11 +631,8 @@ const UI = {
       // Dropdown for priority
       input = document.createElement('select');
       input.className = 'badge-edit-select';
-      input.innerHTML = `
-        <option value="high" ${currentValue === 'high' ? 'selected' : ''}>High</option>
-        <option value="medium" ${currentValue === 'medium' ? 'selected' : ''}>Medium</option>
-        <option value="low" ${currentValue === 'low' ? 'selected' : ''}>Low</option>
-      `;
+      input.innerHTML = html`${CONFIG.PRIORITIES.map(p =>
+        html`<option value="${p}" ${currentValue === p && 'selected'}>${CONFIG.PRIORITY_LABELS[p]}</option>`)}`;
     } else {
       // Text input for tag and platform
       input = document.createElement('input');
@@ -692,8 +682,9 @@ const UI = {
       // Only update the specific badge text instead of full re-render
       this.updateBadgeDisplay(badge, field, newValue, itemId);
 
-      // Only do full re-render if priority changed (items need re-sorting)
-      if (field === 'priority') {
+      // Full re-render if priority changed (items need re-sorting) or a
+      // platform was cleared (empty platform badges aren't shown)
+      if (field === 'priority' || (field === 'platform' && !newValue)) {
         this.render();
       } else {
         // Just update filters in case new tag was added
@@ -705,8 +696,7 @@ const UI = {
   updateBadgeDisplay(badge, field, newValue, itemId) {
     // Update the badge text without re-rendering everything
     if (field === 'priority') {
-      const priorityText = newValue === 'high' ? 'High' : newValue === 'medium' ? 'Medium' : 'Low';
-      badge.textContent = priorityText;
+      badge.textContent = CONFIG.PRIORITY_LABELS[newValue];
       badge.className = `badge priority-${newValue} editable`;
       badge.setAttribute('data-field', 'priority');
       badge.setAttribute('data-item-id', itemId);
@@ -718,13 +708,9 @@ const UI = {
         badge.textContent = '+ tag';
       }
       badge.classList.toggle('empty', !newValue);
-    } else if (field === 'platform') {
-      if (newValue) {
-        badge.textContent = '📺 ' + newValue;
-      } else {
-        badge.textContent = '📺 add platform';
-      }
-      badge.classList.toggle('empty', !newValue);
+    } else if (field === 'platform' && newValue) {
+      // A cleared platform triggers a full render, which drops the badge
+      badge.textContent = '📺 ' + newValue;
     }
   },
 
@@ -745,7 +731,7 @@ const UI = {
 
     this.elements.editTitle.value = item.title;
     this.elements.editType.value = item.type;
-    this.elements.editPriority.value = item.priority;
+    this.elements.editPriority.value = ItemModel.displayPriority(item);
     this.elements.editTag.value = item.tag || '';
     this.elements.editPlatform.value = item.platform || '';
     this.elements.editGenre.value = item.genre || '';
@@ -801,20 +787,13 @@ const UI = {
     const high = unwatched.filter(i => i.priority === 'high').length;
     const movies = unwatched.filter(i => i.type === 'movie').length;
 
-    this.elements.stats.innerHTML = `
+    const stats = [['To Watch', unwatched.length], ['High Priority', high], ['Movies', movies]];
+    this.elements.stats.innerHTML = html`${stats.map(([label, value]) => html`
       <div class="stat-card">
-        <div class="stat-label">To Watch</div>
-        <div class="stat-value">${unwatched.length}</div>
+        <div class="stat-label">${label}</div>
+        <div class="stat-value">${value}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">High Priority</div>
-        <div class="stat-value">${high}</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Movies</div>
-        <div class="stat-value">${movies}</div>
-      </div>
-    `;
+    `)}`;
   },
 
   renderFilters() {
@@ -822,15 +801,11 @@ const UI = {
     const platforms = [...new Set(state.items.map(i => i.platform).filter(Boolean))];
 
     // Update tag datalist
-    this.elements.tagList.innerHTML = tags
-      .map(t => `<option value="${Security.escapeAttr(t)}">`)
-      .join('');
+    this.elements.tagList.innerHTML = html`${tags.map(t => html`<option value="${t}">`)}`;
 
     const filters = [
       { key: 'all', label: 'All' },
-      { key: 'high', label: 'High Priority' },
-      { key: 'medium', label: 'Medium Priority' },
-      { key: 'low', label: 'Low Priority' },
+      ...CONFIG.PRIORITIES.map(p => ({ key: p, label: this.priorityGroupLabel(p) })),
       { key: 'movie', label: 'Movies' },
       { key: 'series', label: 'TV Series' },
       { key: 'youtube', label: 'YouTube' },
@@ -839,13 +814,15 @@ const UI = {
       { key: 'watched', label: 'Watched' }
     ];
 
-    this.elements.filters.innerHTML = filters
-      .map(f => {
-        const isActive = f.key === 'watched' ? state.watchedMode : state.filter === f.key;
-        const activeClass = isActive ? ' active' : '';
-        return `<button class="filter-btn${activeClass}" data-filter="${Security.escapeAttr(f.key)}">${Security.escapeHtml(f.label)}</button>`;
-      })
-      .join('');
+    this.elements.filters.innerHTML = html`${filters.map(f => {
+      const isActive = f.key === 'watched' ? state.watchedMode : state.filter === f.key;
+      return html`<button class="filter-btn ${isActive && 'active'}" data-filter="${f.key}">${f.label}</button>`;
+    })}`;
+  },
+
+  priorityGroupLabel(priority) {
+    const label = CONFIG.PRIORITY_LABELS[priority];
+    return priority === 'watching' ? label : `${label} Priority`;
   },
 
   renderItems() {
@@ -856,100 +833,56 @@ const UI = {
       return;
     }
 
-    // Group by priority — render order is fixed by priorityOrder iteration
+    // Group by priority; CONFIG.PRIORITIES fixes the group order
     const byPriority = {};
     filtered.forEach(item => {
-      const pri = item.priority || 'medium';
-      if (!byPriority[pri]) byPriority[pri] = [];
-      byPriority[pri].push(item);
+      const priority = ItemModel.displayPriority(item);
+      (byPriority[priority] = byPriority[priority] || []).push(item);
     });
 
-    const priorityLabels = { high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority' };
-    const priorityOrder = ['high', 'medium', 'low'];
+    this.elements.itemList.innerHTML = html`${CONFIG.PRIORITIES
+      .filter(priority => byPriority[priority])
+      .map(priority => html`
+        <div class="item-group-label">${this.priorityGroupLabel(priority)}</div>
+        ${byPriority[priority].map(item => this.itemHTML(item))}
+      `)}`;
+  },
 
-    let html = '';
+  itemHTML(item) {
+    const priority = ItemModel.displayPriority(item);
+    const isYoutube = item.type === 'youtube';
+    const editable = (field, label) =>
+      html`data-field="${field}" data-item-id="${item.id}" title="Click to ${label}"`;
 
-    for (const priority of priorityOrder) {
-      if (!byPriority[priority]) continue;
-
-      html += `<div class="item-group-label">${priorityLabels[priority]}</div>`;
-
-      byPriority[priority].forEach(item => {
-        const safeId = Security.escapeAttr(item.id);
-        const posterImg = item.poster && Security.isSafeUrl(item.poster)
-          ? `<img src="${Security.escapeAttr(item.poster)}" class="item-poster" alt="${Security.escapeAttr(item.title)}" loading="lazy">`
-          : '<div class="item-poster"></div>';
-
-        let itemClasses = 'item';
-        if (item.watched) itemClasses += ' watched';
-
-        html += `<div class="${itemClasses}" data-id="${safeId}">`;
-        html += posterImg;
-        html += '<div class="item-body">';
-        html += '<div class="item-header">';
-        html += `<div class="item-title">${Security.escapeHtml(item.title)}</div>`;
-        html += `<input type="checkbox" class="item-checkbox" ${item.watched ? 'checked' : ''}>`;
-        html += '</div>';
-        html += '<div class="item-meta">';
-
-        // Type badge
-        if (item.type === 'youtube') {
-          html += `<span class="badge youtube">📺 YouTube</span>`;
-          if (item.youtubeID) {
-            html += `<a href="https://www.youtube.com/watch?v=${Security.escapeAttr(item.youtubeID)}" target="_blank" rel="noopener" class="badge rating badge-link">▶ Watch</a>`;
-          }
-        } else {
-          html += `<span class="badge ${item.type}">${item.type === 'series' ? 'TV Series' : 'Movie'}</span>`;
-        }
-
-        // Priority badge (editable)
-        html += `<span class="badge priority-${item.priority} editable" data-field="priority" data-item-id="${safeId}" title="Click to edit priority">`;
-        html += item.priority === 'high' ? 'High' : item.priority === 'medium' ? 'Medium' : 'Low';
-        html += '</span>';
-
-        if (item.type !== 'youtube') {
-          if (item.platform) {
-            html += `<span class="badge platform editable" data-field="platform" data-item-id="${safeId}" title="Click to edit platform">📺 ${Security.escapeHtml(item.platform)}</span>`;
-          } else {
-            html += `<span class="badge platform editable empty" data-field="platform" data-item-id="${safeId}" title="Click to add platform">📺 add platform</span>`;
-          }
-        }
-
-        // Duration for YouTube videos
-        if (item.type === 'youtube' && item.duration) {
-          html += `<span class="badge rating">⏱ ${Security.escapeHtml(item.duration)}</span>`;
-        }
-
-        if (item.rating) {
-          html += `<span class="badge rating">⭐ ${Security.escapeHtml(item.rating)}</span>`;
-        }
-
-        // For YouTube, show channel instead of genre
-        if (item.type === 'youtube' && item.genre) {
-          html += `<span class="badge genre">${Security.escapeHtml(item.genre)}</span>`;
-        } else if (item.genre && item.type !== 'youtube') {
-          html += `<span class="badge genre">${Security.escapeHtml(item.genre.split(',')[0])}</span>`;
-        }
-
-        if (item.tag) {
-          html += `<span class="badge tag editable" data-field="tag" data-item-id="${safeId}" title="Click to edit tag">${Security.escapeHtml(item.tag)}</span>`;
-        } else {
-          html += `<span class="badge tag editable empty" data-field="tag" data-item-id="${safeId}" title="Click to add tag">+ tag</span>`;
-        }
-
-        html += '</div>';
-        if (item.plot) {
-          html += `<div class="item-plot">${Security.escapeHtml(item.plot)}</div>`;
-        }
-        html += '<div class="item-actions">';
-        html += '<button class="action-btn edit">Edit</button>';
-        html += '<button class="action-btn delete">Delete</button>';
-        html += '</div>';
-        html += '</div>';
-        html += '</div>';
-      });
-    }
-
-    this.elements.itemList.innerHTML = html;
+    return html`
+      <div class="item ${item.watched && 'watched'}" data-id="${item.id}">
+        ${this.posterHTML(item, 'item-poster')}
+        <div class="item-body">
+          <div class="item-header">
+            <div class="item-title">${item.title}</div>
+            <input type="checkbox" class="item-checkbox" ${item.watched && 'checked'}>
+          </div>
+          <div class="item-meta">
+            ${isYoutube
+              ? html`<span class="badge youtube">📺 YouTube</span>
+                ${item.youtubeID && html`<a href="https://www.youtube.com/watch?v=${item.youtubeID}" target="_blank" rel="noopener" class="badge rating badge-link">▶ Watch</a>`}`
+              : html`<span class="badge ${item.type}">${item.type === 'series' ? 'TV Series' : 'Movie'}</span>`}
+            <span class="badge priority-${priority} editable" ${editable('priority', 'edit priority')}>${CONFIG.PRIORITY_LABELS[priority]}</span>
+            ${!isYoutube && item.platform && html`<span class="badge platform editable" ${editable('platform', 'edit platform')}>📺 ${item.platform}</span>`}
+            ${isYoutube && item.duration && html`<span class="badge rating">⏱ ${item.duration}</span>`}
+            ${item.rating && html`<span class="badge rating">⭐ ${item.rating}</span>`}
+            ${item.genre && html`<span class="badge genre">${isYoutube ? item.genre : item.genre.split(',')[0]}</span>`}
+            ${item.tag
+              ? html`<span class="badge tag editable" ${editable('tag', 'edit tag')}>${item.tag}</span>`
+              : html`<span class="badge tag editable empty" ${editable('tag', 'add tag')}>+ tag</span>`}
+          </div>
+          ${item.plot && html`<div class="item-plot">${item.plot}</div>`}
+          <div class="item-actions">
+            <button class="action-btn edit">Edit</button>
+            <button class="action-btn delete">Delete</button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 };

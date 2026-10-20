@@ -3,6 +3,8 @@
 // ============================================================================
 
 const CONFIG = {
+  // Replaced with the commit hash at deploy time; see js/version-check.js
+  APP_VERSION: '__APP_VERSION__',
   STORAGE: {
     KEY: 'watchlist_v1',
     DB_NAME: 'WatchlistDB',
@@ -43,13 +45,22 @@ const CONFIG = {
     DETAIL_PREFETCH: 5   // Top results get director/cast loaded for disambiguation
   },
   UNDO_TIMEOUT: 6000,
+  BATCH_DELAY_MS: 250, // Pause between titles in batch upload to stay under OMDb rate limits
   LIMITS: {
     MAX_TITLE_LENGTH: 500,
     MAX_TAG_LENGTH: 100,
     MAX_PLATFORM_LENGTH: 100,
     MAX_FILE_SIZE: 10 * 1024 * 1024
   },
-  PRIORITIES: ['high', 'medium', 'low'],
+  // Display order; 'watching' sits above the real priorities as its own group
+  PRIORITIES: ['watching', 'high', 'medium', 'low'],
+  PRIORITY_LABELS: {
+    watching: 'Watching Now',
+    high: 'High',
+    medium: 'Medium',
+    low: 'Low'
+  },
+  VIEW_STORAGE_KEY: 'watchlist_compact_view',
   TYPES: ['movie', 'series', 'youtube'],
   PLATFORMS: [
     'Netflix',

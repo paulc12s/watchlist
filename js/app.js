@@ -50,11 +50,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load data
     await ItemManager.load();
 
+    VersionCheck.announceUpdate();
+    VersionCheck.run();
+
   } catch (error) {
     console.error('Application initialization failed:', error);
     alert('Failed to start the application. Please refresh the page.\n\nError: ' + error.message);
   }
 });
+
+// Save immediately when the app is backgrounded or closed (iOS may suspend the
+// page before the debounced save runs), and look for updates when it returns
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    ItemManager.flush();
+  } else {
+    VersionCheck.run();
+  }
+});
+window.addEventListener('pagehide', () => ItemManager.flush());
 
 // Global error handler
 window.addEventListener('error', (event) => {

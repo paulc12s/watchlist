@@ -527,6 +527,26 @@ body {
   display: none;
 }
 
+.view-toggle {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 14px;
+  min-height: 36px;
+  border: 1.5px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.view-toggle[aria-pressed="true"] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-bg-elevated);
+}
+
 .filter-btn {
   font-size: 13px;
   font-weight: 500;
@@ -721,6 +741,11 @@ body {
     color: #d95ba3;
   }
 
+  .badge.priority-watching {
+    background: #0f3b40;
+    color: #4fd1c5;
+  }
+
   .badge.priority-high {
     background: #4d1a1a;
     color: #ff6b6b;
@@ -771,6 +796,11 @@ body {
   .badge.platform {
     background: #fff0f5;
     color: #8b2252;
+  }
+
+  .badge.priority-watching {
+    background: #e0f5f5;
+    color: #0b6e75;
   }
 
   .badge.priority-high {
@@ -1460,6 +1490,60 @@ body {
   .stats {
     grid-template-columns: 1fr;
   }
+}
+
+/* ============================================================================
+   COMPACT VIEW
+   Title, poster, and one line of descriptive tags. Type, priority and
+   platform badges are dropped (the group heading already shows priority).
+   ============================================================================ */
+
+#item-list.compact .item {
+  padding: 8px 12px;
+  gap: 12px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+#item-list.compact .item-poster {
+  width: 40px;
+  height: 60px;
+  border-radius: var(--radius-sm);
+}
+
+#item-list.compact .item-header {
+  margin-bottom: 4px;
+}
+
+#item-list.compact .item-title {
+  font-size: 16px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#item-list.compact .item-meta {
+  flex-wrap: nowrap;
+  overflow: hidden;
+  margin-bottom: 0;
+  gap: 6px;
+}
+
+#item-list.compact .badge {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+#item-list.compact .item-plot,
+#item-list.compact .item-actions,
+#item-list.compact .badge.movie,
+#item-list.compact .badge.series,
+#item-list.compact .badge.youtube,
+#item-list.compact .badge[data-field="priority"],
+#item-list.compact .badge.platform,
+#item-list.compact .badge.empty {
+  display: none;
 }
 
 /* Touch devices: iOS Safari zooms into any focused field smaller than 16px */

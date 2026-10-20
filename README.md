@@ -7,7 +7,8 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 - **Search & add** movies/TV shows via the OMDb API with automatic metadata (poster, rating, genre, plot)
 - **YouTube videos** — paste a URL to add with auto-generated thumbnail
 - **Manual entry** for anything not in the database
-- **Priority levels** (high/medium/low) with grouped display
+- **Priority levels** (watching now/high/medium/low) with grouped display
+- **Compact view** — collapse cards to title, poster and one line of tags (remembered per device)
 - **Tags & platforms** — organize by custom tags (family, airplane, art) and streaming platform (Netflix, etc.)
 - **Quick filter** — substring search across titles, combinable with filter buttons
 - **Watched toggle** — mark items as watched; filter to view watched items, optionally narrowed by another filter
@@ -28,6 +29,18 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
    ```
 4. Open `http://localhost:8000/watchlist.html`
 
+## Tests
+
+```
+node --test tests/watchlist.test.js
+```
+
+## Deploying
+
+`.github/workflows/pages.yml` runs the tests, stamps the commit hash into the app (replacing `__APP_VERSION__`), and publishes to GitHub Pages on every push to `main`. Set **Settings → Pages → Source** to **GitHub Actions** once.
+
+Installed copies (such as an iPhone home-screen icon) check `version.json` on launch and whenever they come back to the foreground, and reload when a newer version is deployed. Locally, or when served straight from the branch, the version is unstamped and the check is skipped.
+
 ## Usage
 
 - **Add** — click `+ Add`, search for a title, select a result, set priority/tag/platform, and save
@@ -42,17 +55,21 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 
 ```
 watchlist.html       Main app
-batch-upload.html    Bulk title importer
+batch-upload.html    Bulk title importer (+ batch-upload.css)
+version.json         Deployed version, stamped by the Pages workflow
 watchlist.css        Styles (light/dark, responsive)
 js/
   config.js          API keys, limits, constants
   state.js           App state
-  security.js        Input sanitization & XSS protection
+  security.js        Input sanitization, escaping, html`` templates
+  item-model.js      Item creation, duplicate keys, display priority
   database.js        IndexedDB wrapper
   movie-api.js       OMDb search & detail fetch
   youtube-api.js     YouTube URL parsing
   item-manager.js    CRUD, filtering, import/export
   undo-manager.js    Undo stack
+  version-check.js   Reload installed copies when a new version is deployed
+  batch-upload.js    Batch upload tool (uses the shared modules above)
   ui.js              Rendering & event handling
   app.js             Initialization
 ```
