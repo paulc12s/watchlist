@@ -31,6 +31,10 @@
   --color-warning-bg: #faeeda;
   --color-success: #3b6d11;
   --color-success-bg: #eaf3de;
+  --color-star: #c48a00;
+  --color-star-bg: #fdf4d8;
+  --color-rewatch: #3f51b5;
+  --color-rewatch-bg: #eef0ff;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -79,6 +83,10 @@
     --color-warning-bg: #3d2f18;
     --color-success: #6ba82e;
     --color-success-bg: #1f3d0f;
+    --color-star: #e8b931;
+    --color-star-bg: #3d3214;
+    --color-rewatch: #8c9eff;
+    --color-rewatch-bg: #1f2546;
 
     /* Darker shadows for dark mode */
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -686,6 +694,34 @@ body {
   }
 }
 
+.review-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  margin-right: -6px; /* Sit snug against the checkbox */
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.review-btn.has-review {
+  color: var(--color-star);
+}
+
+@media (hover: hover) {
+  .review-btn:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-secondary);
+  }
+}
+
 .item-meta {
   display: flex;
   gap: 8px;
@@ -1129,6 +1165,86 @@ body {
   box-shadow: 0 0 0 3px var(--color-accent-bg);
 }
 
+/* Review Modal */
+.review-content {
+  max-width: 440px;
+}
+
+.review-content .modal-header {
+  margin-bottom: 4px;
+}
+
+.review-subtitle {
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  margin-bottom: 18px;
+}
+
+.star-input {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.star-btn {
+  font-size: 32px;
+  line-height: 1;
+  padding: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-border-light);
+  transition: color var(--transition-fast), transform var(--transition-fast);
+}
+
+.star-btn.filled {
+  color: var(--color-star);
+}
+
+.star-btn:active {
+  transform: scale(0.9);
+}
+
+.rewatch-toggle {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border: 1.5px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.rewatch-toggle[aria-pressed="true"] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-bg-elevated);
+}
+
+.item-review {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  border-left: 2px solid var(--color-star);
+  padding-left: 10px;
+  margin-bottom: 10px;
+  white-space: pre-line;
+}
+
+.badge.stars {
+  background: var(--color-star-bg);
+  color: var(--color-star);
+  letter-spacing: 0.08em;
+}
+
+.badge.rewatch {
+  background: var(--color-rewatch-bg);
+  color: var(--color-rewatch);
+}
+
 /* ============================================================================
    UNDO BAR
    ============================================================================ */
@@ -1536,6 +1652,7 @@ body {
 }
 
 #item-list.compact .item-plot,
+#item-list.compact .item-review,
 #item-list.compact .item-actions,
 #item-list.compact .badge.movie,
 #item-list.compact .badge.series,

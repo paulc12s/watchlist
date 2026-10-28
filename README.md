@@ -12,6 +12,8 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 - **Tags & platforms** — organize by custom tags (family, airplane, art) and streaming platform (Netflix, etc.)
 - **Quick filter** — substring search across titles, combinable with filter buttons
 - **Watched toggle** — mark items as watched; filter to view watched items, optionally narrowed by another filter
+- **Reviews** — rate titles out of 5 stars, jot a few thoughts, and flag them as worth a rewatch
+- **Rewatch filter** — find flagged titles in either the active or watched list
 - **Inline editing** — click any badge (priority, tag, platform) to edit in place
 - **Import/Export** — JSON-based backup and restore
 - **Undo** — revert deletes, edits, and watched toggles
@@ -47,6 +49,7 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 - **Search tips** — add a year to narrow (`dune 1984`), use the All / Movies / TV toggle, or paste an IMDb link or `tt…` ID to jump straight to a title. Exact title matches and recent releases rank first; top results show director and cast to tell same-named titles apart
 - **Filter** — use the filter buttons (type, priority, tag, platform) and/or type in the quick search bar
 - **Watched** — check the checkbox to mark watched; click the Watched filter to view them; click another filter while in watched mode to narrow further
+- **Review** — click the pencil icon next to the checkbox to set stars, notes and the rewatch flag; tap the current star again to clear the rating. Uncheck a watched title flagged for rewatch to put it back in the queue
 - **Edit** — click a badge to edit inline, or click Edit for the full modal
 - **Poster click** — opens a Google search for the title
 - **Export/Import** — back up your list as JSON and restore on any browser

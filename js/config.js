@@ -50,6 +50,7 @@ const CONFIG = {
     MAX_TITLE_LENGTH: 500,
     MAX_TAG_LENGTH: 100,
     MAX_PLATFORM_LENGTH: 100,
+    MAX_REVIEW_LENGTH: 1000,
     MAX_FILE_SIZE: 10 * 1024 * 1024
   },
   // Display order; 'watching' sits above the real priorities as its own group

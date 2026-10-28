@@ -188,6 +188,7 @@ const ItemManager = {
 
     const matchesSecondaryFilter = (i) => {
       if (filter === 'all') return true;
+      if (filter === 'rewatch') return i.rewatch;
       if (filter === 'movie' || filter === 'series' || filter === 'youtube') return i.type === filter;
       if (CONFIG.PRIORITIES.includes(filter)) return ItemModel.displayPriority(i) === filter;
       return i.platform === filter || i.tag === filter;

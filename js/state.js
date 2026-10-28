@@ -12,6 +12,7 @@ const state = {
   searchSeq: 0,
   searchType: '',
   editingId: null,
+  reviewingId: null,
   quickSearch: '',
   compactView: false,
   db: null,

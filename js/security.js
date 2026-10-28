@@ -62,7 +62,11 @@ const Security = {
         watched: Boolean(item.watched),
         imdbID: String(item.imdbID || '').substring(0, 20),
         youtubeID,
-        duration: String(item.duration || '').substring(0, 20)
+        duration: String(item.duration || '').substring(0, 20),
+        // Personal review: 0 stars means unrated
+        stars: Number.isInteger(item.stars) && item.stars >= 0 && item.stars <= 5 ? item.stars : 0,
+        review: String(item.review || '').trim().substring(0, CONFIG.LIMITS.MAX_REVIEW_LENGTH),
+        rewatch: Boolean(item.rewatch)
       };
     } catch (error) {
       console.error('Sanitize error:', error, item);

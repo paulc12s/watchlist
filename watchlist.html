@@ -186,6 +186,31 @@
   </div>
 </div>
 
+<!-- Review Modal -->
+<div class="modal" id="review-modal">
+  <div class="modal-content review-content">
+    <div class="modal-header">Review</div>
+    <div class="review-subtitle" id="review-title"></div>
+    <div class="modal-body">
+      <div class="star-input" id="review-stars" role="radiogroup" aria-label="Your rating">
+        <button type="button" class="star-btn" data-stars="1" role="radio" aria-label="1 star">★</button>
+        <button type="button" class="star-btn" data-stars="2" role="radio" aria-label="2 stars">★</button>
+        <button type="button" class="star-btn" data-stars="3" role="radio" aria-label="3 stars">★</button>
+        <button type="button" class="star-btn" data-stars="4" role="radio" aria-label="4 stars">★</button>
+        <button type="button" class="star-btn" data-stars="5" role="radio" aria-label="5 stars">★</button>
+      </div>
+      <div class="edit-field">
+        <textarea id="review-text" maxlength="1000" placeholder="A few thoughts..."></textarea>
+      </div>
+      <button type="button" class="rewatch-toggle" id="review-rewatch" aria-pressed="false">🔁 Worth a rewatch</button>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn" id="review-cancel">Cancel</button>
+      <button class="modal-btn primary" id="review-save">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="undo-bar" id="undo-bar">
   <button class="undo-bar-btn" id="undo-btn"><span class="undo-message" id="undo-message"></span>↶ Undo</button>
 </div>

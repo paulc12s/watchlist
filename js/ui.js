@@ -56,7 +56,14 @@ const UI = {
       editRating: document.getElementById('edit-rating'),
       editPlot: document.getElementById('edit-plot'),
       editSave: document.getElementById('edit-save'),
-      editCancel: document.getElementById('edit-cancel')
+      editCancel: document.getElementById('edit-cancel'),
+      reviewModal: document.getElementById('review-modal'),
+      reviewTitle: document.getElementById('review-title'),
+      reviewStars: document.getElementById('review-stars'),
+      reviewText: document.getElementById('review-text'),
+      reviewRewatch: document.getElementById('review-rewatch'),
+      reviewSave: document.getElementById('review-save'),
+      reviewCancel: document.getElementById('review-cancel')
     };
 
     this.attachEventListeners();
@@ -162,6 +169,23 @@ const UI = {
     this.elements.editCancel.addEventListener('click', () => this.closeEditModal());
     this.elements.editModal.addEventListener('click', (e) => {
       if (e.target === this.elements.editModal) this.closeEditModal();
+    });
+
+    // Review modal; tapping the current star rating again clears it
+    this.elements.reviewStars.addEventListener('click', (e) => {
+      const btn = e.target.closest('.star-btn');
+      if (!btn) return;
+      const stars = Number(btn.dataset.stars);
+      this.setReviewStars(stars === this.reviewStars ? 0 : stars);
+    });
+    this.elements.reviewRewatch.addEventListener('click', () => {
+      const pressed = this.elements.reviewRewatch.getAttribute('aria-pressed') === 'true';
+      this.elements.reviewRewatch.setAttribute('aria-pressed', String(!pressed));
+    });
+    this.elements.reviewSave.addEventListener('click', () => this.saveReview());
+    this.elements.reviewCancel.addEventListener('click', () => this.closeReviewModal());
+    this.elements.reviewModal.addEventListener('click', (e) => {
+      if (e.target === this.elements.reviewModal) this.closeReviewModal();
     });
   },
 
@@ -568,6 +592,14 @@ const UI = {
       return;
     }
 
+    // Review icon (the click may land on the svg inside it)
+    const reviewBtn = target.closest('.review-btn');
+    if (reviewBtn) {
+      const itemEl = reviewBtn.closest('.item');
+      if (itemEl) this.openReviewModal(itemEl.dataset.id);
+      return;
+    }
+
     // Inline editable badge click
     if (target.classList.contains('editable')) {
       e.stopPropagation();
@@ -766,6 +798,49 @@ const UI = {
     }
   },
 
+  openReviewModal(itemId) {
+    const item = state.items.find(i => i.id === itemId);
+    if (!item) return;
+
+    state.reviewingId = itemId;
+
+    this.elements.reviewTitle.textContent = item.title;
+    this.setReviewStars(item.stars);
+    this.elements.reviewText.value = item.review;
+    this.elements.reviewRewatch.setAttribute('aria-pressed', String(item.rewatch));
+
+    this.elements.reviewModal.classList.add('visible');
+  },
+
+  setReviewStars(stars) {
+    this.reviewStars = stars;
+    this.elements.reviewStars.querySelectorAll('.star-btn').forEach(btn => {
+      const value = Number(btn.dataset.stars);
+      btn.classList.toggle('filled', value <= stars);
+      btn.setAttribute('aria-checked', String(value === stars));
+    });
+  },
+
+  closeReviewModal() {
+    this.elements.reviewModal.classList.remove('visible');
+    state.reviewingId = null;
+  },
+
+  saveReview() {
+    if (!state.reviewingId) return;
+
+    const success = ItemManager.update(state.reviewingId, {
+      stars: this.reviewStars,
+      review: this.elements.reviewText.value.trim(),
+      rewatch: this.elements.reviewRewatch.getAttribute('aria-pressed') === 'true'
+    });
+
+    if (success) {
+      this.closeReviewModal();
+      this.render();
+    }
+  },
+
   setFilter(filterValue) {
     state.filter = filterValue;
     this.render();
@@ -799,6 +874,7 @@ const UI = {
   renderFilters() {
     const tags = [...new Set(state.items.map(i => i.tag).filter(Boolean))];
     const platforms = [...new Set(state.items.map(i => i.platform).filter(Boolean))];
+    const hasRewatch = state.filter === 'rewatch' || state.items.some(i => i.rewatch);
 
     // Update tag datalist
     this.elements.tagList.innerHTML = html`${tags.map(t => html`<option value="${t}">`)}`;
@@ -811,6 +887,7 @@ const UI = {
       { key: 'youtube', label: 'YouTube' },
       ...platforms.map(p => ({ key: p, label: '📺 ' + p })),
       ...tags.map(t => ({ key: t, label: t })),
+      ...(hasRewatch ? [{ key: 'rewatch', label: '🔁 Rewatch' }] : []),
       { key: 'watched', label: 'Watched' }
     ];
 
@@ -851,6 +928,7 @@ const UI = {
   itemHTML(item) {
     const priority = ItemModel.displayPriority(item);
     const isYoutube = item.type === 'youtube';
+    const hasReview = item.stars > 0 || item.review || item.rewatch;
     const editable = (field, label) =>
       html`data-field="${field}" data-item-id="${item.id}" title="Click to ${label}"`;
 
@@ -860,6 +938,9 @@ const UI = {
         <div class="item-body">
           <div class="item-header">
             <div class="item-title">${item.title}</div>
+            <button type="button" class="review-btn ${hasReview && 'has-review'}" title="${hasReview ? 'Edit review' : 'Write a review'}" aria-label="${hasReview ? 'Edit review' : 'Write a review'}">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            </button>
             <input type="checkbox" class="item-checkbox" ${item.watched && 'checked'}>
           </div>
           <div class="item-meta">
@@ -875,8 +956,11 @@ const UI = {
             ${item.tag
               ? html`<span class="badge tag editable" ${editable('tag', 'edit tag')}>${item.tag}</span>`
               : html`<span class="badge tag editable empty" ${editable('tag', 'add tag')}>+ tag</span>`}
+            ${item.stars > 0 && html`<span class="badge stars" title="Your rating: ${item.stars}/5">${'★'.repeat(item.stars)}${'☆'.repeat(5 - item.stars)}</span>`}
+            ${item.rewatch && html`<span class="badge rewatch">🔁 Rewatch</span>`}
           </div>
           ${item.plot && html`<div class="item-plot">${item.plot}</div>`}
+          ${item.review && html`<div class="item-review">${item.review}</div>`}
           <div class="item-actions">
             <button class="action-btn edit">Edit</button>
             <button class="action-btn delete">Delete</button>

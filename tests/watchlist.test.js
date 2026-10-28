@@ -149,3 +149,31 @@ test('import skips duplicates already in the list and within the file', () => {
   assert.deepEqual(state.items.map(i => i.title).sort(), ['Arrival', 'Dune', 'Home video', 'Home video']);
   assert.equal(new Set(state.items.map(i => i.id)).size, state.items.length);
 });
+
+test('sanitizeItem keeps valid reviews and rejects bad star ratings', () => {
+  const { Security } = loadApp();
+  const reviewed = Security.sanitizeItem({ title: 'A', stars: 4, review: '  Great  ', rewatch: 1 });
+  assert.equal(reviewed.stars, 4);
+  assert.equal(reviewed.review, 'Great');
+  assert.equal(reviewed.rewatch, true);
+  assert.equal(Security.sanitizeItem({ title: 'A', stars: 6 }).stars, 0);
+  assert.equal(Security.sanitizeItem({ title: 'A', stars: 2.5 }).stars, 0);
+  assert.equal(Security.sanitizeItem({ title: 'A', stars: '3' }).stars, 0);
+  assert.equal(Security.sanitizeItem({ title: 'A' }).rewatch, false);
+});
+
+test('rewatch filter applies to both the active and watched lists', () => {
+  const { state, ItemManager, ItemModel } = loadApp();
+  state.items = [
+    ItemModel.create({ title: 'Again Soon', rewatch: true }),
+    ItemModel.create({ title: 'Fresh' }),
+    { ...ItemModel.create({ title: 'Loved It', rewatch: true }), watched: true },
+    { ...ItemModel.create({ title: 'Once Was Enough' }), watched: true }
+  ];
+  const titles = () => [...ItemManager.getFiltered().map(i => i.title)];
+
+  state.filter = 'rewatch';
+  assert.deepEqual(titles(), ['Again Soon']);
+  state.watchedMode = true;
+  assert.deepEqual(titles(), ['Loved It']);
+});
