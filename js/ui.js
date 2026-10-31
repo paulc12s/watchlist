@@ -60,6 +60,7 @@ const UI = {
       editCancel: document.getElementById('edit-cancel'),
       reviewModal: document.getElementById('review-modal'),
       reviewTitle: document.getElementById('review-title'),
+      reviewDate: document.getElementById('review-date'),
       reviewStars: document.getElementById('review-stars'),
       reviewText: document.getElementById('review-text'),
       reviewRewatch: document.getElementById('review-rewatch'),
@@ -827,6 +828,9 @@ const UI = {
     state.reviewingId = itemId;
 
     this.elements.reviewTitle.textContent = item.title;
+    this.elements.reviewDate.textContent = item.reviewDate
+      ? `Reviewed ${new Date(item.reviewDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+      : '';
     this.setThumb(this.elements.reviewThumb, item.thumb);
     this.setReviewStars(item.stars);
     this.elements.reviewText.value = item.review;

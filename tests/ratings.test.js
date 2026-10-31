@@ -46,7 +46,7 @@ test('swipes record verdicts; thumbs clear "want" and stamp when rated', () => {
   const rated = Ratings.setVerdict(film(1), 'up');
   assert.equal(rated.verdict, 'up');
   assert.equal(rated.want, false);
-  assert.ok(rated.ratedAt);
+  assert.ok(rated.reviewDate);
   assert.equal(Ratings.setStars(film(1), 4).stars, 4);
   assert.equal(Ratings.setStars(film(1), 4).stars, 0, 'tapping the same star clears it');
 });
@@ -137,9 +137,9 @@ test('backup round-trips and keeps the most recently changed copy', () => {
   Ratings.setVerdict(film(1), 'up');
   const backup = JSON.parse(JSON.stringify(Ratings.backup()));
   backup.ratings[0].verdict = 'down';
-  backup.ratings[0].updatedAt = '2000-01-01T00:00:00.000Z';
+  backup.ratings[0].updatedDate = '2000-01-01T00:00:00.000Z';
   assert.deepEqual({ ...Ratings.import(backup) }, { added: 0, updated: 0 }, 'older copy ignored');
-  backup.ratings[0].updatedAt = '2999-01-01T00:00:00.000Z';
+  backup.ratings[0].updatedDate = '2999-01-01T00:00:00.000Z';
   assert.deepEqual({ ...Ratings.import(backup) }, { added: 0, updated: 1 });
   assert.equal(Ratings.get('tt0000001').verdict, 'down');
   assert.throws(() => Ratings.import({ something: 1 }));
@@ -259,7 +259,7 @@ test('ratings → watchlist → ratings round trip keeps verdicts, stars, notes 
   Ratings.update(film(1), { verdict: 'up', stars: 5, review: 'great', rewatch: true });
   Ratings.update(film(2), { verdict: 'down', review: 'no' });
   Ratings.update(film(3), { want: true, priority: 'high' });
-  const strip = ({ updatedAt, ratedAt, priority, ...rest }) => rest;
+  const strip = ({ updatedDate, priority, ...rest }) => rest;
   const before = JSON.stringify(Ratings.all().map(strip));
 
   const wl = loadWatchlist();
@@ -364,7 +364,7 @@ test('watchlist import never loses what the ratings page already has', () => {
   Ratings.update(film(3), { stars: 4, review: 'mine', rewatch: true }); // seen, no thumb yet
   Ratings.update(film(4), { verdict: 'up' });                         // thumbed here
   Ratings.update(film(5), { verdict: 'up', review: 'keep' });         // thumbed and noted here
-  const before5 = Ratings.get('tt0000005').updatedAt;
+  const before5 = Ratings.get('tt0000005').updatedDate;
 
   const result = Ratings.import({
     unwatched: [{ title: 'Film 4', imdbID: 'tt0000004' }, { title: 'Film 3', imdbID: 'tt0000003' }],
@@ -398,7 +398,7 @@ test('watchlist import never loses what the ratings page already has', () => {
   assert.equal(four.review, 'meh', 'blank notes are filled in');
   assert.equal(four.want, false);
 
-  assert.equal(Ratings.get('tt0000005').updatedAt, before5, 'nothing new means untouched');
+  assert.equal(Ratings.get('tt0000005').updatedDate, before5, 'nothing new means untouched');
   assert.deepEqual({ ...result }, { added: 0, updated: 3 }, 'film 3 had nothing new');
   assert.equal(Ratings.all().length, 5, 'nothing removed');
 });
@@ -502,7 +502,7 @@ test('TV lists load into the catalog and expect series; film lists expect films'
   assert.equal(Catalog.nextId('one'), 'two', 'film lists rotate among films');
   assert.ok(Catalog.isTv(Catalog.nextId('tv-most-watched')), 'TV lists rotate among TV');
 
-  Catalog.restoreTvLists({ 'tv-most-watched': { fetchedAt: Date.now(), shows: [{ key: 'tv:1396', title: 'Breaking Bad', year: 2008 }] } });
+  Catalog.restoreTvLists({ 'tv-most-watched': { fetchedDate: Date.now(), shows: [{ key: 'tv:1396', title: 'Breaking Bad', year: 2008 }] } });
   assert.deepEqual([...Catalog.get('tv-most-watched').keys], ['tv:1396']);
   assert.equal(Catalog.basics('tv:1396').title, 'Breaking Bad');
 
@@ -514,7 +514,7 @@ test('TV lists load into the catalog and expect series; film lists expect films'
   assert.equal(MovieInfo.isUsable(show, 'tt0903747'), true, 'but a show you rated opens fine by its IMDb ID');
   assert.equal(Catalog.remaining('tv-most-watched'), 0);
 
-  Catalog.restoreTvLists({ bad: null, 'tv-hbo': { fetchedAt: 'x', shows: [] } });
+  Catalog.restoreTvLists({ bad: null, 'tv-hbo': { fetchedDate: 'x', shows: [] } });
   assert.equal(Catalog.get('tv-hbo').loaded, false, 'malformed snapshots are ignored');
 });
 
@@ -537,8 +537,8 @@ test('TV recommendations: TMDB lists become a graph scored like films', () => {
   show(20, { verdict: 'down' });
   TvRecs.load({
     recs: {
-      10: { fetchedAt: Date.now(), shows: [{ id: 11, name: 'Like Ten', year: 2016, poster: '/a.jpg', vote_average: 8.6, vote_count: 9000 }, { id: 30, name: 'Shared', vote_average: 8, vote_count: 3000 }] },
-      20: { fetchedAt: Date.now(), shows: [{ id: 21, name: 'Like Twenty', vote_average: 8.5, vote_count: 9000 }, { id: 30, name: 'Shared', vote_average: 8, vote_count: 3000 }] }
+      10: { fetchedDate: Date.now(), shows: [{ id: 11, name: 'Like Ten', year: 2016, poster: '/a.jpg', vote_average: 8.6, vote_count: 9000 }, { id: 30, name: 'Shared', vote_average: 8, vote_count: 3000 }] },
+      20: { fetchedDate: Date.now(), shows: [{ id: 21, name: 'Like Twenty', vote_average: 8.5, vote_count: 9000 }, { id: 30, name: 'Shared', vote_average: 8, vote_count: 3000 }] }
     }
   });
   const graph = TvRecs.graph(Ratings.all());
@@ -619,4 +619,49 @@ test('learn-fastest order puts widely seen films with little evidence first', ()
   Catalog.learnScore = () => Guesses.learnScore();
   assert.deepEqual([...Catalog.queue('one', 'learn')], ['tt0000001', 'tt0000002']);
   assert.deepEqual([...Catalog.queue('two', 'learn')].slice(0, 1), ['tt0000003']);
+});
+
+test('review date: thumbs, stars, notes and rewatch date a review; skips and wants do not', () => {
+  const { Ratings } = loadRatings();
+  assert.equal(Ratings.update(film(1), { verdict: 'skip' }).reviewDate, '');
+  assert.equal(Ratings.update(film(2), { want: true }).reviewDate, '');
+  assert.ok(Ratings.update(film(3), { review: 'nice' }).reviewDate);
+  Ratings.get('tt0000003').reviewDate = '2026-01-01T00:00:00.000Z';
+  Ratings.update(film(3), { want: false });
+  assert.equal(Ratings.get('tt0000003').reviewDate, '2026-01-01T00:00:00.000Z');
+  assert.notEqual(Ratings.update(film(3), { stars: 5 }).reviewDate, '2026-01-01T00:00:00.000Z');
+  // Older saves called it ratedAt / updatedAt
+  const old = Ratings.sanitize({ imdbID: 'tt1234567', title: 'A', ratedAt: '2025-05-05T00:00:00.000Z', updatedAt: '2025-06-06T00:00:00.000Z' });
+  assert.equal(old.reviewDate, '2025-05-05T00:00:00.000Z');
+  assert.equal(old.updatedDate, '2025-06-06T00:00:00.000Z');
+  assert.equal('ratedAt' in old || 'updatedAt' in old, false);
+});
+
+test('watchlist import keeps the watchlist review date and never stamps the import time', () => {
+  const { Ratings } = loadRatings();
+  Ratings.import([
+    { title: 'Film 1', imdbID: 'tt0000001', type: 'movie', watched: true, thumb: 'up', reviewDate: '2026-02-02T00:00:00.000Z' },
+    { title: 'Film 2', imdbID: 'tt0000002', type: 'movie', watched: true, stars: 4 },
+    { title: 'Film 3', imdbID: 'tt0000003', type: 'movie', watched: true, reviewDate: '2026-04-04T00:00:00.000Z' }
+  ]);
+  assert.equal(Ratings.get('tt0000001').reviewDate, '2026-02-02T00:00:00.000Z');
+  assert.equal(Ratings.get('tt0000002').reviewDate, '', 'undated review stays undated');
+  assert.equal(Ratings.get('tt0000003').reviewDate, '2026-04-04T00:00:00.000Z', 'watched with no review');
+
+  Ratings.update(film(4), { verdict: 'up' });
+  Ratings.get('tt0000004').reviewDate = '2026-01-01T00:00:00.000Z';
+  Ratings.import([{ title: 'Film 4', imdbID: 'tt0000004', type: 'movie', watched: true, thumb: 'up', reviewDate: '2026-09-09T00:00:00.000Z' }]);
+  assert.equal(Ratings.get('tt0000004').reviewDate, '2026-01-01T00:00:00.000Z', 'nothing taken, own date kept');
+});
+
+test('review dates survive ratings → watchlist → ratings', () => {
+  const { Ratings } = loadRatings();
+  Ratings.update(film(1), { verdict: 'up', stars: 5 });
+  const date = Ratings.get('tt0000001').reviewDate;
+  const wl = loadWatchlist();
+  wl.ItemManager.import(JSON.stringify(Ratings.watchlistItems()));
+  assert.equal(wl.get('tt0000001').reviewDate, date);
+  const fresh = loadRatings().Ratings;
+  fresh.import(JSON.parse(wl.exportFile()));
+  assert.equal(fresh.get('tt0000001').reviewDate, date);
 });

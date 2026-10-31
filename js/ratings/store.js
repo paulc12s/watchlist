@@ -69,8 +69,11 @@ const Ratings = {
       rewatch: Boolean(raw.rewatch),
       review: text(raw.review, CONFIG.LIMITS.MAX_REVIEW_LENGTH),
       want: Boolean(raw.want),
-      ratedAt: date(raw.ratedAt),
-      updatedAt: date(raw.updatedAt) || new Date().toISOString()
+      // When you last gave a thumb, stars, notes or the rewatch flag; '' if
+      // never. Shared with the watchlist. (Older versions called it ratedAt.)
+      reviewDate: date(raw.reviewDate) || date(raw.ratedAt),
+      // Any change at all, so the newer copy wins when backups are merged
+      updatedDate: date(raw.updatedDate) || date(raw.updatedAt) || new Date().toISOString()
     };
   },
 
@@ -84,13 +87,11 @@ const Ratings = {
         .map(field => [field, info[field]])
     );
     const next = this.sanitize({
-      ...existing, ...details, ...changes, updatedAt: new Date().toISOString()
+      ...existing, ...details, ...changes, updatedDate: new Date().toISOString()
     });
     if (!next) return null;
-    if (changes.verdict === 'up' || changes.verdict === 'down') {
-      next.want = false; // Seen it now
-      if (!existing || existing.verdict !== changes.verdict) next.ratedAt = next.updatedAt;
-    }
+    if (changes.verdict === 'up' || changes.verdict === 'down') next.want = false; // Seen it now
+    if (reviewChanged(existing || {}, next)) next.reviewDate = next.updatedDate;
     this.entries.set(next.imdbID, next);
     this.onChange();
     return next;
@@ -161,7 +162,8 @@ const Ratings = {
       thumb: e.verdict === 'up' || e.verdict === 'down' ? e.verdict : '',
       stars: e.stars,
       review: e.review,
-      rewatch: e.rewatch
+      rewatch: e.rewatch,
+      reviewDate: e.reviewDate
     }));
   },
 
@@ -176,7 +178,7 @@ const Ratings = {
       if (e.review) parts.push(`"${e.review.replace(/\s+/g, ' ')}"`);
       return `- ${parts.join(' · ')}`;
     };
-    const byRecent = (a, b) => (b.ratedAt || '').localeCompare(a.ratedAt || '');
+    const byRecent = (a, b) => (b.reviewDate || '').localeCompare(a.reviewDate || '');
     const liked = this.all().filter(e => e.verdict === 'up').sort(byRecent);
     const disliked = this.all().filter(e => e.verdict === 'down').sort(byRecent);
     const wanted = this.all().filter(e => e.want);
@@ -223,7 +225,7 @@ const Ratings = {
       if (!entry) continue;
       const existing = this.entries.get(entry.imdbID);
       if (!existing) added++;
-      else if (entry.updatedAt > existing.updatedAt) updated++;
+      else if (entry.updatedDate > existing.updatedDate) updated++;
       else continue; // Keep whichever copy was changed last
       this.entries.set(entry.imdbID, entry);
     }
@@ -238,6 +240,8 @@ const Ratings = {
   //   title you skipped or wanted is upgraded, since you've now seen it.
   // - Other unwatched titles become "want to watch" unless you've rated them.
   // - Tag, platform and priority are kept for the trip back.
+  // - The review date comes with whatever review is taken from the watchlist;
+  //   the import itself never counts as a review.
   // - Nothing is removed, and a filled-in field is never overwritten.
   importWatchlist(unwatched, watched) {
     if (unwatched.length + watched.length > RATINGS.MAX_IMPORT) throw new Error('Too many items');
@@ -255,10 +259,10 @@ const Ratings = {
       };
       const entry = this.sanitize({ ...base, ...changes(existing || {}) });
       if (!entry) return;
-      if (existing && JSON.stringify({ ...entry, updatedAt: '' }) === JSON.stringify({ ...existing, updatedAt: '' })) return;
+      if (existing && JSON.stringify({ ...entry, updatedDate: '' }) === JSON.stringify({ ...existing, updatedDate: '' })) return;
       if (existing) {
         updated++;
-        entry.updatedAt = now;
+        entry.updatedDate = now;
       } else {
         added++;
       }
@@ -286,16 +290,16 @@ const Ratings = {
           return changes;
         }
         changes.want = false;
-        if (!thumbed(entry)) {
-          // Seen now: a skip no longer applies, and the watchlist's verdict carries over
-          changes.verdict = verdict;
-          if (verdict) changes.ratedAt = now;
-        }
+        // Seen now: a skip no longer applies, and the watchlist's verdict carries over
+        if (!thumbed(entry)) changes.verdict = verdict;
         // Stars that contradict a thumb you've given here are left out
         const conflicts = thumbed(entry) && verdict && verdict !== entry.verdict;
         if (!entry.stars && stars && !conflicts) changes.stars = stars;
         if (!entry.review && item.review) changes.review = item.review;
         if (!entry.rewatch && item.rewatch) changes.rewatch = true;
+        if (item.reviewDate && (!entry.reviewDate || reviewChanged(entry, { ...entry, ...changes }))) {
+          changes.reviewDate = item.reviewDate;
+        }
         return changes;
       });
     }
@@ -311,3 +315,11 @@ const Ratings = {
     }
   }
 };
+
+// Whether your review (thumb, stars, notes, rewatch) differs between two
+// versions of an entry. Skips and "want to watch" aren't reviews.
+function reviewChanged(before, after) {
+  const thumb = entry => (entry.verdict === 'up' || entry.verdict === 'down' ? entry.verdict : '');
+  return thumb(before) !== thumb(after) || (before.stars || 0) !== (after.stars || 0) ||
+    (before.review || '') !== (after.review || '') || Boolean(before.rewatch) !== Boolean(after.rewatch);
+}

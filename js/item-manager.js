@@ -133,6 +133,9 @@ const ItemManager = {
 
     const previousItem = { ...item };
     const sanitized = Security.sanitizeItem({ ...item, ...updates });
+    if (sanitized && ItemModel.reviewChanged(item, sanitized)) {
+      sanitized.reviewDate = new Date().toISOString();
+    }
     if (!sanitized) {
       UI.setStatus('invalid item data', false);
       return false;
@@ -153,14 +156,17 @@ const ItemManager = {
     const item = state.items.find(i => i.id === id);
     if (item) {
       const previousWatched = item.watched;
+      const previousReviewDate = item.reviewDate;
       item.watched = !item.watched;
+      // Watching counts as a review, even with nothing written
+      if (item.watched && !item.reviewDate) item.reviewDate = new Date().toISOString();
       this.scheduleSave();
       UI.render();
 
       const message = item.watched ? 'Marked as watched' : 'Marked as unwatched';
       UndoManager.push(message, {
         type: 'toggle',
-        data: { id, previousWatched }
+        data: { id, previousWatched, previousReviewDate }
       });
     }
   },

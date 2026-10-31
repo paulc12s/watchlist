@@ -68,7 +68,11 @@ const Security = {
         review: String(item.review || '').trim().substring(0, CONFIG.LIMITS.MAX_REVIEW_LENGTH),
         rewatch: Boolean(item.rewatch),
         // Thumbs up or down; '' when not given. Shared with the ratings page
-        thumb: item.thumb === 'up' || item.thumb === 'down' ? item.thumb : ''
+        thumb: item.thumb === 'up' || item.thumb === 'down' ? item.thumb : '',
+        // When you last reviewed it, or marked it watched (ISO date); '' if never.
+        // Shared with the ratings page
+        reviewDate: typeof item.reviewDate === 'string' && !isNaN(Date.parse(item.reviewDate))
+          ? item.reviewDate.substring(0, 40) : ''
       };
     } catch (error) {
       console.error('Sanitize error:', error, item);

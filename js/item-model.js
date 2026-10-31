@@ -36,7 +36,8 @@ const ItemModel = {
 
   // Folds an imported copy of an item into the one already in the list, so
   // nothing either side knows is lost: empty fields are filled in, and nothing
-  // already set is overwritten. Priority and watched status stay as they are,
+  // already set is overwritten. A review date only comes over with the review
+  // it belongs to, or to fill a blank. Priority and watched status stay as they are,
   // since they're this list's own say about the queue. Returns whether
   // anything changed.
   mergeInto(existing, incoming) {
@@ -48,12 +49,24 @@ const ItemModel = {
       }
     };
     const blank = value => !value;
+    const before = { ...existing };
     ['tag', 'platform', 'genre', 'rating', 'plot', 'poster', 'duration', 'review', 'thumb', 'stars'].forEach(field => fill(field, blank));
     if (!existing.rewatch && incoming.rewatch) {
       existing.rewatch = true;
       changed = true;
     }
+    if (incoming.reviewDate && (!existing.reviewDate || this.reviewChanged(before, existing))) {
+      if (existing.reviewDate !== incoming.reviewDate) changed = true;
+      existing.reviewDate = incoming.reviewDate;
+    }
     return changed;
+  },
+
+  // The fields that make up your review; changing any of them dates the review
+  REVIEW_FIELDS: ['thumb', 'stars', 'review', 'rewatch'],
+
+  reviewChanged(before, after) {
+    return this.REVIEW_FIELDS.some(field => before[field] !== after[field]);
   },
 
   // Priority to group, filter and edit by. Unknown values (from a newer

@@ -9,22 +9,23 @@ const vm = require('node:vm');
 
 // The app uses plain <script> globals, so load the files into one context in page order
 function loadApp() {
-  const files = ['config', 'state', 'security', 'item-model', 'movie-api', 'item-manager'];
+  const files = ['config', 'state', 'security', 'item-model', 'movie-api', 'item-manager', 'undo-manager'];
   const source = files
     .map(f => fs.readFileSync(path.join(__dirname, '..', 'js', `${f}.js`), 'utf8'))
     .join('\n');
 
   const context = vm.createContext({
     console, crypto, setTimeout, clearTimeout, URL,
-    UI: { setStatus() {}, render() {} }
+    UI: { setStatus() {}, render() {}, elements: { undoBar: { classList: { toggle() {}, remove() {} } }, undoMessage: {} } }
   });
   vm.runInContext(
-    `${source}\nthis.app = { CONFIG, state, Security, ItemModel, MovieAPI, ItemManager, html };`,
+    `${source}\nthis.app = { CONFIG, state, Security, ItemModel, MovieAPI, ItemManager, UndoManager, html };`,
     context
   );
   const { app } = context;
   app.ItemManager.save = () => Promise.resolve();
   app.ItemManager.scheduleSave = () => {};
+  app.UndoManager.updateUI = () => {};
   return app;
 }
 
@@ -204,4 +205,51 @@ test('import merges duplicates field by field: fills blanks, never overwrites', 
   assert.equal(alien.review, 'tense');
   assert.equal(alien.thumb, 'up');
   assert.equal(alien.tag, 'space', 'blank tag is filled');
+});
+
+test('review date: set by reviewing or marking watched, not by other edits', () => {
+  const { state, ItemManager, UndoManager, Security } = loadApp();
+  state.items = [Security.sanitizeItem({ id: 'a', title: 'A' }), Security.sanitizeItem({ id: 'b', title: 'B' })];
+  const [a, b] = state.items;
+  assert.equal(a.reviewDate, '');
+
+  ItemManager.update('a', { tag: 'x', priority: 'high' });
+  assert.equal(a.reviewDate, '', 'organising is not reviewing');
+  ItemManager.update('a', { stars: 4 });
+  assert.ok(a.reviewDate);
+  const first = a.reviewDate;
+  ItemManager.update('a', { stars: 4, tag: 'y' });
+  assert.equal(a.reviewDate, first, 'unchanged review keeps its date');
+
+  ItemManager.toggle('b');
+  assert.equal(b.watched, true);
+  assert.ok(b.reviewDate, 'watched with no review still counts');
+  UndoManager.undo();
+  assert.equal(b.watched, false);
+  assert.equal(b.reviewDate, '', 'undo takes the date back too');
+
+  b.reviewDate = '2026-01-01T00:00:00.000Z';
+  ItemManager.toggle('b');
+  ItemManager.toggle('b');
+  ItemManager.toggle('b');
+  assert.equal(b.reviewDate, '2026-01-01T00:00:00.000Z', 'rewatching does not move an existing date');
+  assert.equal(Security.sanitizeItem({ title: 'C', reviewDate: 'nonsense' }).reviewDate, '');
+});
+
+test('import merge: a review date comes with the review it belongs to', () => {
+  const { ItemModel, Security } = loadApp();
+  const item = fields => Security.sanitizeItem({ title: 'A', imdbID: 'tt0000001', ...fields });
+
+  const blank = item({});
+  ItemModel.mergeInto(blank, item({ stars: 5, reviewDate: '2026-02-02T00:00:00.000Z' }));
+  assert.equal(blank.reviewDate, '2026-02-02T00:00:00.000Z');
+
+  const reviewed = item({ stars: 3, review: 'ok', reviewDate: '2026-01-01T00:00:00.000Z' });
+  assert.equal(ItemModel.mergeInto(reviewed, item({ stars: 5, reviewDate: '2026-03-03T00:00:00.000Z' })), false);
+  assert.equal(reviewed.reviewDate, '2026-01-01T00:00:00.000Z', 'own review and date kept');
+
+  const partly = item({ stars: 3, reviewDate: '2026-01-01T00:00:00.000Z' });
+  ItemModel.mergeInto(partly, item({ thumb: 'up', reviewDate: '2026-03-03T00:00:00.000Z' }));
+  assert.equal(partly.thumb, 'up');
+  assert.equal(partly.reviewDate, '2026-03-03T00:00:00.000Z', 'filled-in review brings its date');
 });

@@ -122,7 +122,7 @@ const MovieInfo = {
 const Catalog = {
   movies: {},
   categories: [],
-  // TV list id -> { fetchedAt, shows: [{ key, title, year }] }
+  // TV list id -> { fetchedDate, shows: [{ key, title, year }] }
   tvLists: {},
   onTvListsChange() {},
 
@@ -147,7 +147,7 @@ const Catalog = {
   restoreTvLists(saved) {
     if (!saved || typeof saved !== 'object') return;
     for (const [id, snapshot] of Object.entries(saved)) {
-      if (!snapshot || !Number.isFinite(snapshot.fetchedAt) || !Array.isArray(snapshot.shows)) continue;
+      if (!snapshot || !Number.isFinite(snapshot.fetchedDate) || !Array.isArray(snapshot.shows)) continue;
       this.tvLists[id] = snapshot;
       this.useShows(id, snapshot.shows);
     }
@@ -162,9 +162,9 @@ const Catalog = {
     const category = this.get(id);
     if (category.media !== 'tv') return;
     const snapshot = this.tvLists[category.id];
-    if (category.loaded && snapshot && Date.now() - snapshot.fetchedAt < TMDB_CONFIG.LIST_MAX_AGE_MS) return;
+    if (category.loaded && snapshot && Date.now() - snapshot.fetchedDate < TMDB_CONFIG.LIST_MAX_AGE_MS) return;
     const shows = await TMDB.listShows(category);
-    this.tvLists[category.id] = { fetchedAt: Date.now(), shows };
+    this.tvLists[category.id] = { fetchedDate: Date.now(), shows };
     this.useShows(category.id, shows);
     this.onTvListsChange();
   },

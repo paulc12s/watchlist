@@ -32,8 +32,8 @@ const TV_REC = {
 };
 
 const TvRecs = {
-  // recs: tmdbId -> { fetchedAt, shows }, find: imdbID -> tmdbId (0 = none),
-  // keywords: theme -> keyword id (0 = none), discover: keyword id -> { fetchedAt, shows }
+  // recs: tmdbId -> { fetchedDate, shows }, find: imdbID -> tmdbId (0 = none),
+  // keywords: theme -> keyword id (0 = none), discover: keyword id -> { fetchedDate, shows }
   cache: { recs: {}, find: {}, keywords: {}, discover: {} },
   onChange() {},
 
@@ -46,7 +46,7 @@ const TvRecs = {
   },
 
   fresh(record) {
-    return Boolean(record && Date.now() - record.fetchedAt < TMDB_CONFIG.LIST_MAX_AGE_MS);
+    return Boolean(record && Date.now() - record.fetchedDate < TMDB_CONFIG.LIST_MAX_AGE_MS);
   },
 
   tmdbIdOf(entry) {
@@ -85,7 +85,7 @@ const TvRecs = {
         data = await TMDB.request(`/tv/${id}/similar`);
         requests++;
       }
-      this.cache.recs[id] = { fetchedAt: Date.now(), shows: parseShows(data) };
+      this.cache.recs[id] = { fetchedDate: Date.now(), shows: parseShows(data) };
     });
 
     if (requests) this.onChange();
@@ -144,7 +144,7 @@ const TvRecs = {
         with_keywords: theme.keyword, sort_by: 'vote_count.desc', without_genres: TMDB_CONFIG.EXCLUDED_GENRES
       });
       requests++;
-      this.cache.discover[theme.keyword] = { fetchedAt: Date.now(), shows: parseShows(data) };
+      this.cache.discover[theme.keyword] = { fetchedDate: Date.now(), shows: parseShows(data) };
     });
     if (requests) this.onChange();
 

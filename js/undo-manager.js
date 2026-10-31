@@ -40,6 +40,7 @@ const UndoManager = {
       const item = state.items.find(i => i.id === data.id);
       if (item) {
         item.watched = data.previousWatched;
+        item.reviewDate = data.previousReviewDate || '';
       }
     } else if (type === 'edit') {
       const item = state.items.find(i => i.id === data.id);

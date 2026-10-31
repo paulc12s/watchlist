@@ -12,7 +12,7 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 - **Tags & platforms** — organize by custom tags (family, airplane, art) and streaming platform (Netflix, etc.)
 - **Quick filter** — substring search across titles, combinable with filter buttons
 - **Watched toggle** — mark items as watched; filter to view watched items, optionally narrowed by another filter
-- **Reviews** — rate titles out of 5 stars, jot a few thoughts, and flag them as worth a rewatch; give a thumb up or down in the review or Edit dialog
+- **Reviews** — rate titles out of 5 stars, jot a few thoughts, and flag them as worth a rewatch; give a thumb up or down in the review or Edit dialog. Each title keeps the date you last reviewed it (thumb, stars, notes or rewatch), or the date you first marked it watched if you didn't review it
 - **Rewatch filter** — find flagged titles in either the active or watched list
 - **Inline editing** — click any badge (priority, tag, platform) to edit in place
 - **Import/Export** — JSON-based backup and restore; importing merges titles you already have field by field (see below)
@@ -67,6 +67,7 @@ A separate swipe feed for rating films and TV shows and building a taste profile
 - **⚙ Settings** — export/import a backup; copy a taste profile to paste into an AI assistant for recommendations; and exchange files with the watchlist:
   - *Import* a watchlist export: titles bring their thumbs, stars, notes, rewatch flag, tag, platform and priority. Without a thumb, 4–5★ count as 👍 and 1–2★ as 👎, unless you've given a thumb here. Unwatched titles become “want to watch”
   - *Export for Watchlist*: want-to-watch titles as unwatched, and everything you've seen and rated as watched, with thumbs, stars, notes and rewatch, plus any tag, platform and priority that came from the watchlist. Skips stay behind
+  - Review dates travel both ways. A date comes over with the review it belongs to; importing never counts as reviewing, so titles reviewed before dates were kept stay undated
   - Both directions merge: nothing is removed and nothing already set is overwritten, so files can go back and forth. The one thing a round trip adds is the watchlist's default “medium” priority on titles that didn't have one
 
 The lists in `data/categories.json` are built from [MovieLens 32M](https://grouplens.org/datasets/movielens/) (ratings up to October 2023; non-commercial licence) plus hand-curated Oscar nominees in `tools/oscars.json`. Each film carries its top MovieLens tags (cleaned: opinions, awards and genre repeats dropped, synonyms folded) and the share of its raters who gave 4+ stars. To rebuild, unzip `ml-32m.zip` and run `node tools/build-categories.js path/to/ml-32m`. Posters and details come from OMDb when a card is shown and are cached, so each film costs one request.

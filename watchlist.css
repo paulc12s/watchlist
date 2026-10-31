@@ -1177,7 +1177,14 @@ body {
 .review-subtitle {
   font-size: 15px;
   color: var(--color-text-secondary);
-  margin-bottom: 18px;
+  margin-bottom: 4px;
+}
+
+.review-date {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  min-height: 1em;
+  margin-bottom: 14px;
 }
 
 .star-input {

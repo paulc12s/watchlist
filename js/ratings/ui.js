@@ -581,7 +581,7 @@ const RatingsUI = {
     };
     const films = Ratings.all()
       .filter(filters[tab])
-      .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
+      .sort((a, b) => (b.updatedDate || '').localeCompare(a.updatedDate || ''))
       .slice(0, 300);
     const tabs = [['up', 'thumb-up', counts.up, 'Liked'], ['down', 'thumb-down', counts.down, 'Disliked'],
       ['want', 'want', counts.want, 'Want to watch'], ['skip', 'skip', counts.skip, 'Skipped']];
