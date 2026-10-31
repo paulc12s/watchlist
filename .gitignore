@@ -1,6 +1,6 @@
 # Personal exports from the apps
-ratings-*.json
-want-to-watch-*.json
-watchlist-*.json
-taste-profile-*.md
-for-watchlist-*.json
+/ratings-*.json
+/want-to-watch-*.json
+/watchlist-*.json
+/taste-profile-*.md
+/for-watchlist-*.json

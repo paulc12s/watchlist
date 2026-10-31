@@ -37,6 +37,8 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 node --test tests/watchlist.test.js tests/ratings.test.js
 ```
 
+`tests/fixtures/` holds a sample of every file format the apps have exported, written by that version's own code. The tests import each one and fail if any field is dropped or changed. If you rename a field, keep reading the old name and add it to `RENAMED` in `tests/ratings.test.js`. If you change an export format, add a new fixture.
+
 ## Deploying
 
 `.github/workflows/pages.yml` runs the tests, stamps the commit hash into the app (replacing `__APP_VERSION__`), and publishes to GitHub Pages on every push to `main`. Set **Settings → Pages → Source** to **GitHub Actions** once.

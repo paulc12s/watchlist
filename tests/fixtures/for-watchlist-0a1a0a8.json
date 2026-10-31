@@ -1,0 +1,53 @@
+[
+  {
+    "title": "The Shawshank Redemption",
+    "type": "movie",
+    "priority": "high",
+    "tag": "classics",
+    "platform": "Netflix",
+    "genre": "Drama",
+    "rating": "9.3",
+    "plot": "Two imprisoned men bond.",
+    "poster": "https://m.media-amazon.com/images/M/shawshank.jpg",
+    "imdbID": "tt0111161",
+    "watched": true,
+    "thumb": "up",
+    "stars": 5,
+    "review": "Hope is a good thing.",
+    "rewatch": true
+  },
+  {
+    "title": "Breaking Bad",
+    "type": "series",
+    "priority": "medium",
+    "tag": "",
+    "platform": "",
+    "genre": "Crime, Drama",
+    "rating": "9.5",
+    "plot": "A teacher turns to crime.",
+    "poster": "https://image.tmdb.org/t/p/w342/bb.jpg",
+    "imdbID": "tt0903747",
+    "watched": true,
+    "thumb": "down",
+    "stars": 0,
+    "review": "",
+    "rewatch": false
+  },
+  {
+    "title": "12 Angry Men",
+    "type": "movie",
+    "priority": "medium",
+    "tag": "",
+    "platform": "",
+    "genre": "Drama",
+    "rating": "9.3",
+    "plot": "Two imprisoned men bond.",
+    "poster": "https://m.media-amazon.com/images/M/shawshank.jpg",
+    "imdbID": "tt0050083",
+    "watched": false,
+    "thumb": "",
+    "stars": 0,
+    "review": "",
+    "rewatch": false
+  }
+]

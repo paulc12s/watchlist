@@ -1,0 +1,71 @@
+{
+  "unwatched": [
+    {
+      "id": "367502e-1",
+      "title": "Severance",
+      "type": "series",
+      "priority": "watching",
+      "tag": "",
+      "genre": "Drama, Mystery",
+      "rating": "8.7",
+      "plot": "Work and memory split.",
+      "poster": "https://m.media-amazon.com/images/M/sev.jpg",
+      "platform": "Apple TV+",
+      "watched": false,
+      "imdbID": "tt11280740",
+      "youtubeID": "",
+      "duration": ""
+    },
+    {
+      "id": "367502e-2",
+      "title": "Making of a Film",
+      "type": "youtube",
+      "priority": "low",
+      "tag": "",
+      "genre": "",
+      "rating": "",
+      "plot": "",
+      "poster": "",
+      "platform": "YouTube",
+      "watched": false,
+      "imdbID": "",
+      "youtubeID": "dQw4w9WgXcQ",
+      "duration": "12:01"
+    },
+    {
+      "id": "367502e-3",
+      "title": "Home movie night",
+      "type": "movie",
+      "priority": "medium",
+      "tag": "art",
+      "genre": "",
+      "rating": "",
+      "plot": "",
+      "poster": "",
+      "platform": "",
+      "watched": false,
+      "imdbID": "",
+      "youtubeID": "",
+      "duration": ""
+    }
+  ],
+  "watched": [
+    {
+      "id": "367502e-0",
+      "title": "Dune: Part Two",
+      "type": "movie",
+      "priority": "high",
+      "tag": "family",
+      "genre": "Action, Sci-Fi",
+      "rating": "8.5",
+      "plot": "Paul unites with the Fremen.",
+      "poster": "https://m.media-amazon.com/images/M/dune2.jpg",
+      "platform": "Max",
+      "watched": true,
+      "imdbID": "tt15239678",
+      "youtubeID": "",
+      "duration": ""
+    }
+  ],
+  "exportDate": "2026-10-30T13:00:00.000Z"
+}

@@ -665,3 +665,86 @@ test('review dates survive ratings → watchlist → ratings', () => {
   fresh.import(JSON.parse(wl.exportFile()));
   assert.equal(fresh.get('tt0000001').reviewDate, date);
 });
+
+// ---- Files written by earlier versions ------------------------------------
+// tests/fixtures holds one file per export format the apps have ever written,
+// made by running that commit's own code (named after the commit). Each must
+// still import with every field intact. When a field is renamed, add it to
+// RENAMED and keep reading the old name, so old files keep loading.
+const RENAMED = { ratedAt: 'reviewDate', updatedAt: 'updatedDate' };
+const fixtures = fs.readdirSync(path.join(__dirname, 'fixtures')).filter(f => f.endsWith('.json'));
+const fixture = name => JSON.parse(read(`tests/fixtures/${name}`));
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+function assertKeeps(source, imported, label, skip = []) {
+  for (const [field, value] of Object.entries(source)) {
+    if (skip.includes(field)) continue;
+    const now = RENAMED[field] || field;
+    assert.ok(same(imported[now], value),
+      `${label}: ${field} was ${JSON.stringify(value)}, imported as ${now} = ${JSON.stringify(imported[now])}`);
+  }
+}
+
+test('every old ratings backup imports into the ratings page with nothing lost', () => {
+  const names = fixtures.filter(f => f.startsWith('ratings-backup-'));
+  assert.ok(names.length >= 2);
+  for (const name of names) {
+    const file = fixture(name);
+    const { Ratings } = loadRatings();
+    assert.equal(Ratings.import(file).added, file.ratings.length, name);
+    for (const old of file.ratings) assertKeeps(old, Ratings.get(old.imdbID), `${name} ${old.title}`);
+    // Stored copies from that version load the same way as its backups
+    const stored = loadRatings().Ratings;
+    stored.load(file.ratings);
+    assert.equal(JSON.stringify(stored.all()), JSON.stringify(Ratings.all()), name);
+  }
+});
+
+test('an old ratings backup merges by change date with entries saved by this version', () => {
+  const file = fixture('ratings-backup-9313c56-v1-ratedAt.json');
+  const { Ratings } = loadRatings();
+  Ratings.import(file);
+  Ratings.update({ imdbID: 'tt0111161', title: 'The Shawshank Redemption' }, { review: 'Changed since the backup' });
+  assert.deepEqual({ ...Ratings.import(file) }, { added: 0, updated: 0 });
+  assert.equal(Ratings.get('tt0111161').review, 'Changed since the backup');
+});
+
+test('every old watchlist export imports into the watchlist and the ratings page with nothing lost', () => {
+  const names = fixtures.filter(f => f.startsWith('watchlist-'));
+  assert.ok(names.length >= 4);
+  for (const name of names) {
+    const file = fixture(name);
+    const items = [...file.unwatched, ...file.watched];
+    const wl = loadWatchlist();
+    assert.ok(wl.ItemManager.import(JSON.stringify(file)), name);
+    assert.equal(wl.state.items.length, items.length, name);
+    for (const old of items) {
+      assertKeeps(old, wl.state.items.find(i => i.title === old.title), `${name} ${old.title}`, ['id']);
+    }
+
+    const { Ratings } = loadRatings();
+    Ratings.import(file);
+    for (const old of items.filter(i => i.imdbID)) {
+      const entry = Ratings.get(old.imdbID);
+      assert.ok(entry, `${name} ${old.title}`);
+      // The fields the ratings page keeps for the trip back, under its own names
+      assertKeeps({ title: old.title, type: old.type, tag: old.tag, platform: old.platform, priority: old.priority,
+        plot: old.plot, poster: old.poster, stars: old.stars || 0, review: old.review || '',
+        rewatch: Boolean(old.rewatch), reviewDate: old.reviewDate || '' }, entry, `${name} → ratings ${old.title}`);
+      assert.equal(entry.want, !old.watched && !old.stars && !old.thumb, `${name} ${old.title}`);
+    }
+  }
+});
+
+test('every old for-watchlist / want-to-watch file imports into both apps with nothing lost', () => {
+  const names = fixtures.filter(f => f.startsWith('for-watchlist-'));
+  assert.ok(names.length >= 2);
+  for (const name of names) {
+    const items = fixture(name);
+    const wl = loadWatchlist();
+    assert.ok(wl.ItemManager.import(JSON.stringify(items)), name);
+    for (const old of items) assertKeeps(old, wl.get(old.imdbID), `${name} ${old.title}`);
+    const { Ratings } = loadRatings();
+    assert.equal(Ratings.import(items).added, items.length, name);
+  }
+});

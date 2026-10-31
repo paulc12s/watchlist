@@ -1,0 +1,84 @@
+{
+  "app": "ratings",
+  "version": 1,
+  "exportDate": "2026-10-30T13:00:00.000Z",
+  "ratings": [
+    {
+      "imdbID": "tt0111161",
+      "title": "The Shawshank Redemption",
+      "year": 1994,
+      "genres": [
+        "Drama"
+      ],
+      "director": "Frank Darabont",
+      "actors": "Tim Robbins, Morgan Freeman",
+      "plot": "Two imprisoned men bond.",
+      "poster": "https://m.media-amazon.com/images/M/shawshank.jpg",
+      "verdict": "up",
+      "stars": 5,
+      "rewatch": true,
+      "review": "Hope is a good thing.",
+      "want": false,
+      "ratedAt": "2026-10-30T12:01:00.000Z",
+      "updatedAt": "2026-10-30T12:02:00.000Z"
+    },
+    {
+      "imdbID": "tt0903747",
+      "title": "Breaking Bad",
+      "year": 2008,
+      "genres": [
+        "Crime",
+        "Drama"
+      ],
+      "director": "",
+      "actors": "Bryan Cranston",
+      "plot": "A teacher turns to crime.",
+      "poster": "https://image.tmdb.org/t/p/w342/bb.jpg",
+      "verdict": "down",
+      "stars": 0,
+      "rewatch": false,
+      "review": "",
+      "want": false,
+      "ratedAt": "2026-10-30T12:03:00.000Z",
+      "updatedAt": "2026-10-30T12:03:00.000Z"
+    },
+    {
+      "imdbID": "tt0068646",
+      "title": "The Godfather",
+      "year": 1972,
+      "genres": [
+        "Crime"
+      ],
+      "director": "Frank Darabont",
+      "actors": "Tim Robbins, Morgan Freeman",
+      "plot": "Two imprisoned men bond.",
+      "poster": "https://m.media-amazon.com/images/M/shawshank.jpg",
+      "verdict": "skip",
+      "stars": 0,
+      "rewatch": false,
+      "review": "",
+      "want": false,
+      "ratedAt": "",
+      "updatedAt": "2026-10-30T12:04:00.000Z"
+    },
+    {
+      "imdbID": "tt0050083",
+      "title": "12 Angry Men",
+      "year": 1957,
+      "genres": [
+        "Drama"
+      ],
+      "director": "Frank Darabont",
+      "actors": "Tim Robbins, Morgan Freeman",
+      "plot": "Two imprisoned men bond.",
+      "poster": "https://m.media-amazon.com/images/M/shawshank.jpg",
+      "verdict": "",
+      "stars": 0,
+      "rewatch": false,
+      "review": "",
+      "want": true,
+      "ratedAt": "",
+      "updatedAt": "2026-10-30T12:05:00.000Z"
+    }
+  ]
+}
