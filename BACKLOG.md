@@ -44,6 +44,15 @@ A single page with a switch between the watchlist and the swipe-rating views. Bo
 
 Depends on item 2.
 
+### 4. Top-picks list of strong matches you haven't rated
+A list that shows only titles the recommender rates as a very strong match and you haven't rated yet. It should read like a run of standout suggestions, not a ranked dump.
+- **Filter:** only titles above a high match bar (say the top 5% for you, with enough evidence behind the match), never just the top N. A short list beats a padded one.
+- **Each row:** the title and why it was picked ("because you liked X, Y").
+- **Actions:** from the list you can rate a title, add it to want to watch, or dismiss it.
+- **Films and TV:** both.
+- **Relation to today's For you sheet:** For you already shows the top 20 per lane. This is stricter, with a threshold instead of a count. It could replace For you or be a mode within it; decide when building.
+- **Fits the single page (item 3):** it could feed the watchlist directly.
+
 ## Later
 - Taste over time, now that reviews are dated (`reviewDate`).
 - In the watchlist import, flag conflicting verdicts (an existing 👎 alongside imported 4★) instead of keeping both.
