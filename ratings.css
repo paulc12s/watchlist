@@ -755,6 +755,33 @@ button:focus-visible {
   color: var(--ink-2);
 }
 
+.key-row {
+  display: flex;
+  gap: 8px;
+}
+
+.key-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px; /* Keeps iOS from zooming in */
+}
+
+.key-row input:focus {
+  outline: none;
+  border-color: var(--accent-edge);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.hint a {
+  color: var(--ink);
+}
+
 textarea {
   width: 100%;
   padding: 12px 14px;

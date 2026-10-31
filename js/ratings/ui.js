@@ -24,7 +24,7 @@ const RatingsUI = {
     const ids = ['card', 'stage', 'categoryButton', 'categoryName', 'categoryProgress', 'nextCategory',
       'tasteButton', 'settingsButton', 'toast', 'categorySheet', 'categoryList', 'noteSheet', 'noteFilm',
       'noteText', 'noteSave', 'tasteSheet', 'tasteBody', 'settingsSheet', 'exportBackup', 'importButton',
-      'importFile', 'exportWant', 'exportAI', 'clearSkips'];
+      'importFile', 'exportWant', 'exportAI', 'clearSkips', 'tmdbKey', 'tmdbSave'];
     ids.forEach(id => { this.els[id] = document.getElementById(id); });
 
     document.querySelectorAll('.actions [data-action]').forEach(button => {
@@ -78,14 +78,32 @@ const RatingsUI = {
 
   // ---- Lists ----------------------------------------------------------------
 
-  switchCategory(id, { announce = true } = {}) {
+  async switchCategory(id, { announce = true } = {}) {
     if (!id) {
-      this.toast('You’ve been through every list. Try “Show skipped films again” in settings.');
+      this.toast('You’ve been through every list. Try “Show skipped titles again” in settings.');
       return;
+    }
+    const category = Catalog.get(id);
+    if (category.media === 'tv') {
+      if (!TMDB.hasKey()) {
+        Feed.start(id);
+        App.savePrefs();
+        return this.renderMessage('Add a TMDB key to rate TV',
+          'TV lists come from TMDB, which needs a free key. Get one at themoviedb.org, then add it in Settings.', true);
+      }
+      const seq = ++this.renderSeq;
+      this.renderMessage(category.name, 'Loading shows…');
+      try {
+        await Catalog.prepare(id);
+      } catch (error) {
+        Feed.start(id);
+        return this.renderMessage('Couldn’t load this list', error.message, /key/i.test(error.message));
+      }
+      if (seq !== this.renderSeq) return; // Another list was chosen meanwhile
     }
     Feed.start(id);
     App.savePrefs();
-    if (announce) this.toast(Catalog.get(id).name);
+    if (announce) this.toast(category.name);
     this.advance();
   },
 
@@ -103,11 +121,12 @@ const RatingsUI = {
         ${categories.map(category => {
           const total = category.keys.length;
           const done = total - Catalog.remaining(category.id);
+          const note = category.media === 'tv' && !TMDB.hasKey() ? 'Needs a TMDB key (Settings)' : category.note;
           return html`
             <button type="button" class="category-option ${category.id === Feed.categoryId ? 'current' : ''}" data-category="${category.id}">
               <span class="option-name">${category.name}</span>
-              <span class="option-progress">${done} / ${total}</span>
-              ${category.note && html`<span class="option-note">${category.note}</span>`}
+              <span class="option-progress">${category.loaded ? `${done} / ${total}` : ''}</span>
+              ${note && html`<span class="option-note">${note}</span>`}
             </button>`;
         })}
       </section>`);
@@ -119,7 +138,7 @@ const RatingsUI = {
 
   // Deal the next film, moving to the next list when this one runs out
   advance() {
-    let key = Feed.next();
+    const key = Feed.next();
     if (!key) {
       const finished = Catalog.get(Feed.categoryId).name;
       const nextId = Catalog.nextId(Feed.categoryId);
@@ -127,10 +146,8 @@ const RatingsUI = {
         this.renderEmpty();
         return;
       }
-      Feed.start(nextId);
-      App.savePrefs();
       this.toast(`Finished “${finished}”. Now: ${Catalog.get(nextId).name}`);
-      key = Feed.next();
+      return this.switchCategory(nextId, { announce: false });
     }
     this.show(key);
   },
@@ -144,17 +161,17 @@ const RatingsUI = {
     }
 
     const cached = MovieInfo.get(key);
-    this.renderCard(key, MovieInfo.isUsable(cached) ? cached : null);
+    this.renderCard(key, MovieInfo.isUsable(cached, key) ? cached : null);
     this.prefetch();
     if (cached) {
-      if (!MovieInfo.isUsable(cached)) this.passOver(key);
+      if (!MovieInfo.isUsable(cached, key)) this.passOver(key);
       return;
     }
 
     try {
       const info = await MovieInfo.fetch(key);
       if (seq !== this.renderSeq) return;
-      if (!MovieInfo.isUsable(info)) {
+      if (!MovieInfo.isUsable(info, key)) {
         this.passOver(key);
         return;
       }
@@ -186,10 +203,13 @@ const RatingsUI = {
     const entry = info ? Ratings.get(info.imdbID) : null;
     const stars = entry ? entry.stars : 0;
     const meta = [film.year, info && info.runtime, film.genres.slice(0, 3).join(', ')].filter(Boolean).join(' · ');
-    const people = info ? [info.director && `Dir. ${info.director}`, info.actors].filter(Boolean).join(' · ') : '';
+    const credit = info && info.type === 'series' ? 'Created by' : 'Dir.';
+    const people = info ? [info.director && `${credit} ${info.director}`, info.actors].filter(Boolean).join(' · ') : '';
     const judged = entry && (entry.verdict === 'up' || entry.verdict === 'down');
     // The crowd's view stays hidden until you've given yours
-    const crowd = judged && basics.likeRate !== null ? `${Math.round(basics.likeRate * 100)}% of viewers liked it` : '';
+    const crowd = !judged ? ''
+      : basics.likeRate !== null ? `${Math.round(basics.likeRate * 100)}% of viewers liked it`
+        : info && info.tmdbRating ? `TMDB ${info.tmdbRating}/10` : '';
     const [statusIcon, statusText] = !entry ? [] : entry.verdict ? VERDICT_LABELS[entry.verdict] : entry.want ? ['want', 'Want to watch'] : [];
 
     this.els.card.className = `card${info ? '' : ' loading'}`;
@@ -244,6 +264,18 @@ const RatingsUI = {
       </div>`;
   },
 
+  // A card with a message instead of a film; optionally a button to Settings
+  renderMessage(title, text, withSettings = false) {
+    this.updateHeader();
+    this.els.card.className = 'card empty';
+    this.els.card.innerHTML = html`
+      <div class="info">
+        <h1 class="title">${title}</h1>
+        <p class="meta">${text}</p>
+        ${withSettings && html`<button type="button" class="button primary" data-action="settings">Open settings</button>`}
+      </div>`;
+  },
+
   renderEmpty() {
     this.updateHeader();
     this.els.card.className = 'card empty';
@@ -266,12 +298,13 @@ const RatingsUI = {
   currentInfo() {
     const key = Feed.current();
     const info = key && MovieInfo.get(key);
-    return MovieInfo.isUsable(info) ? info : null;
+    return MovieInfo.isUsable(info, key) ? info : null;
   },
 
   async act(action, value) {
     if (this.busy) return;
     const key = Feed.current();
+    if (action === 'settings') return this.openSettings();
     if (action === 'retry') return this.show(key);
     if (action === 'back') {
       if (!Feed.back()) return this.toast('This is the first one');
@@ -319,10 +352,14 @@ const RatingsUI = {
     }
   },
 
-  // After a thumb, say how MovieLens viewers saw it
+  // After a thumb, say how MovieLens viewers (or for TV, TMDB's) saw it
   revealCrowd(key, verdict) {
     const { likeRate } = Catalog.basics(key);
-    if (likeRate === null) return;
+    const info = MovieInfo.get(key);
+    if (likeRate === null) {
+      if (info && info.tmdbRating) this.toast(`TMDB viewers rate it ${info.tmdbRating}/10`, verdict === 'up' ? 'thumb-up' : 'thumb-down');
+      return;
+    }
     const pct = Math.round(likeRate * 100);
     const minority = verdict === 'up' ? likeRate < 0.4 : likeRate > 0.6;
     this.toast(`${pct}% of MovieLens viewers liked it${minority ? '. You’re in the minority' : ''}`, verdict === 'up' ? 'thumb-up' : 'thumb-down');
@@ -549,7 +586,8 @@ const RatingsUI = {
     this.els.settingsSheet.querySelectorAll('[data-order]').forEach(button => {
       button.setAttribute('aria-checked', String(button.dataset.order === Feed.order));
     });
-    this.els.clearSkips.textContent = `Show skipped films again (${Ratings.counts().skip})`;
+    this.els.clearSkips.textContent = `Show skipped titles again (${Ratings.counts().skip})`;
+    this.els.tmdbKey.value = TMDB.key;
     this.els.settingsSheet.showModal();
   },
 
@@ -562,6 +600,14 @@ const RatingsUI = {
         App.savePrefs();
         this.advance();
       });
+    });
+
+    this.els.tmdbSave.addEventListener('click', () => {
+      TMDB.key = this.els.tmdbKey.value.trim();
+      App.savePrefs();
+      this.els.settingsSheet.close();
+      this.toast(TMDB.key ? 'TMDB key saved on this device' : 'TMDB key removed', 'check');
+      if (Catalog.isTv(Feed.categoryId)) this.switchCategory(Feed.categoryId, { announce: false });
     });
 
     const today = () => new Date().toISOString().split('T')[0];
@@ -601,7 +647,7 @@ const RatingsUI = {
 
     this.els.clearSkips.addEventListener('click', () => {
       const count = Ratings.clearSkips();
-      this.toast(count ? `${count} skipped film${count > 1 ? 's' : ''} will come round again` : 'No skipped films');
+      this.toast(count ? `${count} skipped title${count > 1 ? 's' : ''} will come round again` : 'Nothing skipped');
       this.els.settingsSheet.close();
       Feed.start(Feed.categoryId);
       this.updateHeader();

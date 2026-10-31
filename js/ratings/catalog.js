@@ -5,6 +5,9 @@
 //
 // Films are keyed by IMDb ID. Recent films MovieLens doesn't have are keyed
 // "title:Name (Year)" and matched on OMDb by title the first time they're dealt.
+//
+// TV lists come live from TMDB (js/ratings/tmdb.js), keyed "tv:<TMDB id>",
+// and are fetched when first opened, then kept for a week.
 // ============================================================================
 
 const MIX_ID = 'mix';
@@ -25,9 +28,17 @@ const MovieInfo = {
     return info && info.imdbID ? info.imdbID : null;
   },
 
-  // TV series sneak into MovieLens; they, and films OMDb can't find, are passed over
-  isUsable(info) {
-    return Boolean(info && !info.missing && info.type === 'movie');
+  // What a key should turn out to be: shows from TV lists, or a show you've
+  // already rated; everything else is a film
+  expectedType(key) {
+    if (TMDB.isShowKey(key)) return 'series';
+    const entry = key.startsWith('tt') ? Ratings.get(key) : null;
+    return entry && entry.type === 'series' ? 'series' : 'movie';
+  },
+
+  // Series that sneak into the film lists, and titles nobody can find, are passed over
+  isUsable(info, key) {
+    return Boolean(info && !info.missing && info.type === this.expectedType(key));
   },
 
   // Shares one request per key; throws on network, key or quota problems
@@ -49,6 +60,7 @@ const MovieInfo = {
   },
 
   async request(key) {
+    if (TMDB.isShowKey(key)) return TMDB.details(key);
     const url = new URL(CONFIG.API.OMDB_URL);
     url.searchParams.set('apikey', CONFIG.API.OMDB_KEY);
     if (key.startsWith('tt')) {
@@ -110,6 +122,9 @@ const MovieInfo = {
 const Catalog = {
   movies: {},
   categories: [],
+  // TV list id -> { fetchedAt, shows: [{ key, title, year }] }
+  tvLists: {},
+  onTvListsChange() {},
 
   async load() {
     const response = await fetch(RATINGS.CATEGORIES_URL);
@@ -123,7 +138,47 @@ const Catalog = {
       id: MIX_ID, group: 'Start here', name: 'Mix of everything',
       note: 'Every list shuffled together', keys: Object.keys(this.movies)
     };
-    this.categories = [...(data.categories || []), mix];
+    const films = [...(data.categories || []), mix].map(category => ({ ...category, media: 'film', loaded: true }));
+    const tv = TV_LISTS.map(list => ({ ...list, media: 'tv', keys: [], loaded: false }));
+    this.categories = [...films, ...tv];
+  },
+
+  // Snapshots saved by an earlier visit
+  restoreTvLists(saved) {
+    if (!saved || typeof saved !== 'object') return;
+    for (const [id, snapshot] of Object.entries(saved)) {
+      if (!snapshot || !Number.isFinite(snapshot.fetchedAt) || !Array.isArray(snapshot.shows)) continue;
+      this.tvLists[id] = snapshot;
+      this.useShows(id, snapshot.shows);
+    }
+  },
+
+  isTv(id) {
+    return this.get(id).media === 'tv';
+  },
+
+  // TV lists: from the week-old snapshot if there is one, otherwise from TMDB
+  async prepare(id) {
+    const category = this.get(id);
+    if (category.media !== 'tv') return;
+    const snapshot = this.tvLists[category.id];
+    if (category.loaded && snapshot && Date.now() - snapshot.fetchedAt < TMDB_CONFIG.LIST_MAX_AGE_MS) return;
+    const shows = await TMDB.listShows(category);
+    this.tvLists[category.id] = { fetchedAt: Date.now(), shows };
+    this.useShows(category.id, shows);
+    this.onTvListsChange();
+  },
+
+  useShows(id, shows) {
+    const category = this.categories.find(c => c.id === id && c.media === 'tv');
+    if (!category || !Array.isArray(shows)) return;
+    category.keys = [];
+    for (const show of shows) {
+      if (!show || typeof show.key !== 'string' || !TMDB.isShowKey(show.key)) continue;
+      if (!this.movies[show.key]) this.movies[show.key] = [String(show.title || ''), show.year || null, ''];
+      category.keys.push(show.key);
+    }
+    category.loaded = true;
   },
 
   get(id) {
@@ -158,13 +213,13 @@ const Catalog = {
     };
   },
 
-  // A film is out of the running once rated, skipped or wanted, or once OMDb
-  // has said it isn't a film
+  // A film or show is out of the running once rated, skipped or wanted, or
+  // once its details say it isn't what the list expected
   isDone(key) {
     const imdbID = MovieInfo.imdbID(key);
     if (imdbID && Ratings.isDone(imdbID)) return true;
     const info = MovieInfo.get(key);
-    return Boolean(info && !MovieInfo.isUsable(info));
+    return Boolean(info && !MovieInfo.isUsable(info, key));
   },
 
   remaining(id) {
@@ -177,12 +232,15 @@ const Catalog = {
     return order === 'shuffled' || id === MIX_ID ? shuffle(keys) : keys;
   },
 
-  // The next list with anything left in it, wrapping round
+  // The next list of the same kind (films or TV) with anything left in it,
+  // wrapping round; a TV list not fetched yet might have, so it counts
   nextId(id) {
-    const index = this.categories.findIndex(c => c.id === id);
+    const current = this.get(id);
+    const index = this.categories.indexOf(current);
     for (let step = 1; step <= this.categories.length; step++) {
       const next = this.categories[(index + step) % this.categories.length];
-      if (this.remaining(next.id) > 0) return next.id;
+      if (next.media !== current.media) continue;
+      if (!next.loaded || this.remaining(next.id) > 0) return next.id;
     }
     return null;
   }

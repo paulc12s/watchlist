@@ -12,10 +12,10 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 // Plain <script> globals, loaded into one context in page order
 function loadRatings() {
   const files = ['js/config.js', 'js/security.js', 'js/ratings/config.js', 'js/ratings/store.js',
-    'js/ratings/catalog.js', 'js/ratings/taste.js', 'js/ratings/feed.js'];
+    'js/ratings/tmdb.js', 'js/ratings/catalog.js', 'js/ratings/taste.js', 'js/ratings/feed.js'];
   const context = vm.createContext({ console, crypto, setTimeout, clearTimeout, URL, ItemModel: { newId: () => 'x' } });
   vm.runInContext(
-    `${files.map(read).join('\n')}\nthis.app = { Ratings, Catalog, MovieInfo, Taste, Feed };`,
+    `${files.map(read).join('\n')}\nthis.app = { Ratings, Catalog, MovieInfo, Taste, Feed, TMDB };`,
     context
   );
   const { app } = context;
@@ -120,13 +120,15 @@ test('watchlist export imports: stars map to thumbs, unwatched become want-to-wa
       { title: 'Show', imdbID: 'tt0000015', type: 'series', stars: 5 }
     ]
   });
-  assert.deepEqual({ ...result }, { added: 4, updated: 0 });
+  assert.deepEqual({ ...result }, { added: 5, updated: 0 });
   assert.equal(Ratings.get('tt0000011').want, true);
   assert.equal(Ratings.get('tt0000012').verdict, 'up');
   assert.deepEqual([...Ratings.get('tt0000012').genres], ['Drama', 'Crime']);
   assert.equal(Ratings.get('tt0000013').verdict, 'down');
   assert.equal(Ratings.get('tt0000014').verdict, '', '3 stars still needs a thumb');
-  assert.equal(Ratings.get('tt0000015'), undefined);
+  assert.equal(Ratings.get('tt0000015').type, 'series', 'TV shows come across too');
+  assert.equal(Ratings.get('tt0000015').verdict, 'up');
+  assert.equal(Ratings.get('tt0000012').type, 'movie');
 });
 
 test('backup round-trips and keeps the most recently changed copy', () => {
@@ -354,4 +356,58 @@ test('entries keep the IMDb rating OMDb gave, and drop nonsense values', () => {
   assert.equal(Ratings.update(film(1, { imdbRating: '' }), { stars: 4 }).imdbRating, 7.4, 'a blank lookup keeps it');
   assert.equal(Ratings.sanitize({ imdbID: 'tt1234567', title: 'A', imdbRating: 'N/A' }).imdbRating, null);
   assert.equal(Ratings.sanitize({ imdbID: 'tt1234567', title: 'A', imdbRating: 42 }).imdbRating, null);
+});
+
+test('TMDB show details map onto the same shape as film details', () => {
+  const { TMDB } = loadRatings();
+  const info = TMDB.parse({
+    id: 1396, name: 'Breaking Bad', first_air_date: '2008-01-20', overview: 'A chemistry teacher…',
+    genres: [{ id: 18, name: 'Drama' }, { id: 80, name: 'Crime' }], created_by: [{ name: 'Vince Gilligan' }],
+    number_of_seasons: 5, poster_path: '/abc123.jpg', vote_average: 8.91, vote_count: 14000,
+    external_ids: { imdb_id: 'tt0903747' },
+    aggregate_credits: { cast: [{ name: 'Bryan Cranston' }, { name: 'Aaron Paul' }, { name: 'Anna Gunn' }, { name: 'Extra' }] }
+  });
+  assert.equal(info.imdbID, 'tt0903747');
+  assert.equal(info.type, 'series');
+  assert.equal(info.year, 2008);
+  assert.equal(info.runtime, '5 seasons');
+  assert.equal(info.director, 'Vince Gilligan');
+  assert.equal(info.actors, 'Bryan Cranston, Aaron Paul, Anna Gunn');
+  assert.equal(info.poster, 'https://image.tmdb.org/t/p/w780/abc123.jpg');
+  assert.equal(info.tmdbRating, 8.9);
+  assert.equal(info.missing, undefined);
+
+  const noImdb = TMDB.parse({ id: 1, name: 'Obscure', external_ids: {}, poster_path: 'javascript:x' });
+  assert.equal(noImdb.missing, true, 'shows without an IMDb ID are passed over');
+  assert.equal(noImdb.poster, '');
+});
+
+test('TV lists load into the catalog and expect series; film lists expect films', () => {
+  const { Catalog, MovieInfo, Ratings } = loadRatings();
+  assert.ok(Catalog.isTv('tv-most-watched'));
+  assert.equal(Catalog.get('tv-most-watched').loaded, false);
+  assert.equal(Catalog.nextId('one'), 'two', 'film lists rotate among films');
+  assert.ok(Catalog.isTv(Catalog.nextId('tv-most-watched')), 'TV lists rotate among TV');
+
+  Catalog.restoreTvLists({ 'tv-most-watched': { fetchedAt: Date.now(), shows: [{ key: 'tv:1396', title: 'Breaking Bad', year: 2008 }] } });
+  assert.deepEqual([...Catalog.get('tv-most-watched').keys], ['tv:1396']);
+  assert.equal(Catalog.basics('tv:1396').title, 'Breaking Bad');
+
+  const show = { imdbID: 'tt0903747', title: 'Breaking Bad', type: 'series', genres: [] };
+  MovieInfo.cache.set('tv:1396', show);
+  assert.equal(MovieInfo.isUsable(show, 'tv:1396'), true);
+  assert.equal(MovieInfo.isUsable(show, 'tt0903747'), false, 'a series turning up in a film list is passed over');
+  Ratings.setVerdict({ ...show }, 'up');
+  assert.equal(MovieInfo.isUsable(show, 'tt0903747'), true, 'but a show you rated opens fine by its IMDb ID');
+  assert.equal(Catalog.remaining('tv-most-watched'), 0);
+
+  Catalog.restoreTvLists({ bad: null, 'tv-hbo': { fetchedAt: 'x', shows: [] } });
+  assert.equal(Catalog.get('tv-hbo').loaded, false, 'malformed snapshots are ignored');
+});
+
+test('want-to-watch export keeps TV shows as series for the watchlist', () => {
+  const { Ratings } = loadRatings();
+  Ratings.update({ imdbID: 'tt0903747', title: 'Breaking Bad', type: 'series', genres: ['Drama'] }, { want: true });
+  const [item] = Ratings.watchlistItems();
+  assert.equal(item.type, 'series');
 });

@@ -53,6 +53,8 @@ const Ratings = {
       poster: Security.isSafeUrl(raw.poster) ? raw.poster : '',
       // IMDb's audience rating out of 10, from OMDb when the card was shown
       imdbRating: Number(raw.imdbRating) > 0 && Number(raw.imdbRating) <= 10 ? Number(raw.imdbRating) : null,
+      // 'movie' or 'series', the same values the watchlist uses
+      type: raw.type === 'series' ? 'series' : 'movie',
       verdict: RATINGS.VERDICTS.includes(raw.verdict) ? raw.verdict : '',
       stars: Number.isInteger(raw.stars) && raw.stars >= 0 && raw.stars <= 5 ? raw.stars : 0,
       rewatch: Boolean(raw.rewatch),
@@ -68,7 +70,7 @@ const Ratings = {
     const existing = this.entries.get(info.imdbID);
     // Fresh details win over the stored snapshot, but blanks don't erase it
     const details = Object.fromEntries(
-      ['imdbID', 'title', 'year', 'genres', 'director', 'actors', 'plot', 'poster', 'imdbRating']
+      ['imdbID', 'title', 'year', 'genres', 'director', 'actors', 'plot', 'poster', 'imdbRating', 'type']
         .filter(field => info[field] && String(info[field]).length)
         .map(field => [field, info[field]])
     );
@@ -132,7 +134,7 @@ const Ratings = {
   watchlistItems() {
     return this.all().filter(e => e.want).map(e => ({
       title: e.title,
-      type: 'movie',
+      type: e.type,
       priority: 'medium',
       genre: e.genres.join(', '),
       plot: e.plot,
@@ -147,6 +149,7 @@ const Ratings = {
     const line = e => {
       const parts = [`${e.title}${e.year ? ` (${e.year})` : ''}`];
       if (e.stars) parts.push('★'.repeat(e.stars));
+      if (e.type === 'series') parts.push('TV series');
       if (e.imdbRating) parts.push(`IMDb ${e.imdbRating}`);
       if (e.rewatch) parts.push('would rewatch');
       if (e.review) parts.push(`"${e.review.replace(/\s+/g, ' ')}"`);
@@ -221,10 +224,11 @@ const Ratings = {
     const thumbed = entry => Boolean(entry && (entry.verdict === 'up' || entry.verdict === 'down'));
 
     const merge = (item, changes) => {
-      if (!item || item.type === 'youtube' || item.type === 'series') return;
+      if (!item || item.type === 'youtube') return;
       const existing = this.entries.get(item.imdbID);
       const base = existing || {
-        imdbID: item.imdbID, title: item.title, genres: item.genre, plot: item.plot, poster: item.poster
+        imdbID: item.imdbID, title: item.title, genres: item.genre, plot: item.plot, poster: item.poster,
+        type: item.type
       };
       const entry = this.sanitize({ ...base, ...changes(existing || {}) });
       if (!entry) return;

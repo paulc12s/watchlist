@@ -56,10 +56,11 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 
 ## Ratings (`ratings.html`)
 
-A separate swipe feed for rating films and building a taste profile. It has its own storage (`RatingsDB`) and never changes the watchlist's data; the two exchange JSON files.
+A separate swipe feed for rating films and TV shows and building a taste profile. It has its own storage (`RatingsDB`) and never changes the watchlist's data; the two exchange JSON files.
 
 - **Swipe right / left** — thumbs up / down. **Swipe up** — skip (not seen, or can't remember); skipped films don't come back unless you choose “Show skipped films again” in settings. **Swipe down** — back to the previous film. Arrow keys do the same on a computer
 - **On the card** — stars (1–5 keys), 🔖 want to watch (W), 🔁 would rewatch (R), ✏️ notes (N). Stars, notes or rewatch mean you've seen it, so the film needs a thumb rather than a skip
+- **TV** — add a free [TMDB](https://www.themoviedb.org/settings/api) key in settings (kept on that device only) to unlock live TV lists: most watched, top rated, trending, genres, networks and decades. Shows are rated like films and stored by IMDb ID, so they match the watchlist's TV items in both directions. TV ratings shape the taste profile but not recommendations, which use MovieLens films
 - **Lists** — tap the list name to choose (most watched, love-it-or-hate-it, Oscar Best Picture nominees, decades, genres, hidden gems, a mix); ⏭ moves to the next list, and a finished list rolls on to the next automatically. Best-first or shuffled order is in settings
 - **Tags & the crowd** — cards show MovieLens viewers' tags (“twist ending”, “atmospheric”). After you give a thumb, you see what share of MovieLens viewers liked the film; it's hidden until then so it can't sway you
 - **📊 My taste** — genres, themes & style (tags), decades and directors you lean toward or away from; how often you agree with the crowd and where you don't; plus your liked / disliked / want / skipped films
@@ -100,7 +101,7 @@ js/
   batch-upload.js    Batch upload tool (uses the shared modules above)
   ui.js              Rendering & event handling
   app.js             Initialization
-  ratings/           Ratings page: config, db, store, catalog, taste, feed, recommend, ui, app
+  ratings/           Ratings page: config, db, store, tmdb, catalog, taste, feed, recommend, ui, app
 ratings.html         Ratings swipe feed (+ ratings.css)
 data/categories.json Film lists for the ratings page
 data/similar.json    Similar-films data for recommendations
