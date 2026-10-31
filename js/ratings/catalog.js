@@ -229,8 +229,16 @@ const Catalog = {
   // Keys to deal, in list order or shuffled; the mix is always shuffled
   queue(id, order) {
     const keys = this.get(id).keys.filter(key => !this.isDone(key));
+    if (order === 'learn' && !this.isTv(id) && this.learnScore) {
+      const score = this.learnScore();
+      return keys.map(key => [key, score(key)]).sort((a, b) => b[1] - a[1]).map(([key]) => key);
+    }
     return order === 'shuffled' || id === MIX_ID ? shuffle(keys) : keys;
   },
+
+  // Set once the recommender is ready: returns key -> how much rating it would
+  // teach (widely seen, and little you've rated is similar to it)
+  learnScore: null,
 
   // The next list of the same kind (films or TV) with anything left in it,
   // wrapping round; a TV list not fetched yet might have, so it counts

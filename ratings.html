@@ -41,6 +41,7 @@
   <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
   <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M11 3.5 12.9 9l5.6 2-5.6 2-1.9 5.5L9.1 13l-5.6-2 5.6-2Z"/><path d="m18.5 15 .8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8Z"/></symbol>
 </svg>
 <div class="app">
   <header class="topbar">
@@ -52,6 +53,7 @@
       <svg class="icon chevron" aria-hidden="true"><use href="#i-chevron"/></svg>
     </button>
     <button type="button" class="icon-button" id="nextCategory" title="Next list" aria-label="Next list"><svg class="icon" aria-hidden="true"><use href="#i-next"/></svg></button>
+    <button type="button" class="icon-button" id="forYouButton" title="For you" aria-label="For you"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg></button>
     <button type="button" class="icon-button" id="tasteButton" title="My taste" aria-label="My taste"><svg class="icon" aria-hidden="true"><use href="#i-taste"/></svg></button>
     <button type="button" class="icon-button" id="settingsButton" title="Settings" aria-label="Settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg></button>
   </header>
@@ -92,6 +94,14 @@
   </div>
 </dialog>
 
+<dialog class="sheet" id="forYouSheet" aria-labelledby="forYouTitle">
+  <header class="sheet-header">
+    <h2 id="forYouTitle">For you</h2>
+    <button type="button" class="icon-button" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+  </header>
+  <div class="sheet-body" id="forYouBody"></div>
+</dialog>
+
 <dialog class="sheet" id="tasteSheet" aria-labelledby="tasteTitle">
   <header class="sheet-header">
     <h2 id="tasteTitle">My taste</h2>
@@ -111,7 +121,9 @@
       <div class="segmented" role="radiogroup" aria-label="Order">
         <button type="button" role="radio" data-order="ranked">Best first</button>
         <button type="button" role="radio" data-order="shuffled">Shuffled</button>
+        <button type="button" role="radio" data-order="learn">Learn fastest</button>
       </div>
+      <p class="hint">Learn fastest deals widely seen films the recommender knows least about yet, so each swipe teaches it the most. Film lists only; TV lists keep their order.</p>
     </section>
     <section class="setting">
       <h3>Backup</h3>
@@ -160,6 +172,9 @@
 <script src="js/ratings/catalog.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/taste.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/feed.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/recommend.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/tvrecs.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/foryou.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/ui.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/app.js?v=__APP_VERSION__"></script>
 </body>

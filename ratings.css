@@ -123,7 +123,7 @@ button:focus-visible {
 .topbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .category-button {
@@ -131,9 +131,9 @@ button:focus-visible {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 46px;
-  padding: 0 14px 0 18px;
+  gap: 8px;
+  height: 42px;
+  padding: 0 10px 0 16px;
   border-radius: var(--radius-full);
   text-align: left;
   transition: background 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.25s var(--spring);
@@ -172,8 +172,8 @@ button:focus-visible {
   flex: none;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   padding: 0;
   border-radius: var(--radius-full);
   color: var(--ink);
@@ -1017,6 +1017,45 @@ textarea:focus {
 
 .films {
   margin-top: 24px;
+}
+
+/* For you */
+
+.lane {
+  margin-top: 6px;
+}
+
+.lane-note {
+  margin: -4px 0 6px;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+
+.film-why {
+  font-size: 0.76rem;
+  color: var(--ink-3);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.film-crowd {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 0.74rem;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.guess-detail {
+  margin: -2px 0 8px;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+
+.guesses .lean-row {
+  grid-template-columns: 1fr auto;
 }
 
 .film-list {

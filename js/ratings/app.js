@@ -7,20 +7,23 @@ const App = {
     RatingsUI.init();
     try {
       await RatingsDB.open();
-      const { RATINGS_KEY, INFO_KEY, PREFS_KEY, TV_LISTS_KEY } = RATINGS.STORAGE;
-      const [ratings, info, prefs, tvLists] = await Promise.all([
+      const { RATINGS_KEY, INFO_KEY, PREFS_KEY, TV_LISTS_KEY, TV_RECS_KEY } = RATINGS.STORAGE;
+      const [ratings, info, prefs, tvLists, tvRecs] = await Promise.all([
         RatingsDB.load(RATINGS_KEY), RatingsDB.load(INFO_KEY), RatingsDB.load(PREFS_KEY),
-        RatingsDB.load(TV_LISTS_KEY), Catalog.load()
+        RatingsDB.load(TV_LISTS_KEY), RatingsDB.load(TV_RECS_KEY), Catalog.load()
       ]);
       Ratings.load(ratings);
       MovieInfo.load(info);
       Catalog.restoreTvLists(tvLists);
-      Feed.order = prefs && prefs.order === 'shuffled' ? 'shuffled' : 'ranked';
+      TvRecs.load(tvRecs);
+      Feed.order = prefs && RATINGS.ORDERS.includes(prefs.order) ? prefs.order : 'ranked';
       TMDB.key = prefs && typeof prefs.tmdbKey === 'string' ? prefs.tmdbKey : '';
 
       Ratings.onChange = () => RatingsDB.scheduleSave(RATINGS_KEY, () => Ratings.all());
       MovieInfo.onChange = () => RatingsDB.scheduleSave(INFO_KEY, () => MovieInfo.dump());
       Catalog.onTvListsChange = () => RatingsDB.scheduleSave(TV_LISTS_KEY, () => Catalog.tvLists);
+      TvRecs.onChange = () => RatingsDB.scheduleSave(TV_RECS_KEY, () => TvRecs.cache);
+      this.loadRecommender();
 
       RatingsUI.switchCategory((prefs && prefs.categoryId) || 'popular', { announce: false });
     } catch (error) {
@@ -35,6 +38,21 @@ const App = {
     });
     window.addEventListener('pagehide', () => RatingsDB.flush());
     this.checkVersion();
+  },
+
+  // The film similarity data is large, so it loads alongside the first card
+  // rather than before it; guesses and For you's film picks start once it's in
+  async loadRecommender() {
+    try {
+      const response = await fetch(RATINGS.SIMILAR_URL);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      Recommender.use(await response.json());
+      Catalog.learnScore = () => Guesses.learnScore();
+      if (Feed.order === 'learn') Feed.start(Feed.categoryId);
+      if (RatingsUI.els.forYouSheet.open) ForYou.render();
+    } catch (error) {
+      console.error('Could not load recommendations:', error);
+    }
   },
 
   savePrefs() {

@@ -55,6 +55,11 @@ const Ratings = {
       imdbRating: Number(raw.imdbRating) > 0 && Number(raw.imdbRating) <= 10 ? Number(raw.imdbRating) : null,
       // 'movie' or 'series', the same values the watchlist uses
       type: raw.type === 'series' ? 'series' : 'movie',
+      // TMDB's ID for shows, to fetch their recommendations
+      tmdbId: Number.isInteger(raw.tmdbId) && raw.tmdbId > 0 ? raw.tmdbId : null,
+      // Where the recommender ranked this title for you when it was dealt
+      // (1 = top pick), saved with your first verdict to measure its guesses
+      guessPct: typeof raw.guessPct === 'number' && raw.guessPct >= 0 && raw.guessPct <= 1 ? raw.guessPct : null,
       verdict: RATINGS.VERDICTS.includes(raw.verdict) ? raw.verdict : '',
       stars: Number.isInteger(raw.stars) && raw.stars >= 0 && raw.stars <= 5 ? raw.stars : 0,
       rewatch: Boolean(raw.rewatch),
@@ -70,7 +75,7 @@ const Ratings = {
     const existing = this.entries.get(info.imdbID);
     // Fresh details win over the stored snapshot, but blanks don't erase it
     const details = Object.fromEntries(
-      ['imdbID', 'title', 'year', 'genres', 'director', 'actors', 'plot', 'poster', 'imdbRating', 'type']
+      ['imdbID', 'title', 'year', 'genres', 'director', 'actors', 'plot', 'poster', 'imdbRating', 'type', 'tmdbId']
         .filter(field => info[field] && String(info[field]).length)
         .map(field => [field, info[field]])
     );

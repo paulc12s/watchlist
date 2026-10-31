@@ -12,9 +12,21 @@ const RATINGS = {
     RATINGS_KEY: 'ratings_v1',
     INFO_KEY: 'movie_info_v1',
     PREFS_KEY: 'prefs_v1',
-    TV_LISTS_KEY: 'tv_lists_v1'
+    TV_LISTS_KEY: 'tv_lists_v1',
+    TV_RECS_KEY: 'tv_recs_v1'
   },
   CATEGORIES_URL: 'data/categories.json',
+  SIMILAR_URL: 'data/similar.json',
+  ORDERS: ['ranked', 'shuffled', 'learn'],
+  // Films or shows with a thumb before For you has much to go on
+  MIN_FOR_YOU: 10,
+  FOR_YOU_PICKS: 12,
+  // OMDb lookups for posters in For you, per lane
+  FOR_YOU_POSTERS: 8,
+  // Guesses about cards, revealed after you swipe: percentile cut-offs
+  GUESS_LABELS: [[0.95, 'a top pick for you'], [0.8, 'a good match'], [0.5, 'a maybe'], [0, 'not your usual']],
+  GUESS_TOP: 0.8,
+  MIN_GUESSES: 10,
   VERDICTS: ['up', 'down', 'skip'],
   // Pixels, or a quick flick, to count a drag as a swipe
   SWIPE_DISTANCE: 90,

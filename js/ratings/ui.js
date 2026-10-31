@@ -24,7 +24,8 @@ const RatingsUI = {
     const ids = ['card', 'stage', 'categoryButton', 'categoryName', 'categoryProgress', 'nextCategory',
       'tasteButton', 'settingsButton', 'toast', 'categorySheet', 'categoryList', 'noteSheet', 'noteFilm',
       'noteText', 'noteSave', 'tasteSheet', 'tasteBody', 'settingsSheet', 'exportBackup', 'importButton',
-      'importFile', 'exportWant', 'exportAI', 'clearSkips', 'tmdbKey', 'tmdbSave'];
+      'importFile', 'exportWant', 'exportAI', 'clearSkips', 'tmdbKey', 'tmdbSave',
+      'forYouButton', 'forYouSheet', 'forYouBody'];
     ids.forEach(id => { this.els[id] = document.getElementById(id); });
 
     document.querySelectorAll('.actions [data-action]').forEach(button => {
@@ -38,6 +39,8 @@ const RatingsUI = {
     this.els.categoryButton.addEventListener('click', () => this.openCategories());
     this.els.nextCategory.addEventListener('click', () => this.switchCategory(Catalog.nextId(Feed.categoryId)));
     this.els.tasteButton.addEventListener('click', () => this.openTaste());
+    this.els.forYouButton.addEventListener('click', () => ForYou.open());
+    ForYou.bind();
     this.els.settingsButton.addEventListener('click', () => this.openSettings());
     this.els.categoryList.addEventListener('click', event => {
       const button = event.target.closest('[data-category]');
@@ -319,8 +322,11 @@ const RatingsUI = {
     switch (action) {
       case 'up':
       case 'down':
-        Ratings.setVerdict(info, action);
-        this.revealCrowd(key, action);
+      {
+        const guess = this.firstVerdict(info) ? Guesses.forCard(key, info) : null;
+        Ratings.update(info, { verdict: action, ...(guess !== null ? { guessPct: guess } : {}) });
+        this.reveal(key, action, guess);
+      }
         await this.fly(action);
         return this.advance();
       case 'skip':
@@ -329,7 +335,10 @@ const RatingsUI = {
           return this.toast('You’ve rated this one. Swipe right or left to save it.');
         }
         // Moving past a film already dealt with leaves its rating alone
-        if (!Ratings.isDone(info.imdbID)) Ratings.setVerdict(info, 'skip');
+        if (!Ratings.isDone(info.imdbID)) {
+          const guess = this.firstVerdict(info) ? Guesses.forCard(key, info) : null;
+          Ratings.update(info, { verdict: 'skip', ...(guess !== null ? { guessPct: guess } : {}) });
+        }
         await this.fly('skip');
         return this.advance();
       case 'want': {
@@ -352,17 +361,26 @@ const RatingsUI = {
     }
   },
 
-  // After a thumb, say how MovieLens viewers (or for TV, TMDB's) saw it
-  revealCrowd(key, verdict) {
+  // Only a title's first verdict is scored against the guess
+  firstVerdict(info) {
+    const entry = Ratings.get(info.imdbID);
+    return !(entry && entry.verdict);
+  },
+
+  // After a thumb, reveal the recommender's guess and how the crowd saw it
+  // (MovieLens viewers for films, TMDB's for TV)
+  reveal(key, verdict, guess) {
     const { likeRate } = Catalog.basics(key);
     const info = MovieInfo.get(key);
-    if (likeRate === null) {
-      if (info && info.tmdbRating) this.toast(`TMDB viewers rate it ${info.tmdbRating}/10`, verdict === 'up' ? 'thumb-up' : 'thumb-down');
-      return;
+    const parts = [];
+    if (guess !== null) parts.push(`We guessed ${Guesses.label(guess)}`);
+    if (likeRate !== null) {
+      const minority = verdict === 'up' ? likeRate < 0.4 : likeRate > 0.6;
+      parts.push(`${Math.round(likeRate * 100)}% of MovieLens viewers liked it${minority ? ', so you’re in the minority' : ''}`);
+    } else if (info && info.tmdbRating) {
+      parts.push(`TMDB viewers rate it ${info.tmdbRating}/10`);
     }
-    const pct = Math.round(likeRate * 100);
-    const minority = verdict === 'up' ? likeRate < 0.4 : likeRate > 0.6;
-    this.toast(`${pct}% of MovieLens viewers liked it${minority ? '. You’re in the minority' : ''}`, verdict === 'up' ? 'thumb-up' : 'thumb-down');
+    if (parts.length) this.toast(parts.join('. '), verdict === 'up' ? 'thumb-up' : 'thumb-down');
   },
 
   // Animate the card off screen in the direction of the action
@@ -493,6 +511,26 @@ const RatingsUI = {
     });
   },
 
+  // How the recommender's guesses have held up against your verdicts
+  guessSection() {
+    const record = Guesses.record(Ratings.all());
+    if (record.total < RATINGS.MIN_GUESSES) return '';
+    const pct = x => `${Math.round(x * 100)}%`;
+    const top = Math.round((1 - RATINGS.GUESS_TOP) * 100);
+    return html`
+      <section class="lean guesses">
+        <h3>How our guesses do</h3>
+        <p class="hint">From ${record.total} cards where we made a guess before you swiped.</p>
+        <ul>
+          <li class="lean-row"><span class="lean-name">Ranked in your top ${top}%</span><span class="lean-count">${record.top.count}</span></li>
+          <li class="guess-detail">Seen ${pct(record.top.seen)} · liked ${pct(record.top.liked)} of those seen</li>
+          <li class="lean-row"><span class="lean-name">Everything else</span><span class="lean-count">${record.rest.count}</span></li>
+          <li class="guess-detail">Seen ${pct(record.rest.seen)} · liked ${pct(record.rest.liked)} of those seen</li>
+        </ul>
+        <p class="hint">Good guesses show up as a higher seen and liked share in the top group.</p>
+      </section>`;
+  },
+
   crowdSection(crowd) {
     if (crowd.compared < RATINGS.MIN_PROFILE_FILMS) return '';
     const film = ({ entry, rate }) => html`
@@ -557,6 +595,7 @@ const RatingsUI = {
       ${leaning('Decades', taste.decades)}
       ${leaning('Directors', taste.directors)}
       ${this.crowdSection(taste.crowd)}
+      ${this.guessSection()}
       <section class="films">
         <div class="segmented" role="tablist">
           ${tabs.map(([id, iconName, count, label]) => html`

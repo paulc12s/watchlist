@@ -12,10 +12,11 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 // Plain <script> globals, loaded into one context in page order
 function loadRatings() {
   const files = ['js/config.js', 'js/security.js', 'js/ratings/config.js', 'js/ratings/store.js',
-    'js/ratings/tmdb.js', 'js/ratings/catalog.js', 'js/ratings/taste.js', 'js/ratings/feed.js'];
+    'js/ratings/tmdb.js', 'js/ratings/catalog.js', 'js/ratings/taste.js', 'js/ratings/feed.js',
+    'js/ratings/recommend.js', 'js/ratings/tvrecs.js', 'js/ratings/foryou.js'];
   const context = vm.createContext({ console, crypto, setTimeout, clearTimeout, URL, ItemModel: { newId: () => 'x' } });
   vm.runInContext(
-    `${files.map(read).join('\n')}\nthis.app = { Ratings, Catalog, MovieInfo, Taste, Feed, TMDB };`,
+    `${files.map(read).join('\n')}\nthis.app = { Ratings, Catalog, MovieInfo, Taste, Feed, TMDB, Recommender, TvRecs, Guesses };`,
     context
   );
   const { app } = context;
@@ -410,4 +411,100 @@ test('want-to-watch export keeps TV shows as series for the watchlist', () => {
   Ratings.update({ imdbID: 'tt0903747', title: 'Breaking Bad', type: 'series', genres: ['Drama'] }, { want: true });
   const [item] = Ratings.watchlistItems();
   assert.equal(item.type, 'series');
+});
+
+// TMDB list results in the shape tvrecs.js reads
+const tmdbShows = (...shows) => ({
+  results: shows.map(([id, name, vote_average = 8, vote_count = 5000]) => ({ id, name, first_air_date: '2015-01-01', vote_average, vote_count, poster_path: `/p${id}.jpg` }))
+});
+
+test('TV recommendations: TMDB lists become a graph scored like films', () => {
+  const { Ratings, TvRecs, Recommender } = loadRatings();
+  const show = (tmdbId, fields) => Ratings.update({ imdbID: `tt90000${tmdbId}`, title: `Show ${tmdbId}`, type: 'series', tmdbId }, fields);
+  show(10, { verdict: 'up', stars: 5 });
+  show(20, { verdict: 'down' });
+  TvRecs.load({
+    recs: {
+      10: { fetchedAt: Date.now(), shows: [{ id: 11, name: 'Like Ten', year: 2016, poster: '/a.jpg', vote_average: 8.6, vote_count: 9000 }, { id: 30, name: 'Shared', vote_average: 8, vote_count: 3000 }] },
+      20: { fetchedAt: Date.now(), shows: [{ id: 21, name: 'Like Twenty', vote_average: 8.5, vote_count: 9000 }, { id: 30, name: 'Shared', vote_average: 8, vote_count: 3000 }] }
+    }
+  });
+  const graph = TvRecs.graph(Ratings.all());
+  const { great, fun } = Recommender.lanes(Ratings.all(), 5, graph);
+  assert.equal(great[0].id, 'tv:11', 'top pick comes from the 5-star show');
+  assert.deepEqual([...great[0].because], ['Show 10']);
+  assert.equal(great[0].poster, 'https://image.tmdb.org/t/p/w780/a.jpg');
+  assert.ok(![...great, ...fun].some(item => item.id === 'tv:21'), 'nothing near the disliked show alone');
+  assert.ok(![...great, ...fun].some(item => item.id === 'tv:10' || item.id === 'tv:20'), 'rated shows are left out');
+  assert.ok(Recommender.guess('tv:11', Ratings.all(), graph).percentile > Recommender.guess('tv:30', Ratings.all(), graph).percentile);
+});
+
+test('TV refresh resolves watchlist shows by IMDb ID and falls back to similar shows', async () => {
+  const { Ratings, TvRecs, TMDB } = loadRatings();
+  Ratings.update({ imdbID: 'tt0903747', title: 'Breaking Bad', type: 'series' }, { verdict: 'up' });
+  const calls = [];
+  TMDB.request = async path => {
+    calls.push(path);
+    if (path.startsWith('/find/')) return { tv_results: [{ id: 1396 }] };
+    if (path.endsWith('/recommendations')) return { results: [] };
+    if (path.endsWith('/similar')) return tmdbShows([60059, 'Better Call Saul']);
+    return null;
+  };
+  assert.equal(await TvRecs.refresh(Ratings.all()), 3);
+  assert.deepEqual(calls, ['/find/tt0903747', '/tv/1396/recommendations', '/tv/1396/similar']);
+  assert.equal(TvRecs.cache.recs[1396].shows[0].name, 'Better Call Saul');
+  assert.equal(await TvRecs.refresh(Ratings.all()), 0, 'cached for a week');
+});
+
+test('TV bridge ranks shows by how many of your film themes they share', async () => {
+  const { TvRecs, TMDB } = loadRatings();
+  TMDB.request = async (path, params) => {
+    if (path === '/search/keyword') {
+      const ids = { dystopia: 4565, 'time travel': 4379, quirky: 1 };
+      return { results: ids[params.query] ? [{ id: ids[params.query], name: params.query }] : [] };
+    }
+    if (params.with_keywords === 4565) return tmdbShows([1, 'Both'], [2, 'Only Dystopia']);
+    if (params.with_keywords === 4379) return tmdbShows([3, 'Only Time'], [1, 'Both']);
+    return { results: [] };
+  };
+  const picks = await TvRecs.bridge([], [
+    { name: 'dystopia', lift: 0.2 }, { name: 'time travel', lift: 0.2 }, { name: 'nonexistent', lift: 0.1 }, { name: 'quirky', lift: -0.3 }
+  ]);
+  assert.equal(picks[0].title, 'Both');
+  assert.deepEqual([...picks[0].because], ['dystopia', 'time travel']);
+  assert.equal(TvRecs.cache.keywords.nonexistent, 0, 'themes with no TMDB keyword are remembered as missing');
+  assert.ok(!('quirky' in TvRecs.cache.keywords), 'themes you lean away from are not looked up');
+});
+
+test('guesses are kept with the first verdict and summarised against your verdicts', () => {
+  const { Ratings, Guesses } = loadRatings();
+  const add = (n, verdict, guessPct) => Ratings.update(film(n, { imdbID: `tt30000${String(n).padStart(2, '0')}` }), { verdict, guessPct });
+  for (let n = 0; n < 6; n++) add(n, 'up', 0.9);
+  add(6, 'down', 0.95);
+  for (let n = 7; n < 10; n++) add(n, 'skip', 0.3);
+  add(10, 'up', 0.2);
+  const record = Guesses.record(Ratings.all());
+  assert.equal(record.total, 11);
+  assert.equal(record.top.count, 7);
+  assert.equal(record.top.seen, 1);
+  assert.equal(Math.round(record.top.liked * 100), 86);
+  assert.equal(record.rest.seen, 0.25);
+  assert.equal(Guesses.label(0.97), 'a top pick for you');
+  assert.equal(Guesses.label(0.1), 'not your usual');
+  assert.equal(Ratings.sanitize({ imdbID: 'tt1234567', title: 'A', guessPct: 2 }).guessPct, null);
+});
+
+test('learn-fastest order puts widely seen films with little evidence first', () => {
+  const { Catalog, Recommender, Guesses } = loadRatings();
+  Recommender.use({
+    films: [
+      ['tt0000001', 'Alpha', 1984, 'Drama', '', 70, 50000, 400],
+      ['tt0000002', 'Beta', 1995, 'Comedy', '', 70, 1000, 400],
+      ['tt0000003', 'Gamma', 2001, 'Drama', '', 70, 90000, 400]
+    ],
+    neighbors: [[], [], []]
+  });
+  Catalog.learnScore = () => Guesses.learnScore();
+  assert.deepEqual([...Catalog.queue('one', 'learn')], ['tt0000001', 'tt0000002']);
+  assert.deepEqual([...Catalog.queue('two', 'learn')].slice(0, 1), ['tt0000003']);
 });

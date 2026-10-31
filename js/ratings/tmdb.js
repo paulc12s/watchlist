@@ -82,6 +82,7 @@ const TMDB = {
       // Without an IMDb ID a show can't be stored, so it's passed over like a missing film
       ...(imdbID ? {} : { missing: true }),
       imdbID,
+      tmdbId: Number.isInteger(data.id) ? data.id : null,
       title: String(data.name || ''),
       year: yearOf(data.first_air_date),
       type: 'series',
@@ -91,6 +92,7 @@ const TMDB = {
       plot: String(data.overview || ''),
       runtime: seasons ? `${seasons} season${seasons > 1 ? 's' : ''}` : '',
       tmdbRating: typeof data.vote_average === 'number' && data.vote_count >= 20 ? Math.round(data.vote_average * 10) / 10 : null,
+      tmdbVotes: Number.isInteger(data.vote_count) ? data.vote_count : 0,
       poster
     };
   }

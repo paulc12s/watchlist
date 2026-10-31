@@ -68,9 +68,15 @@ A separate swipe feed for rating films and TV shows and building a taste profile
 
 The lists in `data/categories.json` are built from [MovieLens 32M](https://grouplens.org/datasets/movielens/) (ratings up to October 2023; non-commercial licence) plus hand-curated Oscar nominees in `tools/oscars.json`. Each film carries its top MovieLens tags (cleaned: opinions, awards and genre repeats dropped, synonyms folded) and the share of its raters who gave 4+ stars. To rebuild, unzip `ml-32m.zip` and run `node tools/build-categories.js path/to/ml-32m`. Posters and details come from OMDb when a card is shown and are cached, so each film costs one request.
 
-### Recommendations (in progress)
+### Recommendations
 
-`data/similar.json` holds, for about 5,000 of the most-rated MovieLens films, each film's 30 most similar films by how the same people rated both (adjusted cosine, shrunk when few people rated both). `js/ratings/recommend.js` scores unseen films from these and your ratings, weighted by strength (👎 −2 · 👍 +1 · 4★ +1.5 · 5★ +2.5 · rewatch +1; skipping a widely seen film counts slightly against). It has two lanes: **great** (near your best films, nudged by MovieLens quality) and **fun** (likes the crowd panned count extra). Neither is in the app yet.
+- **✨ For you** — picks in lanes, each with a reason (“because you liked…”); tap one to rate it or mark it want-to-watch
+  - **Films:** *Great* (close to your best-rated films, and well regarded) and *Fun* (your comfort zones, whatever the critics said), from `data/similar.json`: for about 5,000 of the most-rated MovieLens films, each film's 30 most similar films by how the same people rated both
+  - **TV** (needs the TMDB key): the same two lanes, built live from TMDB's recommended shows for each show you've rated, plus *From your film taste*, which matches well-known shows to the themes you like in films until you've rated 15 shows
+- **Guesses, revealed after you swipe** — the first time you judge a title, where the recommender ranked it for you is saved and shown afterwards (“We guessed a good match”), never before, so it can't sway you. *My taste → How our guesses do* compares titles it ranked in your top 20% with the rest
+- **Learn fastest** order (settings) — deals widely seen films the recommender knows least about, so each swipe teaches it the most
+
+Ratings count by strength: 👎 −2 · 👍 +1 · 4★ +1.5 · 5★ +2.5 · rewatch +1, and skipping a widely seen title counts slightly against. Likes the crowd panned count extra in the *Fun* lanes. Scoring lives in `js/ratings/recommend.js` (shared by films and TV), TV data in `js/ratings/tvrecs.js`, and the sheet, guesses and learn order in `js/ratings/foryou.js`.
 
 ```
 node tools/build-similar.js path/to/ml-32m                           # rebuild data/similar.json (~1 min)
@@ -101,7 +107,8 @@ js/
   batch-upload.js    Batch upload tool (uses the shared modules above)
   ui.js              Rendering & event handling
   app.js             Initialization
-  ratings/           Ratings page: config, db, store, tmdb, catalog, taste, feed, recommend, ui, app
+  ratings/           Ratings page: config, db, store, tmdb, catalog, taste, feed,
+                     recommend, tvrecs, foryou, ui, app
 ratings.html         Ratings swipe feed (+ ratings.css)
 data/categories.json Film lists for the ratings page
 data/similar.json    Similar-films data for recommendations
