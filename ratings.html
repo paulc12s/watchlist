@@ -131,7 +131,8 @@
         <button type="button" class="button" id="exportBackup">Export ratings</button>
         <button type="button" class="button" id="importButton">Import…</button>
       </div>
-      <p class="hint">Import takes a ratings backup or a watchlist export. Imports merge: nothing is removed, and nothing you’ve set here is overwritten. Watchlist titles bring their thumbs, stars, notes, rewatch flag, tag, platform and priority (without a thumb, 4–5 stars count as a like and 1–2 as a dislike); unwatched ones become “want to watch”.</p>
+      <p class="hint">Import takes a ratings backup or a watchlist export. The watchlist’s Import takes either export from here. Imports merge: nothing is removed, and nothing you’ve set here is overwritten. Watchlist titles bring their thumbs, stars, notes, rewatch flag, tag, platform and priority (without a thumb, 4–5 stars count as a like and 1–2 as a dislike, and anything else watched as a like); unwatched ones become “want to watch”.</p>
+      <p class="import-error" id="importError" role="alert" hidden></p>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
     <section class="setting">
@@ -167,6 +168,7 @@
 <script src="js/security.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/config.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/db.js?v=__APP_VERSION__"></script>
+<script src="js/exchange.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/store.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/tmdb.js?v=__APP_VERSION__"></script>
 <script src="js/omdb.js?v=__APP_VERSION__"></script>

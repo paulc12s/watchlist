@@ -36,11 +36,12 @@ const UndoManager = {
     const operation = state.undoStack.pop();
     const { type, data } = operation;
 
-    if (type === 'toggle') {
+    if (type === 'rate') {
       const item = state.items.find(i => i.id === data.id);
       if (item) {
-        item.watched = data.previousWatched;
-        item.reviewDate = data.previousReviewDate || '';
+        item.watched = data.watched;
+        item.thumb = data.thumb;
+        item.reviewDate = data.reviewDate || '';
       }
     } else if (type === 'edit') {
       const item = state.items.find(i => i.id === data.id);

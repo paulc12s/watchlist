@@ -9,17 +9,17 @@ const vm = require('node:vm');
 
 // The app uses plain <script> globals, so load the files into one context in page order
 function loadApp() {
-  const files = ['config', 'state', 'security', 'item-model', 'omdb', 'movie-api', 'item-manager', 'undo-manager'];
+  const files = ['config', 'state', 'security', 'item-model', 'database', 'omdb', 'movie-api', 'exchange', 'item-manager', 'undo-manager'];
   const source = files
     .map(f => fs.readFileSync(path.join(__dirname, '..', 'js', `${f}.js`), 'utf8'))
     .join('\n');
 
   const context = vm.createContext({
     console, crypto, setTimeout, clearTimeout, URL, AbortController, fetch: (...args) => context.fetchStub(...args),
-    UI: { setStatus() {}, render() {}, elements: { undoBar: { classList: { toggle() {}, remove() {} } }, undoMessage: {} } }
+    UI: { setStatus() {}, render() {}, showImportError() {}, hideImportError() {}, elements: { undoBar: { classList: { toggle() {}, remove() {} } }, undoMessage: {} } }
   });
   vm.runInContext(
-    `${source}\nthis.app = { CONFIG, state, Security, ItemModel, OMDb, MovieAPI, ItemManager, UndoManager, html };`,
+    `${source}\nthis.app = { CONFIG, state, Security, ItemModel, Database, OMDb, MovieAPI, Exchange, ItemManager, UndoManager, html, UI };`,
     context
   );
   const { app } = context;
@@ -109,7 +109,7 @@ test('rank puts exact titles first, then requested year, then recent releases', 
   assert.equal(MovieAPI.normalizeTitle('Amélie & Co.'), 'amelie and co');
 });
 
-test('getFiltered respects priority, type, watched mode and quick search', () => {
+test('getFiltered respects priority, type, the watched list and quick search', () => {
   const { state, ItemManager, ItemModel } = loadApp();
   state.items = [
     ItemModel.create({ title: 'Now Playing', priority: 'watching' }),
@@ -126,9 +126,9 @@ test('getFiltered respects priority, type, watched mode and quick search', () =>
   state.filter = 'series';
   assert.deepEqual(titles(), ['Show']);
   state.filter = 'all';
-  state.watchedMode = true;
+  state.list = 'watched';
   assert.deepEqual(titles(), ['Seen']);
-  state.watchedMode = false;
+  state.list = 'queue';
   state.quickSearch = 'now';
   assert.deepEqual(titles(), ['Now Playing']);
 });
@@ -176,7 +176,7 @@ test('rewatch filter applies to both the active and watched lists', () => {
 
   state.filter = 'rewatch';
   assert.deepEqual(titles(), ['Again Soon']);
-  state.watchedMode = true;
+  state.list = 'watched';
   assert.deepEqual(titles(), ['Loved It']);
 });
 
@@ -208,7 +208,7 @@ test('import merges duplicates field by field: fills blanks, never overwrites', 
   assert.equal(alien.tag, 'space', 'blank tag is filled');
 });
 
-test('review date: set by reviewing or marking watched, not by other edits', () => {
+test('review date: set by reviewing or rating, not by other edits', () => {
   const { state, ItemManager, UndoManager, Security } = loadApp();
   state.items = [Security.sanitizeItem({ id: 'a', title: 'A' }), Security.sanitizeItem({ id: 'b', title: 'B' })];
   const [a, b] = state.items;
@@ -222,18 +222,20 @@ test('review date: set by reviewing or marking watched, not by other edits', () 
   ItemManager.update('a', { stars: 4, tag: 'y' });
   assert.equal(a.reviewDate, first, 'unchanged review keeps its date');
 
-  ItemManager.toggle('b');
+  ItemManager.rate('b', 'up');
   assert.equal(b.watched, true);
-  assert.ok(b.reviewDate, 'watched with no review still counts');
+  assert.ok(b.reviewDate, 'rating it marks it watched and dates it');
   UndoManager.undo();
   assert.equal(b.watched, false);
+  assert.equal(b.thumb, '');
   assert.equal(b.reviewDate, '', 'undo takes the date back too');
 
   b.reviewDate = '2026-01-01T00:00:00.000Z';
-  ItemManager.toggle('b');
-  ItemManager.toggle('b');
-  ItemManager.toggle('b');
-  assert.equal(b.reviewDate, '2026-01-01T00:00:00.000Z', 'rewatching does not move an existing date');
+  b.thumb = 'up';
+  ItemManager.rate('b', 'up');
+  assert.equal(b.reviewDate, '2026-01-01T00:00:00.000Z', 'watching a title with the thumb it already had keeps its date');
+  ItemManager.rate('b', 'down');
+  assert.notEqual(b.reviewDate, '2026-01-01T00:00:00.000Z', 'changing the thumb redates it');
   assert.equal(Security.sanitizeItem({ title: 'C', reviewDate: 'nonsense' }).reviewDate, '');
 });
 
@@ -342,4 +344,84 @@ test('OMDb reports a key problem when the fallback key fails too', async () => {
   const app = loadApp();
   app.setFetch(async () => invalidKey);
   await assert.rejects(app.MovieAPI.getDetails('tt0111161'), /Invalid API key/);
+});
+
+// ---- Thumbs instead of a watched checkbox -----------------------------------
+test('card thumbs: a thumb marks watched; tapping the shown thumb puts it back on the list', () => {
+  const { state, ItemManager, UndoManager, Security } = loadApp();
+  state.items = [Security.sanitizeItem({ id: 'a', title: 'A' })];
+  const [a] = state.items;
+
+  ItemManager.rate('a', 'down');
+  assert.deepEqual([a.watched, a.thumb], [true, 'down']);
+  ItemManager.rate('a', 'up');
+  assert.deepEqual([a.watched, a.thumb], [true, 'up']);
+  ItemManager.rate('a', 'up');
+  assert.deepEqual([a.watched, a.thumb], [false, '']);
+  UndoManager.undo();
+  assert.deepEqual([a.watched, a.thumb], [true, 'up']);
+});
+
+test('watched titles without a rating count as 👍, unless their stars say otherwise; the default is not stored', () => {
+  const { state, ItemManager, Security, Exchange } = loadApp();
+  const item = fields => Security.sanitizeItem({ title: 'A', ...fields });
+  assert.equal(Exchange.thumbFor(item({ watched: true })), 'up');
+  assert.equal(Exchange.thumbFor(item({ watched: true, stars: 2 })), 'down');
+  assert.equal(Exchange.thumbFor(item({ watched: true, thumb: 'down', stars: 5 })), 'down');
+  assert.equal(Exchange.thumbFor(item({ watched: false })), '');
+  assert.equal(item({ watched: true }).thumb, '');
+
+  // Tapping the default 👍 un-watches, just like a stored one
+  state.items = [item({ id: 'w', watched: true, reviewDate: '2026-01-01T00:00:00.000Z' })];
+  ItemManager.rate('w', 'up');
+  assert.equal(state.items[0].watched, false);
+});
+
+test('watchlist export writes the thumb every watched title counts as having', () => {
+  const { state, ItemManager, Security } = loadApp();
+  state.items = [
+    Security.sanitizeItem({ title: 'Seen', imdbID: 'tt0000001', watched: true }),
+    Security.sanitizeItem({ title: 'Meh', imdbID: 'tt0000002', watched: true, stars: 1 }),
+    Security.sanitizeItem({ title: 'Queued', imdbID: 'tt0000003' })
+  ];
+  const data = JSON.parse(ItemManager.exportText());
+  assert.deepEqual(data.watched.map(i => i.thumb), ['up', 'down']);
+  assert.deepEqual(data.unwatched.map(i => i.thumb), ['']);
+  assert.equal(state.items[0].thumb, '', 'the stored item keeps its default unstored');
+});
+
+test('👍 and 👎 lists show every title with that thumb, combined with other filters', () => {
+  const { state, ItemManager, Security } = loadApp();
+  state.items = [
+    Security.sanitizeItem({ title: 'Seen, unrated', watched: true }),
+    Security.sanitizeItem({ title: 'Loved show', type: 'series', watched: true, thumb: 'up' }),
+    Security.sanitizeItem({ title: 'Disliked', watched: true, thumb: 'down' }),
+    Security.sanitizeItem({ title: 'Low stars', watched: true, stars: 1 }),
+    Security.sanitizeItem({ title: 'Queued, rated elsewhere', thumb: 'up' }),
+    Security.sanitizeItem({ title: 'Queued' })
+  ];
+  const titles = () => [...ItemManager.getFiltered().map(i => i.title)];
+
+  state.list = 'up';
+  assert.deepEqual(titles(), ['Seen, unrated', 'Loved show', 'Queued, rated elsewhere']);
+  state.list = 'down';
+  assert.deepEqual(titles(), ['Disliked', 'Low stars']);
+  state.list = 'up';
+  state.filter = 'series';
+  assert.deepEqual(titles(), ['Loved show']);
+  state.filter = 'all';
+  state.list = 'queue';
+  assert.deepEqual(titles(), ['Queued, rated elsewhere', 'Queued']);
+});
+
+test('status shows saved once stored items have loaded, including an empty list', async () => {
+  for (const stored of [JSON.stringify([{ title: 'A' }]), '[]', null]) {
+    const app = loadApp();
+    const statuses = [];
+    app.UI.setStatus = text => statuses.push(text);
+    app.Database.init = async () => {};
+    app.Database.load = async () => stored;
+    await app.ItemManager.load();
+    assert.equal(statuses.at(-1), 'saved', `stored: ${stored}`);
+  }
 });

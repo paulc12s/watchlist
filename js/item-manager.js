@@ -15,6 +15,7 @@ const ItemManager = {
             throw new Error('Invalid data format: not an array');
           }
           state.items = Security.sanitizeItems(items);
+          UI.setStatus('saved', true); // What's shown is what's stored
         } catch (parseError) {
           console.error('Data parsing error:', parseError);
           // Corrupted data - start fresh
@@ -23,6 +24,7 @@ const ItemManager = {
         }
       } else {
         state.items = [];
+        UI.setStatus('saved', true);
       }
       // No save here: rewriting storage on every launch would let an
       // out-of-date copy of the app clobber data written by a newer one
@@ -152,23 +154,30 @@ const ItemManager = {
     return true;
   },
 
-  toggle(id) {
+  // The 👍 / 👎 buttons on each card. Watched and rated are the same thing:
+  // a thumb marks the title watched, and tapping the thumb it already shows
+  // puts it back on the list to watch, unrated.
+  rate(id, thumb) {
     const item = state.items.find(i => i.id === id);
-    if (item) {
-      const previousWatched = item.watched;
-      const previousReviewDate = item.reviewDate;
-      item.watched = !item.watched;
-      // Watching counts as a review, even with nothing written
-      if (item.watched && !item.reviewDate) item.reviewDate = new Date().toISOString();
-      this.scheduleSave();
-      UI.render();
+    if (!item || (thumb !== 'up' && thumb !== 'down')) return;
+    const previous = { watched: item.watched, thumb: item.thumb, reviewDate: item.reviewDate };
 
-      const message = item.watched ? 'Marked as watched' : 'Marked as unwatched';
-      UndoManager.push(message, {
-        type: 'toggle',
-        data: { id, previousWatched, previousReviewDate }
-      });
+    const current = Exchange.thumbFor(item);
+    let message;
+    if (item.watched && current === thumb) {
+      item.watched = false;
+      item.thumb = '';
+      message = 'Back on the list to watch';
+    } else {
+      // A new thumb dates the review; one it already had keeps its date
+      if (current !== thumb || !item.reviewDate) item.reviewDate = new Date().toISOString();
+      item.thumb = thumb;
+      item.watched = true;
+      message = thumb === 'up' ? 'Watched: 👍' : 'Watched: 👎';
     }
+    this.scheduleSave();
+    UI.render();
+    UndoManager.push(message, { type: 'rate', data: { id, ...previous } });
   },
 
   delete(id) {
@@ -187,7 +196,7 @@ const ItemManager = {
   },
 
   getFiltered() {
-    const { items, filter, watchedMode, quickSearch } = state;
+    const { items, filter, list, quickSearch } = state;
     const query = quickSearch.toLowerCase();
 
     const matchesSearch = (i) => !query || i.title.toLowerCase().includes(query);
@@ -200,28 +209,34 @@ const ItemManager = {
       return i.platform === filter || i.tag === filter;
     };
 
-    if (watchedMode) {
-      return items.filter(i => i.watched && matchesSecondaryFilter(i) && matchesSearch(i));
-    }
+    const inList = {
+      queue: i => !i.watched,
+      watched: i => i.watched,
+      // Every title with that thumb, watched or still on the list
+      up: i => Exchange.thumbFor(i) === 'up',
+      down: i => Exchange.thumbFor(i) === 'down'
+    }[list] || (i => !i.watched);
 
-    return items.filter(i => !i.watched && matchesSecondaryFilter(i) && matchesSearch(i));
+    return items.filter(i => inList(i) && matchesSecondaryFilter(i) && matchesSearch(i));
+  },
+
+  // What Export writes. Watched titles always carry a thumb (thumbs up unless
+  // rated otherwise), so the ratings page gets a verdict for each
+  exportText() {
+    const items = state.items.map(i => (i.watched ? { ...i, thumb: Exchange.thumbFor(i) } : i));
+    return JSON.stringify({
+      unwatched: items.filter(i => !i.watched),
+      watched: items.filter(i => i.watched),
+      exportDate: new Date().toISOString()
+    }, null, 2);
   },
 
   export() {
-    const unwatchedItems = state.items.filter(i => !i.watched);
-    const watchedItems = state.items.filter(i => i.watched);
-
-    const data = {
-      unwatched: unwatchedItems,
-      watched: watchedItems,
-      exportDate: new Date().toISOString()
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([this.exportText()], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `watchlist-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `watchlist-${Exchange.fileStamp()}.json`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -250,7 +265,14 @@ const ItemManager = {
 
       // Extract items
       let importedItems = [];
-      if (data.unwatched || data.watched) {
+      if (Exchange.isRatingsBackup(data)) {
+        // A ratings backup ("Export ratings"): converted the same way as the
+        // ratings page's "Export for Watchlist"
+        importedItems = Exchange.watchlistItems(data.ratings);
+        if (importedItems.length === 0) {
+          throw new Error('This ratings backup has no rated or want-to-watch titles');
+        }
+      } else if (data.unwatched || data.watched) {
         // Validate arrays
         if (data.unwatched && !Array.isArray(data.unwatched)) {
           throw new Error('Invalid unwatched format');
@@ -262,7 +284,7 @@ const ItemManager = {
       } else if (Array.isArray(data)) {
         importedItems = data;
       } else {
-        throw new Error('Invalid file format - expected array or object with unwatched/watched');
+        throw new Error('Not a watchlist export or ratings backup');
       }
 
       // Validate item count
@@ -308,6 +330,7 @@ const ItemManager = {
       });
 
       this.save(false);
+      UI.hideImportError();
       UI.render();
 
       const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -326,9 +349,8 @@ const ItemManager = {
       return true;
     } catch (error) {
       console.error('Import error:', error);
-      const errorMsg = error.message || 'Invalid data';
-      UI.setStatus(`Import failed: ${errorMsg}`, false);
-      setTimeout(() => UI.setStatus('saved', true), 3000);
+      // Stays on screen until dismissed, so a failed import can't go unnoticed
+      UI.showImportError(`Import failed: ${error.message || 'Invalid data'}`);
       return false;
     }
   }

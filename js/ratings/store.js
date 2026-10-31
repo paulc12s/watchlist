@@ -140,31 +140,10 @@ const Ratings = {
     };
   },
 
-  // Everything the watchlist can use, as items its Import accepts as-is:
-  // titles you want to see (unwatched) and titles you've seen and given a
-  // thumb, stars, notes or a rewatch flag (watched). Skips stay here, since
-  // they mean you haven't seen it. Tag, platform and priority that came from
-  // the watchlist go back unchanged.
+  // Everything the watchlist can use, as items its Import accepts as-is
+  // (see js/exchange.js)
   watchlistItems() {
-    const seen = e => e.verdict === 'up' || e.verdict === 'down' || e.stars || e.review || e.rewatch;
-    return this.all().filter(e => e.want || seen(e)).map(e => ({
-      title: e.title,
-      type: e.type,
-      priority: e.priority || 'medium',
-      tag: e.tag,
-      platform: e.platform,
-      genre: e.genres.join(', '),
-      rating: e.imdbRating ? String(e.imdbRating) : '',
-      plot: e.plot,
-      poster: e.poster,
-      imdbID: e.imdbID,
-      watched: !e.want,
-      thumb: e.verdict === 'up' || e.verdict === 'down' ? e.verdict : '',
-      stars: e.stars,
-      review: e.review,
-      rewatch: e.rewatch,
-      reviewDate: e.reviewDate
-    }));
+    return Exchange.watchlistItems(this.all());
   },
 
   // Plain-text profile to paste into an AI assistant for recommendations
@@ -236,8 +215,9 @@ const Ratings = {
   // Merges a watchlist export without losing anything already here:
   // - Titles the watchlist says you've seen (watched, or with a thumb, stars,
   //   notes or rewatch) fill in what this app lacks. Its thumb, or else 4-5
-  //   stars / 1-2 stars, becomes a thumb here unless you've given one here. A
-  //   title you skipped or wanted is upgraded, since you've now seen it.
+  //   stars / 1-2 stars, or else a thumbs up (seen means rated), becomes the
+  //   thumb here unless you've given one here. A title you skipped or wanted
+  //   is upgraded, since you've now seen it.
   // - Other unwatched titles become "want to watch" unless you've rated them.
   // - Tag, platform and priority are kept for the trip back.
   // - The review date comes with whatever review is taken from the watchlist;
@@ -277,7 +257,8 @@ const Ratings = {
       if (!item) continue;
       const stars = Number.isInteger(item.stars) && item.stars >= 1 && item.stars <= 5 ? item.stars : 0;
       const thumb = item.thumb === 'up' || item.thumb === 'down' ? item.thumb : '';
-      const verdict = thumb || (stars >= 4 ? 'up' : stars >= 1 && stars <= 2 ? 'down' : '');
+      // Seen there means rated: its thumb, or what its stars say, or a thumbs up
+      const verdict = Exchange.thumbFor({ ...item, thumb, stars });
       const seenThere = item.watched || thumb || stars || item.review || item.rewatch;
 
       merge(item, entry => {
@@ -293,7 +274,9 @@ const Ratings = {
         // Seen now: a skip no longer applies, and the watchlist's verdict carries over
         if (!thumbed(entry)) changes.verdict = verdict;
         // Stars that contradict a thumb you've given here are left out
-        const conflicts = thumbed(entry) && verdict && verdict !== entry.verdict;
+        // (the default thumbs up for a plain "watched" isn't an opinion, so it can't conflict)
+        const stated = Exchange.thumbFor({ thumb, stars });
+        const conflicts = thumbed(entry) && stated && stated !== entry.verdict;
         if (!entry.stars && stars && !conflicts) changes.stars = stars;
         if (!entry.review && item.review) changes.review = item.review;
         if (!entry.rewatch && item.rewatch) changes.rewatch = true;

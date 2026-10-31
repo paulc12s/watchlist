@@ -11,12 +11,12 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 - **Compact view** — collapse cards to title, poster and one line of tags (remembered per device)
 - **Tags & platforms** — organize by custom tags (family, airplane, art) and streaming platform (Netflix, etc.)
 - **Quick filter** — substring search across titles, combinable with filter buttons
-- **Watched toggle** — mark items as watched; filter to view watched items, optionally narrowed by another filter
+- **👍 / 👎 instead of a watched checkbox** — watched and rated are the same thing: a thumb marks a title watched, and tapping the thumb it shows puts it back on the list to watch. Watched titles with no thumb count as 👍 (or 👎 if you gave them 1–2★); the default isn't stored, so a real thumb from the ratings page still fills it in. The **Watched**, **👍 Liked** and **👎 Not for me** buttons list those titles instead of the queue (Liked and Not for me include titles still on your list that carry that thumb), each optionally narrowed by another filter. Cards in every list are shown at full strength
 - **Reviews** — rate titles out of 5 stars, jot a few thoughts, and flag them as worth a rewatch; give a thumb up or down in the review or Edit dialog. Each title keeps the date you last reviewed it (thumb, stars, notes or rewatch), or the date you first marked it watched if you didn't review it
 - **Rewatch filter** — find flagged titles in either the active or watched list
 - **Inline editing** — click any badge (priority, tag, platform) to edit in place
 - **Import/Export** — JSON-based backup and restore; importing merges titles you already have field by field (see below)
-- **Undo** — revert deletes, edits, and watched toggles
+- **Undo** — revert deletes, edits, and thumbs
 - **Batch upload** — add many titles at once via `batch-upload.html`
 - **Dark mode** — follows system preference
 - **Mobile-ready** — responsive layout with iOS PWA support
@@ -50,11 +50,11 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 - **Add** — click `+ Add`, search for a title, select a result, set priority/tag/platform, and save
 - **Search tips** — add a year to narrow (`dune 1984`), use the All / Movies / TV toggle, or paste an IMDb link or `tt…` ID to jump straight to a title. Exact title matches and recent releases rank first; top results show director and cast to tell same-named titles apart
 - **Filter** — use the filter buttons (type, priority, tag, platform) and/or type in the quick search bar
-- **Watched** — check the checkbox to mark watched; click the Watched filter to view them; click another filter while in watched mode to narrow further
-- **Review** — click the pencil icon next to the checkbox to set stars, notes and the rewatch flag; tap the current star again to clear the rating. Uncheck a watched title flagged for rewatch to put it back in the queue
+- **Watched** — tap 👍 or 👎 on a card to mark it watched; click Watched, 👍 Liked or 👎 Not for me to list those titles (click it again to go back to the queue); click another filter to narrow any of them
+- **Review** — click the pencil icon next to the thumbs to set stars, notes and the rewatch flag; tap the current star again to clear the rating. Tap the lit thumb on a watched title (say, one flagged for rewatch) to put it back in the queue. A title on your list can carry a review from the ratings page and stay on the list; it shows its thumb as a badge
 - **Edit** — click a badge to edit inline, or click Edit for the full modal
 - **Poster click** — opens a Google search for the title
-- **Export/Import** — back up your list as JSON and restore on any browser. Import merges: a title already in the list keeps its priority, watched status and anything already set, and only gains what it's missing (thumb, stars, notes, rewatch, tag, platform, genre, rating, plot, poster). Files from the ratings page import the same way
+- **Export/Import** — back up your list as JSON and restore on any browser. Import merges: a title already in the list keeps its priority, watched status and anything already set, and only gains what it's missing (thumb, stars, notes, rewatch, tag, platform, genre, rating, plot, poster). Either export from the ratings page imports here: *Export for Watchlist*, or the *Export ratings* backup (converted the same way). Rated titles count as watched, but a title already on your to-watch list stays there and just gains its review. A failed import shows an error that stays until you dismiss it. Export gives every watched title its thumb (👍 unless rated otherwise). Export files are named with the local date and time (`watchlist-2026-10-31-1432.json`), so same-day exports don't overwrite each other
 
 ## Ratings (`ratings.html`)
 
@@ -67,8 +67,8 @@ A separate swipe feed for rating films and TV shows and building a taste profile
 - **Tags & the crowd** — cards show MovieLens viewers' tags (“twist ending”, “atmospheric”). After you give a thumb, you see what share of MovieLens viewers liked the film; it's hidden until then so it can't sway you
 - **📊 My taste** — genres, themes & style (tags), decades and directors you lean toward or away from; how often you agree with the crowd and where you don't; plus your liked / disliked / want / skipped films
 - **⚙ Settings** — export/import a backup; copy a taste profile to paste into an AI assistant for recommendations; and exchange files with the watchlist:
-  - *Import* a watchlist export: titles bring their thumbs, stars, notes, rewatch flag, tag, platform and priority. Without a thumb, 4–5★ count as 👍 and 1–2★ as 👎, unless you've given a thumb here. Unwatched titles become “want to watch”
-  - *Export for Watchlist*: want-to-watch titles as unwatched, and everything you've seen and rated as watched, with thumbs, stars, notes and rewatch, plus any tag, platform and priority that came from the watchlist. Skips stay behind
+  - *Import* a watchlist export: titles bring their thumbs, stars, notes, rewatch flag, tag, platform and priority. Without a thumb, 4–5★ count as 👍 and 1–2★ as 👎, and anything else watched counts as 👍, unless you've given a thumb here. Unwatched titles become “want to watch”
+  - *Export for Watchlist*: want-to-watch titles as unwatched, and everything you've seen and rated as watched, with thumbs, stars, notes and rewatch, plus any tag, platform and priority that came from the watchlist. Skips stay behind. The watchlist also accepts the *Export ratings* backup and converts it the same way
   - Review dates travel both ways. A date comes over with the review it belongs to; importing never counts as reviewing, so titles reviewed before dates were kept stay undated
   - Both directions merge: nothing is removed and nothing already set is overwritten, so files can go back and forth. The one thing a round trip adds is the watchlist's default “medium” priority on titles that didn't have one
 

@@ -5,7 +5,8 @@
 const state = {
   items: [],
   filter: 'all',
-  watchedMode: false,
+  // Which titles to list: 'queue' (to watch), 'watched', or by thumb, 'up' / 'down'
+  list: 'queue',
   selectedSearchResult: null,
   searchResults: [],
   searchTimeout: null,

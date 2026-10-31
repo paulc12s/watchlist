@@ -778,6 +778,22 @@ button:focus-visible {
   box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
+/* A failed import stays in the sheet until the next import or the sheet is reopened */
+.import-error {
+  margin: 8px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 120, 120, 0.45);
+  background: rgba(255, 90, 90, 0.12);
+  color: #ffb4b4;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.import-error[hidden] {
+  display: none;
+}
+
 .hint a {
   color: var(--ink);
 }

@@ -46,6 +46,11 @@
     </div>
   </header>
 
+  <div class="import-error" id="import-error" role="alert" hidden>
+    <span id="import-error-text"></span>
+    <button type="button" class="import-error-close" id="import-error-close" aria-label="Dismiss">✕</button>
+  </div>
+
   <div class="add-form" id="add-form">
     <div class="form-main">
       <input type="search" id="search-input" placeholder="Search for a movie or TV show..." autocomplete="off" autocorrect="off" enterkeyhint="search">
@@ -236,6 +241,7 @@
 <script src="js/omdb.js?v=__APP_VERSION__"></script>
 <script src="js/movie-api.js?v=__APP_VERSION__"></script>
 <script src="js/youtube-api.js?v=__APP_VERSION__"></script>
+<script src="js/exchange.js?v=__APP_VERSION__"></script>
 <script src="js/item-manager.js?v=__APP_VERSION__"></script>
 <script src="js/undo-manager.js?v=__APP_VERSION__"></script>
 <script src="js/version-check.js?v=__APP_VERSION__"></script>

@@ -11,6 +11,9 @@ const UI = {
       exportBtn: document.getElementById('export-btn'),
       importBtn: document.getElementById('import-btn'),
       importFile: document.getElementById('import-file'),
+      importError: document.getElementById('import-error'),
+      importErrorText: document.getElementById('import-error-text'),
+      importErrorClose: document.getElementById('import-error-close'),
       status: document.getElementById('status'),
       addForm: document.getElementById('add-form'),
       searchInput: document.getElementById('search-input'),
@@ -79,6 +82,7 @@ const UI = {
     this.elements.exportBtn.addEventListener('click', () => ItemManager.export());
     this.elements.importBtn.addEventListener('click', () => this.elements.importFile.click());
     this.elements.importFile.addEventListener('change', (e) => this.handleImport(e));
+    this.elements.importErrorClose.addEventListener('click', () => this.hideImportError());
 
     // Search
     this.elements.searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
@@ -139,8 +143,10 @@ const UI = {
     this.elements.filters.addEventListener('click', (e) => {
       if (e.target.classList.contains('filter-btn')) {
         const clickedFilter = e.target.dataset.filter;
-        if (clickedFilter === 'watched') {
-          state.watchedMode = !state.watchedMode;
+        const list = e.target.dataset.list;
+        if (list) {
+          // Watched / 👍 / 👎 pick which titles to list; tapping the active one goes back to the queue
+          state.list = state.list === list ? 'queue' : list;
           this.render();
         } else if (state.filter === clickedFilter && clickedFilter !== 'all') {
           this.setFilter('all');
@@ -162,7 +168,6 @@ const UI = {
 
     // Item list
     this.elements.itemList.addEventListener('click', (e) => this.handleItemClick(e));
-    this.elements.itemList.addEventListener('change', (e) => this.handleItemChange(e));
 
     // Search results
     this.elements.searchResults.addEventListener('click', (e) => this.handleSearchResultClick(e));
@@ -557,8 +562,7 @@ const UI = {
     if (!file) return;
 
     if (file.size > CONFIG.LIMITS.MAX_FILE_SIZE) {
-      this.setStatus('file too large', false);
-      setTimeout(() => this.setStatus('saved', true), 2000);
+      this.showImportError('Import failed: File too large');
       event.target.value = '';
       return;
     }
@@ -567,12 +571,20 @@ const UI = {
     reader.onload = (e) => {
       ItemManager.import(e.target.result);
     };
+    reader.onerror = () => this.showImportError('Import failed: Could not read the file');
     reader.readAsText(file);
     event.target.value = '';
   },
 
   handleItemClick(e) {
     const target = e.target;
+
+    const thumbBtn = target.closest('.card-thumb');
+    if (thumbBtn) {
+      const itemEl = thumbBtn.closest('.item');
+      if (itemEl) ItemManager.rate(itemEl.dataset.id, thumbBtn.dataset.thumb);
+      return;
+    }
 
     // Poster click - Google search for the title
     if (target.classList.contains('item-poster')) {
@@ -757,15 +769,6 @@ const UI = {
     }
   },
 
-  handleItemChange(e) {
-    if (e.target.classList.contains('item-checkbox')) {
-      const itemEl = e.target.closest('.item');
-      if (itemEl) {
-        ItemManager.toggle(itemEl.dataset.id);
-      }
-    }
-  },
-
   openEditModal(itemId) {
     const item = state.items.find(i => i.id === itemId);
     if (!item) return;
@@ -780,9 +783,17 @@ const UI = {
     this.elements.editGenre.value = item.genre || '';
     this.elements.editRating.value = item.rating || '';
     this.elements.editPlot.value = item.plot || '';
-    this.setThumb(this.elements.editThumb, item.thumb);
+    this.setThumb(this.elements.editThumb, Exchange.thumbFor(item));
 
     this.elements.editModal.classList.add('visible');
+  },
+
+  // The thumb to save from a dialog. Leaving the default 👍 of a watched title
+  // as it was keeps it a default, so nothing changes or gets redated
+  chosenThumb(group, itemId) {
+    const chosen = this.thumbs.get(group) || '';
+    const item = state.items.find(i => i.id === itemId);
+    return item && !item.thumb && chosen === Exchange.thumbFor(item) ? '' : chosen;
   },
 
   // Current thumb per dialog's toggle group
@@ -812,7 +823,7 @@ const UI = {
       genre: this.elements.editGenre.value.trim(),
       rating: this.elements.editRating.value.trim(),
       plot: this.elements.editPlot.value.trim(),
-      thumb: this.thumbs.get(this.elements.editThumb)
+      thumb: this.chosenThumb(this.elements.editThumb, state.editingId)
     });
 
     if (success) {
@@ -831,7 +842,7 @@ const UI = {
     this.elements.reviewDate.textContent = item.reviewDate
       ? `Reviewed ${new Date(item.reviewDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
       : '';
-    this.setThumb(this.elements.reviewThumb, item.thumb);
+    this.setThumb(this.elements.reviewThumb, Exchange.thumbFor(item));
     this.setReviewStars(item.stars);
     this.elements.reviewText.value = item.review;
     this.elements.reviewRewatch.setAttribute('aria-pressed', String(item.rewatch));
@@ -860,7 +871,7 @@ const UI = {
       stars: this.reviewStars,
       review: this.elements.reviewText.value.trim(),
       rewatch: this.elements.reviewRewatch.getAttribute('aria-pressed') === 'true',
-      thumb: this.thumbs.get(this.elements.reviewThumb)
+      thumb: this.chosenThumb(this.elements.reviewThumb, state.reviewingId)
     });
 
     if (success) {
@@ -872,6 +883,15 @@ const UI = {
   setFilter(filterValue) {
     state.filter = filterValue;
     this.render();
+  },
+
+  showImportError(message) {
+    this.elements.importErrorText.textContent = message;
+    this.elements.importError.hidden = false;
+  },
+
+  hideImportError() {
+    this.elements.importError.hidden = true;
   },
 
   setStatus(text, isSuccess) {
@@ -915,14 +935,20 @@ const UI = {
       { key: 'youtube', label: 'YouTube' },
       ...platforms.map(p => ({ key: p, label: '📺 ' + p })),
       ...tags.map(t => ({ key: t, label: t })),
-      ...(hasRewatch ? [{ key: 'rewatch', label: '🔁 Rewatch' }] : []),
-      { key: 'watched', label: 'Watched' }
+      ...(hasRewatch ? [{ key: 'rewatch', label: '🔁 Rewatch' }] : [])
+    ];
+    // Lists rather than filters: each combines with one of the filters above
+    const lists = [
+      { list: 'watched', label: 'Watched' },
+      { list: 'up', label: '👍 Liked' },
+      { list: 'down', label: '👎 Not for me' }
     ];
 
-    this.elements.filters.innerHTML = html`${filters.map(f => {
-      const isActive = f.key === 'watched' ? state.watchedMode : state.filter === f.key;
-      return html`<button class="filter-btn ${isActive && 'active'}" data-filter="${f.key}">${f.label}</button>`;
-    })}`;
+    this.elements.filters.innerHTML = html`${filters.map(f =>
+      html`<button class="filter-btn ${state.filter === f.key && 'active'}" data-filter="${f.key}">${f.label}</button>`
+    )}${lists.map(l =>
+      html`<button class="filter-btn ${state.list === l.list && 'active'}" data-list="${l.list}" aria-pressed="${String(state.list === l.list)}">${l.label}</button>`
+    )}`;
   },
 
   priorityGroupLabel(priority) {
@@ -934,7 +960,12 @@ const UI = {
     const filtered = ItemManager.getFiltered();
 
     if (filtered.length === 0) {
-      this.elements.itemList.innerHTML = '<div class="empty-state">Nothing here. Add something to watch!</div>';
+      const empty = {
+        watched: 'Nothing watched here yet. Tap 👍 or 👎 on a title once you’ve seen it.',
+        up: 'No 👍 titles here yet.',
+        down: 'No 👎 titles here yet.'
+      }[state.list] || 'Nothing here. Add something to watch!';
+      this.elements.itemList.innerHTML = html`<div class="empty-state">${empty}</div>`;
       return;
     }
 
@@ -957,6 +988,8 @@ const UI = {
     const priority = ItemModel.displayPriority(item);
     const isYoutube = item.type === 'youtube';
     const hasReview = item.stars > 0 || item.review || item.rewatch || item.thumb;
+    // Watched titles always show a thumb: the one given, or the default 👍
+    const shown = Exchange.thumbFor(item);
     const editable = (field, label) =>
       html`data-field="${field}" data-item-id="${item.id}" title="Click to ${label}"`;
 
@@ -969,7 +1002,12 @@ const UI = {
             <button type="button" class="review-btn ${hasReview && 'has-review'}" title="${hasReview ? 'Edit review' : 'Write a review'}" aria-label="${hasReview ? 'Edit review' : 'Write a review'}">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </button>
-            <input type="checkbox" class="item-checkbox" ${item.watched && 'checked'}>
+            <div class="card-thumbs" role="group" aria-label="${item.watched ? 'Your verdict' : 'Watched it? Rate it'}">
+              ${['up', 'down'].map(thumb => html`<button type="button" class="card-thumb" data-thumb="${thumb}"
+                aria-pressed="${String(item.watched && shown === thumb)}"
+                title="${item.watched && shown === thumb ? 'Put back on the list to watch' : thumb === 'up' ? 'Watched: liked it' : 'Watched: not for me'}"
+                aria-label="${thumb === 'up' ? 'Thumbs up' : 'Thumbs down'}">${thumb === 'up' ? '👍' : '👎'}</button>`)}
+            </div>
           </div>
           <div class="item-meta">
             ${isYoutube
@@ -984,7 +1022,7 @@ const UI = {
             ${item.tag
               ? html`<span class="badge tag editable" ${editable('tag', 'edit tag')}>${item.tag}</span>`
               : html`<span class="badge tag editable empty" ${editable('tag', 'add tag')}>+ tag</span>`}
-            ${item.thumb && html`<span class="badge thumb" title="${item.thumb === 'up' ? 'You liked it' : 'Not for you'}">${item.thumb === 'up' ? '👍' : '👎'}</span>`}
+            ${!item.watched && item.thumb && html`<span class="badge thumb" title="Rated ${item.thumb === 'up' ? '👍' : '👎'} and still on the list">${item.thumb === 'up' ? '👍' : '👎'}</span>`}
             ${item.stars > 0 && html`<span class="badge stars" title="Your rating: ${item.stars}/5">${'★'.repeat(item.stars)}${'☆'.repeat(5 - item.stars)}</span>`}
             ${item.rewatch && html`<span class="badge rewatch">🔁 Rewatch</span>`}
           </div>

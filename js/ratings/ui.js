@@ -24,7 +24,7 @@ const RatingsUI = {
     const ids = ['card', 'stage', 'categoryButton', 'categoryName', 'categoryProgress', 'nextCategory',
       'tasteButton', 'settingsButton', 'toast', 'categorySheet', 'categoryList', 'noteSheet', 'noteFilm',
       'noteText', 'noteSave', 'tasteSheet', 'tasteBody', 'settingsSheet', 'exportBackup', 'importButton',
-      'importFile', 'exportWant', 'exportAI', 'clearSkips', 'tmdbKey', 'tmdbSave',
+      'importFile', 'importError', 'exportWant', 'exportAI', 'clearSkips', 'tmdbKey', 'tmdbSave',
       'forYouButton', 'forYouSheet', 'forYouBody'];
     ids.forEach(id => { this.els[id] = document.getElementById(id); });
 
@@ -627,6 +627,7 @@ const RatingsUI = {
     });
     this.els.clearSkips.textContent = `Show skipped titles again (${Ratings.counts().skip})`;
     this.els.tmdbKey.value = TMDB.key;
+    this.els.importError.hidden = true;
     this.els.settingsSheet.showModal();
   },
 
@@ -649,14 +650,13 @@ const RatingsUI = {
       if (Catalog.isTv(Feed.categoryId)) this.switchCategory(Feed.categoryId, { announce: false });
     });
 
-    const today = () => new Date().toISOString().split('T')[0];
     this.els.exportBackup.addEventListener('click', () => {
-      this.download(`ratings-${today()}.json`, JSON.stringify(Ratings.backup(), null, 2));
+      this.download(`ratings-${Exchange.fileStamp()}.json`, JSON.stringify(Ratings.backup(), null, 2));
     });
     this.els.exportWant.addEventListener('click', () => {
       const items = Ratings.watchlistItems();
       if (!items.length) return this.toast('Nothing rated or wanted yet');
-      this.download(`for-watchlist-${today()}.json`, JSON.stringify(items, null, 2));
+      this.download(`for-watchlist-${Exchange.fileStamp()}.json`, JSON.stringify(items, null, 2));
     });
     this.els.exportAI.addEventListener('click', async () => {
       const text = Ratings.aiProfile(this.computeTaste());
@@ -664,7 +664,7 @@ const RatingsUI = {
         await navigator.clipboard.writeText(text);
         this.toast('Copied. Paste it into Claude.', 'check');
       } catch (error) {
-        this.download(`taste-profile-${today()}.md`, text, 'text/markdown');
+        this.download(`taste-profile-${Exchange.fileStamp()}.md`, text, 'text/markdown');
       }
     });
 
@@ -673,6 +673,7 @@ const RatingsUI = {
       const file = this.els.importFile.files[0];
       this.els.importFile.value = '';
       if (!file) return;
+      this.els.importError.hidden = true;
       try {
         if (file.size > CONFIG.LIMITS.MAX_FILE_SIZE) throw new Error('File is too large');
         const { added, updated } = Ratings.import(JSON.parse(await file.text()));
@@ -680,7 +681,9 @@ const RatingsUI = {
         this.els.settingsSheet.close();
         this.updateHeader();
       } catch (error) {
-        this.toast(`Import failed: ${error instanceof SyntaxError ? 'not a JSON file' : error.message}`);
+        // Shown in the sheet: a toast would sit behind the open dialog
+        this.els.importError.textContent = `Import failed: ${error instanceof SyntaxError ? 'not a JSON file' : error.message}`;
+        this.els.importError.hidden = false;
       }
     });
 
