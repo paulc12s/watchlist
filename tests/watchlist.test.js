@@ -9,20 +9,21 @@ const vm = require('node:vm');
 
 // The app uses plain <script> globals, so load the files into one context in page order
 function loadApp() {
-  const files = ['config', 'state', 'security', 'item-model', 'movie-api', 'item-manager', 'undo-manager'];
+  const files = ['config', 'state', 'security', 'item-model', 'omdb', 'movie-api', 'item-manager', 'undo-manager'];
   const source = files
     .map(f => fs.readFileSync(path.join(__dirname, '..', 'js', `${f}.js`), 'utf8'))
     .join('\n');
 
   const context = vm.createContext({
-    console, crypto, setTimeout, clearTimeout, URL,
+    console, crypto, setTimeout, clearTimeout, URL, AbortController, fetch: (...args) => context.fetchStub(...args),
     UI: { setStatus() {}, render() {}, elements: { undoBar: { classList: { toggle() {}, remove() {} } }, undoMessage: {} } }
   });
   vm.runInContext(
-    `${source}\nthis.app = { CONFIG, state, Security, ItemModel, MovieAPI, ItemManager, UndoManager, html };`,
+    `${source}\nthis.app = { CONFIG, state, Security, ItemModel, OMDb, MovieAPI, ItemManager, UndoManager, html };`,
     context
   );
   const { app } = context;
+  app.setFetch = stub => { context.fetchStub = stub; };
   app.ItemManager.save = () => Promise.resolve();
   app.ItemManager.scheduleSave = () => {};
   app.UndoManager.updateUI = () => {};
@@ -252,4 +253,93 @@ test('import merge: a review date comes with the review it belongs to', () => {
   ItemModel.mergeInto(partly, item({ thumb: 'up', reviewDate: '2026-03-03T00:00:00.000Z' }));
   assert.equal(partly.thumb, 'up');
   assert.equal(partly.reviewDate, '2026-03-03T00:00:00.000Z', 'filled-in review brings its date');
+});
+
+// OMDb's responses are untrusted input
+const hostileOmdb = {
+  Response: 'True',
+  imdbID: 'tt1234567',
+  Title: '<img src=x onerror=alert(1)>',
+  Type: 'movie',
+  Year: { toString: () => '1999' },
+  Genre: ['Drama'],
+  imdbRating: 'N/A',
+  Plot: 'x'.repeat(100000),
+  Poster: 'javascript:alert(1)',
+  Director: null,
+  Actors: 42
+};
+
+test('OMDb details: non-strings dropped, lengths capped, unsafe posters removed', () => {
+  const { MovieAPI, Security } = loadApp();
+  const details = MovieAPI.toDetails(hostileOmdb);
+  assert.equal(details.poster, '');
+  assert.equal(details.year, '');
+  assert.equal(details.genre, '');
+  assert.equal(details.rating, '');
+  assert.equal(details.director, '');
+  assert.equal(details.actors, '');
+  assert.equal(details.plot.length, 2000);
+  // Markup in a title stays text once rendered and saved
+  assert.equal(details.title, hostileOmdb.Title);
+  assert.equal(Security.escapeHtml(details.title), '&lt;img src=x onerror=alert(1)&gt;');
+  assert.equal(Security.sanitizeItem({ ...details, poster: 'data:text/html,x' }).poster, '');
+});
+
+test('OMDb details and search results without a real IMDb ID are dropped', async () => {
+  const { MovieAPI } = loadApp();
+  assert.equal(MovieAPI.toDetails({ ...hostileOmdb, imdbID: '../../evil' }), null);
+  MovieAPI.request = async () => ({
+    Response: 'True',
+    totalResults: '3',
+    Search: [
+      { imdbID: 'tt7654321', Title: 'Fine', Type: 'movie', Year: '2001', Poster: 'https://m.media-amazon.com/p.jpg' },
+      { imdbID: '"><script>', Title: 'Bad ID', Type: 'movie' },
+      null,
+      { imdbID: 'tt7654322', Title: { evil: true }, Type: 'movie', Poster: 'javascript:alert(1)' }
+    ]
+  });
+  const { items } = await MovieAPI.searchPage('fine', '', '', 1);
+  assert.deepEqual(items.map(i => [i.imdbID, i.title, i.poster]), [
+    ['tt7654321', 'Fine', 'https://m.media-amazon.com/p.jpg'],
+    ['tt7654322', 'Unknown', '']
+  ]);
+});
+
+// A fake OMDb: the key named in `bad` is rejected the way OMDb rejects keys
+function fakeOmdb(app, rejection) {
+  const keysUsed = [];
+  app.setFetch(async url => {
+    const key = new URL(url).searchParams.get('apikey');
+    keysUsed.push(key);
+    if (key === app.CONFIG.API.OMDB_KEY && rejection) return rejection;
+    return { status: 200, json: async () => ({ Response: 'True', imdbID: 'tt0111161', Title: 'Shawshank', Type: 'movie' }) };
+  });
+  return keysUsed;
+}
+const invalidKey = { status: 401, json: async () => ({ Response: 'False', Error: 'Invalid API key!' }) };
+const overLimit = { status: 200, json: async () => ({ Response: 'False', Error: 'Request limit reached!' }) };
+
+test('OMDb uses the app key, and switches to the fallback key for the visit if it is rejected', async () => {
+  for (const rejection of [invalidKey, overLimit]) {
+    const app = loadApp();
+    const keysUsed = fakeOmdb(app, rejection);
+    assert.equal((await app.MovieAPI.getDetails('tt0111161')).title, 'Shawshank');
+    assert.equal((await app.MovieAPI.getDetails('tt0068646')).title, 'Shawshank');
+    const { OMDB_KEY, OMDB_FALLBACK_KEY } = app.CONFIG.API;
+    assert.deepEqual(keysUsed, [OMDB_KEY, OMDB_FALLBACK_KEY, OMDB_FALLBACK_KEY]);
+  }
+});
+
+test('OMDb with a working key never touches the fallback', async () => {
+  const app = loadApp();
+  const keysUsed = fakeOmdb(app, null);
+  await app.MovieAPI.getDetails('tt0111161');
+  assert.deepEqual(keysUsed, [app.CONFIG.API.OMDB_KEY]);
+});
+
+test('OMDb reports a key problem when the fallback key fails too', async () => {
+  const app = loadApp();
+  app.setFetch(async () => invalidKey);
+  await assert.rejects(app.MovieAPI.getDetails('tt0111161'), /Invalid API key/);
 });

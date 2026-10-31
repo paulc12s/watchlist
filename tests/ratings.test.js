@@ -11,7 +11,7 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
 // Plain <script> globals, loaded into one context in page order
 function loadRatings() {
-  const files = ['js/config.js', 'js/security.js', 'js/ratings/config.js', 'js/ratings/store.js',
+  const files = ['js/config.js', 'js/security.js', 'js/omdb.js', 'js/ratings/config.js', 'js/ratings/store.js',
     'js/ratings/tmdb.js', 'js/ratings/catalog.js', 'js/ratings/taste.js', 'js/ratings/feed.js',
     'js/ratings/recommend.js', 'js/ratings/tvrecs.js', 'js/ratings/foryou.js'];
   const context = vm.createContext({ console, crypto, setTimeout, clearTimeout, URL, ItemModel: { newId: () => 'x' } });
@@ -747,4 +747,37 @@ test('every old for-watchlist / want-to-watch file imports into both apps with n
     const { Ratings } = loadRatings();
     assert.equal(Ratings.import(items).added, items.length, name);
   }
+});
+
+// ---- API responses are untrusted input ------------------------------------
+test('OMDb film details: bad IDs count as missing; non-strings, bad ratings and unsafe posters dropped', () => {
+  const { MovieInfo } = loadRatings();
+  assert.equal(MovieInfo.parse({ imdbID: 'tt1"><b>', Title: 'X' }).missing, true);
+  const info = MovieInfo.parse({
+    imdbID: 'tt1234567', Title: '<script>x</script>', Year: '1999', Type: 'movie', Genre: { length: 1 },
+    imdbRating: '99', Plot: 'p'.repeat(5000), Poster: 'javascript:alert(1)', Director: ['a'], Actors: 'A, B'
+  });
+  assert.equal(info.title, '<script>x</script>'); // Stays text: every render goes through html``
+  assert.deepEqual([...info.genres], []);
+  assert.equal(info.imdbRating, '');
+  assert.equal(info.plot.length, 1000);
+  assert.equal(info.poster, '');
+  assert.equal(info.director, '');
+  assert.equal(MovieInfo.parse({ imdbID: 'tt1234567', imdbRating: '7.0' }).imdbRating, '7.0');
+});
+
+test('TMDB show details: non-strings dropped, lengths capped, posters only from TMDB paths', () => {
+  const { TMDB } = loadRatings();
+  const show = TMDB.parse({
+    id: 5, name: { evil: 1 }, overview: 'o'.repeat(5000), poster_path: '/../../x" onerror="alert(1)',
+    external_ids: { imdb_id: 'tt7654321' }, genres: [{ name: 7 }, { name: 'Drama' }, null],
+    created_by: 'nope', aggregate_credits: { cast: [{ name: 'n'.repeat(500) }] }
+  });
+  assert.equal(show.title, '');
+  assert.equal(show.plot.length, 1000);
+  assert.equal(show.poster, '');
+  assert.deepEqual([...show.genres], ['Drama']);
+  assert.equal(show.director, '');
+  assert.equal(show.actors.length, 100);
+  assert.equal(TMDB.parse({ id: 5, external_ids: { imdb_id: 'javascript:1' } }).missing, true);
 });

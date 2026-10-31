@@ -57,7 +57,7 @@ const TMDB = {
       const results = (data && Array.isArray(data.results)) ? data.results : [];
       for (const show of results) {
         if (!Number.isInteger(show.id) || !show.name) continue;
-        shows.push({ key: TV_KEY_PREFIX + show.id, title: String(show.name), year: yearOf(show.first_air_date) });
+        shows.push({ key: TV_KEY_PREFIX + show.id, title: String(show.name).substring(0, 500), year: yearOf(show.first_air_date) });
       }
       if (!data || page >= (data.total_pages || 1)) break;
     }
@@ -72,7 +72,9 @@ const TMDB = {
 
   // Into the same shape OMDb details take for films (see MovieInfo.parse)
   parse(data) {
-    const names = list => (Array.isArray(list) ? list.map(item => item && item.name).filter(Boolean) : []);
+    // TMDB's response is untrusted: strings only, capped
+    const text = (value, max) => (typeof value === 'string' ? value.substring(0, max) : '');
+    const names = list => (Array.isArray(list) ? list.map(item => item && text(item.name, 100)).filter(Boolean).slice(0, 20) : []);
     const imdbID = data.external_ids && /^tt\d{7,10}$/.test(data.external_ids.imdb_id || '') ? data.external_ids.imdb_id : '';
     const seasons = Number.isInteger(data.number_of_seasons) ? data.number_of_seasons : 0;
     const cast = data.aggregate_credits ? names(data.aggregate_credits.cast).slice(0, 3) : [];
@@ -83,13 +85,13 @@ const TMDB = {
       ...(imdbID ? {} : { missing: true }),
       imdbID,
       tmdbId: Number.isInteger(data.id) ? data.id : null,
-      title: String(data.name || ''),
+      title: text(data.name, 500),
       year: yearOf(data.first_air_date),
       type: 'series',
       genres: names(data.genres),
       director: names(data.created_by).join(', '),
       actors: cast.join(', '),
-      plot: String(data.overview || ''),
+      plot: text(data.overview, 1000),
       runtime: seasons ? `${seasons} season${seasons > 1 ? 's' : ''}` : '',
       tmdbRating: typeof data.vote_average === 'number' && data.vote_count >= 20 ? Math.round(data.vote_average * 10) / 10 : null,
       tmdbVotes: Number.isInteger(data.vote_count) ? data.vote_count : 0,

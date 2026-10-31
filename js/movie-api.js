@@ -9,15 +9,9 @@ const MovieAPI = {
   detailsCache: new Map(),
 
   request(params) {
-    const url = new URL(CONFIG.API.OMDB_URL);
-    url.searchParams.set('apikey', CONFIG.API.OMDB_KEY);
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) url.searchParams.set(key, value);
-    });
-
-    const key = url.toString();
+    const key = JSON.stringify(Object.entries(params).filter(([, value]) => value));
     if (!this.responseCache.has(key)) {
-      const pending = this.fetchJSON(key).catch(error => {
+      const pending = this.fetchJSON(params).catch(error => {
         this.responseCache.delete(key);
         throw error;
       });
@@ -26,24 +20,14 @@ const MovieAPI = {
     return this.responseCache.get(key);
   },
 
-  async fetchJSON(url) {
+  async fetchJSON(params) {
     // Add timeout to prevent hanging requests
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     let data;
 
     try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        mode: 'cors',
-        cache: 'default'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      data = await response.json();
+      data = await OMDb.fetch(params, { signal: controller.signal });
     } catch (error) {
       console.error('OMDb request error:', error);
       throw new Error(error.name === 'AbortError'
@@ -138,13 +122,13 @@ const MovieAPI = {
 
     return {
       items: data.Search
-        .filter(item => item.imdbID && item.Type !== 'game')
+        .filter(item => item && this.isImdbID(item.imdbID) && item.Type !== 'game')
         .map(item => ({
           imdbID: item.imdbID,
-          title: item.Title || 'Unknown',
-          year: item.Year || '',
+          title: this.clean(item.Title, 500) || 'Unknown',
+          year: this.clean(item.Year, 20),
           type: this.normalizeType(item.Type),
-          poster: this.clean(item.Poster)
+          poster: this.cleanUrl(item.Poster)
         })),
       total: parseInt(data.totalResults, 10) || 0,
       tooMany: false
@@ -158,7 +142,7 @@ const MovieAPI = {
     }
 
     const details = this.toDetails(data);
-    this.detailsCache.set(details.imdbID, details);
+    if (details) this.detailsCache.set(details.imdbID, details);
     return details;
   },
 
@@ -228,23 +212,34 @@ const MovieAPI = {
     return 'movie';
   },
 
-  clean(value) {
-    return value && value !== 'N/A' ? value : '';
+  // OMDb's responses are untrusted: keep strings only, capped, and drop "N/A"
+  clean(value, max = 2000) {
+    return typeof value === 'string' && value !== 'N/A' ? value.substring(0, max) : '';
+  },
+
+  cleanUrl(value) {
+    const url = this.clean(value);
+    return Security.isSafeUrl(url) ? url : '';
+  },
+
+  isImdbID(value) {
+    return typeof value === 'string' && /^tt\d{7,10}$/.test(value);
   },
 
   toDetails(data) {
+    if (!this.isImdbID(data.imdbID)) return null;
     return {
       imdbID: data.imdbID,
-      title: data.Title || 'Unknown',
+      title: this.clean(data.Title, 500) || 'Unknown',
       type: this.normalizeType(data.Type),
-      year: data.Year || '',
-      genre: this.clean(data.Genre),
-      rating: this.clean(data.imdbRating),
+      year: this.clean(data.Year, 20),
+      genre: this.clean(data.Genre, 200),
+      rating: this.clean(data.imdbRating, 10),
       plot: this.clean(data.Plot),
-      poster: this.clean(data.Poster),
-      director: this.clean(data.Director),
-      writer: this.clean(data.Writer),
-      actors: this.clean(data.Actors)
+      poster: this.cleanUrl(data.Poster),
+      director: this.clean(data.Director, 500),
+      writer: this.clean(data.Writer, 500),
+      actors: this.clean(data.Actors, 500)
     };
   },
 

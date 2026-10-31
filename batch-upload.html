@@ -15,7 +15,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://image.tmdb.org https://m.media-amazon.com https://i.ytimg.com; connect-src 'self' https://www.omdbapi.com; object-src 'none'; base-uri 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://image.tmdb.org https://m.media-amazon.com https://i.ytimg.com; connect-src 'self' https://www.omdbapi.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;">
+<meta name="referrer" content="no-referrer">
 <title>Batch Upload - Watchlist</title>
 <link rel="stylesheet" href="batch-upload.css?v=__APP_VERSION__">
 </head>
@@ -118,6 +119,7 @@ The Office
 <script src="js/config.js?v=__APP_VERSION__"></script>
 <script src="js/security.js?v=__APP_VERSION__"></script>
 <script src="js/item-model.js?v=__APP_VERSION__"></script>
+<script src="js/omdb.js?v=__APP_VERSION__"></script>
 <script src="js/movie-api.js?v=__APP_VERSION__"></script>
 <script src="js/youtube-api.js?v=__APP_VERSION__"></script>
 <script src="js/batch-upload.js?v=__APP_VERSION__"></script>

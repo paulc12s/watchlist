@@ -5,25 +5,9 @@ item to **Done** (with the commit) when it ships.
 
 ## Up next
 
-### 1. Review third-party tech and make vulnerabilities easy to patch
-The app has no npm dependencies or CDN scripts. Everything outside the repo:
-
-| What | Where | Notes |
-|---|---|---|
-| OMDb API | `js/movie-api.js`, `js/ratings/catalog.js` | Film details and posters; the key is in `js/config.js` |
-| TMDB API | `js/ratings/tmdb.js` | TV on the ratings page; each user's own key, kept on their device |
-| YouTube thumbnails | `i.ytimg.com` | Images only |
-| Poster CDNs | `m.media-amazon.com`, `image.tmdb.org` | Images only |
-| MovieLens 32M | `tools/build-*.js` → `data/*.json` | Build-time data, non-commercial licence |
-| GitHub Actions | `.github/workflows/pages.yml` | `checkout`, `configure-pages`, `upload-pages-artifact`, `deploy-pages`, pinned to major-version tags |
-| Node (CI tests, build tools) | workflow + `tools/` | Built-in modules only |
-
-To do:
-- Pin the Actions to commit SHAs and add Dependabot for `github-actions`, so updates arrive as reviewable PRs.
-- Check the CSP on each page against what the page really loads. Example: `watchlist.html` allows `connect-src https://www.google.com`, but the code seems to use Google only as a plain link. Not yet verified.
-- Decide how the OMDb key in `js/config.js` is handled, given it ships to every visitor.
-- Treat API responses as untrusted: keep sanitising every field before storing or rendering it, and add tests for hostile payloads.
-- Write a short `SECURITY.md`: how to report an issue, and the patch steps for each item above.
+### 1. Third-party security: remaining decisions
+The rest of this item shipped (see Done). Still open:
+- GitHub settings: turn on Dependabot alerts, and optionally require SHA-pinned Actions.
 
 ### 2. Share the movie-database code between pages
 `js/movie-api.js` (watchlist and batch upload) and `MovieInfo` in `js/ratings/catalog.js` each call OMDb and parse its results their own way. Merge them into one module covering:
@@ -61,4 +45,5 @@ A list that shows only titles the recommender rates as a very strong match and y
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Third-party review: Actions pinned to SHAs with Dependabot updates; CSPs checked against what each page loads (dropped `google.com` from the watchlist; hardened batch upload); OMDb and TMDB responses parsed as untrusted, with hostile-payload tests; the app's own OMDb key with fallback to the demo key (`js/omdb.js`); `SECURITY.md`.
 - Review dates in both apps: `reviewDate`, carried both ways on import and export.

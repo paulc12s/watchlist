@@ -1,0 +1,11 @@
+# Opens a PR when a GitHub Action used by the workflows has a new version.
+# The Actions are pinned to commit SHAs, so this is how updates arrive.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
