@@ -51,6 +51,8 @@ const Ratings = {
       actors: text(raw.actors, 300),
       plot: text(raw.plot, 1000),
       poster: Security.isSafeUrl(raw.poster) ? raw.poster : '',
+      // IMDb's audience rating out of 10, from OMDb when the card was shown
+      imdbRating: Number(raw.imdbRating) > 0 && Number(raw.imdbRating) <= 10 ? Number(raw.imdbRating) : null,
       verdict: RATINGS.VERDICTS.includes(raw.verdict) ? raw.verdict : '',
       stars: Number.isInteger(raw.stars) && raw.stars >= 0 && raw.stars <= 5 ? raw.stars : 0,
       rewatch: Boolean(raw.rewatch),
@@ -66,7 +68,7 @@ const Ratings = {
     const existing = this.entries.get(info.imdbID);
     // Fresh details win over the stored snapshot, but blanks don't erase it
     const details = Object.fromEntries(
-      ['imdbID', 'title', 'year', 'genres', 'director', 'actors', 'plot', 'poster']
+      ['imdbID', 'title', 'year', 'genres', 'director', 'actors', 'plot', 'poster', 'imdbRating']
         .filter(field => info[field] && String(info[field]).length)
         .map(field => [field, info[field]])
     );
@@ -145,6 +147,7 @@ const Ratings = {
     const line = e => {
       const parts = [`${e.title}${e.year ? ` (${e.year})` : ''}`];
       if (e.stars) parts.push('★'.repeat(e.stars));
+      if (e.imdbRating) parts.push(`IMDb ${e.imdbRating}`);
       if (e.rewatch) parts.push('would rewatch');
       if (e.review) parts.push(`"${e.review.replace(/\s+/g, ' ')}"`);
       return `- ${parts.join(' · ')}`;

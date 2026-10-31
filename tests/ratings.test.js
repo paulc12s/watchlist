@@ -287,3 +287,71 @@ test('watchlist import never loses what the ratings page already has', () => {
   assert.deepEqual({ ...result }, { added: 0, updated: 3 }, 'film 3 had nothing new');
   assert.equal(Ratings.all().length, 5, 'nothing removed');
 });
+
+// A small similarity file: A-B-C sci-fi, D-E-F comedies the crowd panned, G unrelated
+function loadRecommender() {
+  const { Recommender, REC } = require('../js/ratings/recommend.js');
+  Recommender.use({
+    films: [
+      ['tt0000001', 'A', 2001, 'Sci-Fi', '', 80, 50000, 420],
+      ['tt0000002', 'B', 2002, 'Sci-Fi', '', 75, 30000, 410],
+      ['tt0000003', 'C', 2003, 'Sci-Fi', '', 70, 20000, 400],
+      ['tt0000004', 'D', 2004, 'Comedy', '', 30, 40000, 300],
+      ['tt0000005', 'E', 2005, 'Comedy', '', 35, 30000, 310],
+      ['tt0000006', 'F', 2006, 'Comedy', '', 40, 20000, 320],
+      ['tt0000007', 'G', 2007, 'Drama', '', 85, 60000, 430]
+    ],
+    neighbors: [[1, 400, 2, 300], [2, 350], [], [4, 400, 5, 300], [5, 350], [], []]
+  });
+  return { Recommender, REC };
+}
+
+test('recommender weights ratings by strength: rewatch and 5 stars count most', () => {
+  const { Recommender, REC } = loadRecommender();
+  const w = (fields, lane = 'great') => Recommender.weight({ imdbID: 'tt0000001', ...fields }, lane);
+  assert.equal(w({ verdict: 'up' }), REC.UP);
+  assert.equal(w({ verdict: 'up', stars: 5 }), REC.FIVE_STARS);
+  assert.equal(w({ verdict: 'up', stars: 5, rewatch: true }), REC.FIVE_STARS + REC.REWATCH);
+  assert.equal(w({ verdict: 'up', stars: 5, rewatch: true }, 'flat'), REC.UP);
+  assert.equal(w({ verdict: 'down' }), REC.DOWN);
+  assert.ok(w({ verdict: 'skip' }) < 0 && w({ verdict: 'skip' }) > -1, 'skips count slightly against');
+  assert.ok(w({ imdbID: 'tt0000004', verdict: 'up' }, 'fun') > w({ imdbID: 'tt0000001', verdict: 'up' }, 'fun'),
+    'a like the crowd panned counts extra in the fun lane');
+});
+
+test('recommender ranks films near your likes, explains them, and keeps lanes apart', () => {
+  const { Recommender } = loadRecommender();
+  const entries = [
+    { imdbID: 'tt0000001', verdict: 'up', stars: 5 },
+    { imdbID: 'tt0000004', verdict: 'up' }
+  ];
+  const great = Recommender.recommend(entries, 'great', 3);
+  assert.equal(great[0].imdbID, 'tt0000002', 'closest to the 5-star film');
+  assert.deepEqual([...great[0].because], ['A']);
+  assert.ok(!great.some(f => f.imdbID === 'tt0000005'), 'great lane needs a decent crowd like-rate');
+
+  const { great: g, fun } = Recommender.lanes(entries, 3);
+  assert.equal(fun[0].imdbID, 'tt0000005', 'fun lane follows the panned comedy');
+  assert.ok(!fun.some(f => g.some(x => x.imdbID === f.imdbID)), 'no film in both lanes');
+  assert.ok(!Recommender.recommend(entries, 'great', 10).some(f => f.imdbID === 'tt0000001'), 'rated films are left out');
+});
+
+test('similarity file is well formed and has no TV series flagged by raters', () => {
+  const data = JSON.parse(read('data/similar.json'));
+  assert.ok(data.films.length > 4000);
+  assert.equal(data.films.length, data.neighbors.length);
+  const ids = new Set(data.films.map(f => f[0]));
+  assert.equal(ids.size, data.films.length, 'no duplicate films');
+  for (const list of data.neighbors) {
+    for (let k = 0; k < list.length; k += 2) assert.ok(list[k] < data.films.length && list[k + 1] > 0);
+  }
+  assert.ok(!data.films.some(f => f[1] === 'Band of Brothers'));
+});
+
+test('entries keep the IMDb rating OMDb gave, and drop nonsense values', () => {
+  const { Ratings } = loadRatings();
+  assert.equal(Ratings.setVerdict(film(1, { imdbRating: '7.4' }), 'up').imdbRating, 7.4);
+  assert.equal(Ratings.update(film(1, { imdbRating: '' }), { stars: 4 }).imdbRating, 7.4, 'a blank lookup keeps it');
+  assert.equal(Ratings.sanitize({ imdbID: 'tt1234567', title: 'A', imdbRating: 'N/A' }).imdbRating, null);
+  assert.equal(Ratings.sanitize({ imdbID: 'tt1234567', title: 'A', imdbRating: 42 }).imdbRating, null);
+});

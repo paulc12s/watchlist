@@ -67,6 +67,17 @@ A separate swipe feed for rating films and building a taste profile. It has its 
 
 The lists in `data/categories.json` are built from [MovieLens 32M](https://grouplens.org/datasets/movielens/) (ratings up to October 2023; non-commercial licence) plus hand-curated Oscar nominees in `tools/oscars.json`. Each film carries its top MovieLens tags (cleaned: opinions, awards and genre repeats dropped, synonyms folded) and the share of its raters who gave 4+ stars. To rebuild, unzip `ml-32m.zip` and run `node tools/build-categories.js path/to/ml-32m`. Posters and details come from OMDb when a card is shown and are cached, so each film costs one request.
 
+### Recommendations (in progress)
+
+`data/similar.json` holds, for about 5,000 of the most-rated MovieLens films, each film's 30 most similar films by how the same people rated both (adjusted cosine, shrunk when few people rated both). `js/ratings/recommend.js` scores unseen films from these and your ratings, weighted by strength (👎 −2 · 👍 +1 · 4★ +1.5 · 5★ +2.5 · rewatch +1; skipping a widely seen film counts slightly against). It has two lanes: **great** (near your best films, nudged by MovieLens quality) and **fun** (likes the crowd panned count extra). Neither is in the app yet.
+
+```
+node tools/build-similar.js path/to/ml-32m                           # rebuild data/similar.json (~1 min)
+node tools/build-similar.js path/to/ml-32m --holdout holdout.json    # same, minus the 20% test split
+node tools/eval-similar.js movielens path/to/ml-32m holdout.json     # accuracy vs the averages baseline
+node tools/eval-similar.js personal ratings-export.json             # how well it finds your own favourites
+```
+
 ## Files
 
 ```
@@ -89,8 +100,10 @@ js/
   batch-upload.js    Batch upload tool (uses the shared modules above)
   ui.js              Rendering & event handling
   app.js             Initialization
-  ratings/           Ratings page: config, db, store, catalog, taste, feed, ui, app
+  ratings/           Ratings page: config, db, store, catalog, taste, feed, recommend, ui, app
 ratings.html         Ratings swipe feed (+ ratings.css)
 data/categories.json Film lists for the ratings page
-tools/               build-categories.js (MovieLens → lists), oscars.json
+data/similar.json    Similar-films data for recommendations
+tools/               build-categories.js (MovieLens → lists), oscars.json,
+                     build-similar.js + eval-similar.js (recommender data and tests)
 ```

@@ -33,6 +33,11 @@ const TAG_MIN_FILMS = 8;
 // Films with fewer ratings than this aren't worth reading tags for
 const TAG_MIN_RATINGS = 100;
 
+// MovieLens includes some TV series and miniseries; its raters flag them, and
+// this many flags marks one as not a film
+const SERIES_TAG = /^(not a movie|made for tv|tv ?series|tv show|tv mini-?series|mini-?series|tv)$/;
+const SERIES_MIN_USERS = 2;
+
 // Opinions, awards, list memberships and personal bookkeeping describe the
 // tagger or the film's reputation, not the film
 const TAG_STOP = new RegExp('^(' + [
@@ -41,7 +46,8 @@ const TAG_STOP = new RegExp('^(' + [
   'want to', 'own', 'my ', 'favou?rite', 'must see', 'nudity', 'sexuality', 'r$', 'pg', 'overrated',
   'underrated', 'boring', 'bad', 'good', 'great', 'excellent', 'awesome', 'amazing', 'masterpiece',
   'classic$', 'stupid', 'predictable', 'funny$', 'entertaining', 'enjoyable', 'fun$', 'disappointing',
-  'over the top$', 'slow$', 'long$', 'too long', 'worst', 'terrible', 'waste', 'beautiful$'
+  'over the top$', 'slow$', 'long$', 'too long', 'worst', 'terrible', 'waste', 'beautiful$',
+  'not a movie', 'made for tv', 'tv', 'mini-?series'
 ].join('|') + ')');
 
 // Spellings of the same idea, folded together
@@ -155,11 +161,17 @@ async function addRatings(dir, movies) {
   }
 }
 
+// Also marks films as series (movie.series) when enough raters say so
 async function addTags(dir, movies) {
   // film -> tag -> people who gave it
   const taggers = new Map();
+  const seriesFlags = new Map();
   for await (const [userId, movieId, rawTag] of csvRows(path.join(dir, 'tags.csv'))) {
     const movie = movies.get(movieId);
+    if (movie && SERIES_TAG.test(String(rawTag).toLowerCase().trim())) {
+      if (!seriesFlags.has(movie)) seriesFlags.set(movie, new Set());
+      seriesFlags.get(movie).add(userId);
+    }
     const tag = movie && movie.count >= TAG_MIN_RATINGS && cleanTag(rawTag);
     if (!tag) continue;
     if (!taggers.has(movie)) taggers.set(movie, new Map());
@@ -183,11 +195,12 @@ async function addTags(dir, movies) {
       .slice(0, TAGS_PER_FILM)
       .map(([tag]) => tag);
   }
+  for (const [movie, people] of seriesFlags) movie.series = people.size >= SERIES_MIN_USERS;
 }
 
 function top(films, { minCount = 1000, where = () => true, by = 'score', limit = PER_CATEGORY } = {}) {
   return films
-    .filter(m => m.imdbID && m.count >= minCount && where(m))
+    .filter(m => m.imdbID && m.year && !m.series && m.count >= minCount && where(m))
     .sort((a, b) => b[by] - a[by])
     .slice(0, limit);
 }
@@ -303,4 +316,4 @@ async function main() {
 
 if (require.main === module) main();
 
-module.exports = { parseCsvLine, splitTitle, normalizeTitle, cleanTag };
+module.exports = { parseCsvLine, splitTitle, normalizeTitle, cleanTag, csvRows, loadMovies, addRatings, addTags };
