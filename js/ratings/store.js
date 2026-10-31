@@ -204,31 +204,57 @@ const Ratings = {
     return { added, updated };
   },
 
-  // Watched titles bring their stars, notes and rewatch flag; 4-5 stars count
-  // as thumbs up and 1-2 as thumbs down. Unwatched titles become "want to watch".
-  // Anything already rated here is left alone.
+  // Merges a watchlist export without losing anything already here:
+  // - Watched titles fill in stars, notes and rewatch where this app has none,
+  //   and 4-5 stars become a thumb up, 1-2 a thumb down, unless you've already
+  //   given a thumb here. A film you skipped or wanted is upgraded, since the
+  //   watchlist says you've now seen it.
+  // - Unwatched titles become "want to watch" unless you've rated them.
+  // - Nothing is removed, and a filled-in field is never overwritten.
   importWatchlist(unwatched, watched) {
     if (unwatched.length + watched.length > RATINGS.MAX_IMPORT) throw new Error('Too many items');
     let added = 0, updated = 0;
-    const take = (item, fields) => {
+    const now = new Date().toISOString();
+    const thumbed = entry => Boolean(entry && (entry.verdict === 'up' || entry.verdict === 'down'));
+
+    const merge = (item, changes) => {
       if (!item || item.type === 'youtube' || item.type === 'series') return;
       const existing = this.entries.get(item.imdbID);
-      if (existing && (existing.verdict || existing.want)) return;
-      const entry = this.sanitize({
-        imdbID: item.imdbID, title: item.title, genres: item.genre,
-        plot: item.plot, poster: item.poster, ...existing, ...fields
-      });
+      const base = existing || {
+        imdbID: item.imdbID, title: item.title, genres: item.genre, plot: item.plot, poster: item.poster
+      };
+      const entry = this.sanitize({ ...base, ...changes(existing || {}) });
       if (!entry) return;
-      existing ? updated++ : added++;
+      if (existing && JSON.stringify({ ...entry, updatedAt: '' }) === JSON.stringify({ ...existing, updatedAt: '' })) return;
+      if (existing) {
+        updated++;
+        entry.updatedAt = now;
+      } else {
+        added++;
+      }
       this.entries.set(entry.imdbID, entry);
     };
-    for (const item of unwatched) take(item, { want: true });
+
+    for (const item of unwatched) {
+      const seen = entry => thumbed(entry) || entry.stars || entry.review || entry.rewatch;
+      merge(item, entry => (seen(entry) ? {} : { want: true, verdict: '' }));
+    }
     for (const item of watched) {
-      const stars = Number.isInteger(item.stars) ? item.stars : 0;
-      take(item, {
-        stars, review: item.review, rewatch: item.rewatch,
-        verdict: stars >= 4 ? 'up' : stars >= 1 && stars <= 2 ? 'down' : '',
-        ratedAt: stars && stars !== 3 ? new Date().toISOString() : ''
+      const stars = Number.isInteger(item.stars) && item.stars >= 1 && item.stars <= 5 ? item.stars : 0;
+      const verdict = stars >= 4 ? 'up' : stars >= 1 && stars <= 2 ? 'down' : '';
+      merge(item, entry => {
+        const changes = { want: false };
+        if (!thumbed(entry)) {
+          // Seen now: a skip no longer applies, and stars may give a thumb
+          changes.verdict = verdict;
+          if (verdict) changes.ratedAt = now;
+        }
+        // Stars that contradict a thumb you've given here are left out
+        const conflicts = thumbed(entry) && verdict && verdict !== entry.verdict;
+        if (!entry.stars && stars && !conflicts) changes.stars = stars;
+        if (!entry.review && item.review) changes.review = item.review;
+        if (!entry.rewatch && item.rewatch) changes.rewatch = true;
+        return changes;
       });
     }
     if (added || updated) this.onChange();

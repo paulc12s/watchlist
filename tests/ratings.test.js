@@ -241,3 +241,49 @@ test('categories file carries tags and crowd like-rates for MovieLens films', ()
     assert.ok(f[4] === null || (f[4] >= 0 && f[4] <= 100), key);
   }
 });
+
+test('watchlist import never loses what the ratings page already has', () => {
+  const { Ratings } = loadRatings();
+  Ratings.update(film(1), { verdict: 'skip' });                       // skipped here, watched there
+  Ratings.update(film(2), { want: true });                            // wanted here, watched there
+  Ratings.update(film(3), { stars: 4, review: 'mine', rewatch: true }); // seen, no thumb yet
+  Ratings.update(film(4), { verdict: 'up' });                         // thumbed here
+  Ratings.update(film(5), { verdict: 'up', review: 'keep' });         // thumbed and noted here
+  const before5 = Ratings.get('tt0000005').updatedAt;
+
+  const result = Ratings.import({
+    unwatched: [{ title: 'Film 4', imdbID: 'tt0000004' }, { title: 'Film 3', imdbID: 'tt0000003' }],
+    watched: [
+      { title: 'Film 1', imdbID: 'tt0000001', stars: 5, review: 'loved it' },
+      { title: 'Film 2', imdbID: 'tt0000002' },
+      { title: 'Film 3', imdbID: 'tt0000003', stars: 0, review: '', rewatch: false },
+      { title: 'Film 4', imdbID: 'tt0000004', stars: 1, review: 'meh' },
+      { title: 'Film 5', imdbID: 'tt0000005' }
+    ]
+  });
+
+  const one = Ratings.get('tt0000001');
+  assert.equal(one.verdict, 'up', 'skip upgraded by 5 watchlist stars');
+  assert.equal(one.stars, 5);
+  assert.equal(one.review, 'loved it');
+
+  const two = Ratings.get('tt0000002');
+  assert.equal(two.want, false, 'watched now');
+  assert.equal(two.verdict, '', 'seen but no stars: back in the feed for a thumb');
+
+  const three = Ratings.get('tt0000003');
+  assert.equal(three.stars, 4, 'blank watchlist stars do not erase');
+  assert.equal(three.review, 'mine');
+  assert.equal(three.rewatch, true);
+  assert.equal(three.want, false, 'unwatched there does not make a seen film wanted');
+
+  const four = Ratings.get('tt0000004');
+  assert.equal(four.verdict, 'up', 'a thumb given here wins');
+  assert.equal(four.stars, 0, 'contradicting stars are left out');
+  assert.equal(four.review, 'meh', 'blank notes are filled in');
+  assert.equal(four.want, false);
+
+  assert.equal(Ratings.get('tt0000005').updatedAt, before5, 'nothing new means untouched');
+  assert.deepEqual({ ...result }, { added: 0, updated: 3 }, 'film 3 had nothing new');
+  assert.equal(Ratings.all().length, 5, 'nothing removed');
+});
