@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!--
+  Landing page: points to the two apps in this project.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests;">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#07090c">
+<meta name="description" content="A movie watchlist and a swipe feed for rating films and building a taste profile. Everything stays in your browser.">
+<link rel="apple-touch-icon" href="/watchlist/movie.png">
+<link rel="icon" type="image/png" href="/watchlist/movie.png">
+<title>Movies</title>
+<link rel="stylesheet" href="index.css?v=__APP_VERSION__">
+</head>
+<body>
+<main class="page">
+  <header class="intro">
+    <h1>Movies</h1>
+    <p>Two small apps for keeping track of films. No account, no server: everything stays in your browser, and each app can export a backup.</p>
+  </header>
+
+  <a class="app-card" href="watchlist.html">
+    <span class="app-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.6-6.5 4.6v-16a1 1 0 0 1 1-1Z"/></svg>
+    </span>
+    <span class="app-text">
+      <span class="app-name">Watchlist</span>
+      <span class="app-description">What to watch next. Search movies and TV, add YouTube videos, sort by priority, tag by mood or platform, mark titles watched and review them with stars, notes and a rewatch flag.</span>
+    </span>
+    <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+  </a>
+
+  <a class="app-card accent" href="ratings.html">
+    <span class="app-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><rect x="2.5" y="10" width="4" height="11" rx="1.2"/><path d="M6.5 11.5 10.6 3.6c1.6.1 2.7 1.5 2.3 3.1L12.2 9.5h6.2a2.3 2.3 0 0 1 2.3 2.7l-1.3 6.9A2.3 2.3 0 0 1 17.1 21H6.5"/></svg>
+    </span>
+    <span class="app-text">
+      <span class="app-name">Ratings</span>
+      <span class="app-description">What you actually like. Swipe through curated lists of films (most watched, Oscar nominees, decades, genres) with a thumb up or down, add stars and notes, and build a taste profile of the genres, themes and eras you lean toward.</span>
+    </span>
+    <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+  </a>
+
+  <section class="together">
+    <h2>Working together</h2>
+    <p>Films you mark “want to watch” in Ratings export as a file the Watchlist imports, and Ratings can import a Watchlist export to pick up the stars and notes you’ve already given.</p>
+  </section>
+
+  <footer class="credits">
+    Film lists built from <a href="https://grouplens.org/datasets/movielens/" rel="noopener">MovieLens</a> (GroupLens Research) ·
+    Details and posters from <a href="https://www.omdbapi.com/" rel="noopener">OMDb</a> ·
+    <a href="batch-upload.html">Batch add to Watchlist</a>
+  </footer>
+</main>
+</body>
+</html>

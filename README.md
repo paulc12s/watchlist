@@ -29,7 +29,7 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
    ```
    python3 -m http.server 8000
    ```
-4. Open `http://localhost:8000/watchlist.html`
+4. Open `http://localhost:8000/` (landing page) or `http://localhost:8000/watchlist.html`
 
 ## Tests
 
@@ -70,6 +70,7 @@ The lists in `data/categories.json` are built from [MovieLens 32M](https://group
 ## Files
 
 ```
+index.html           Landing page linking the two apps (+ index.css)
 watchlist.html       Main app
 batch-upload.html    Bulk title importer (+ batch-upload.css)
 version.json         Deployed version, stamped by the Pages workflow
