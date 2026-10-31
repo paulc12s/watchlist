@@ -1,0 +1,41 @@
+{
+  "_note": "Best Picture nominees by ceremony, curated by hand (Wikidata was not reachable at build time). The first film in each list won. Titles are matched to MovieLens by title and year; films MovieLens doesn't have are looked up on OMDb by the ratings page.",
+  "ceremonies": [
+    {
+      "ceremony": 98, "year": 2026, "films": 2025,
+      "nominees": [
+        "One Battle After Another", "Bugonia", "F1", "Frankenstein", "Hamnet",
+        "Marty Supreme", "The Secret Agent", "Sentimental Value", "Sinners", "Train Dreams"
+      ]
+    },
+    {
+      "ceremony": 97, "year": 2025, "films": 2024,
+      "nominees": [
+        "Anora", "The Brutalist", "A Complete Unknown", "Conclave", "Dune: Part Two",
+        "Emilia Pérez", "I'm Still Here", "Nickel Boys", "The Substance", "Wicked"
+      ]
+    },
+    {
+      "ceremony": 96, "year": 2024, "films": 2023,
+      "nominees": [
+        "Oppenheimer", "American Fiction", "Anatomy of a Fall", "Barbie", "The Holdovers",
+        "Killers of the Flower Moon", "Maestro", "Past Lives", "Poor Things", "The Zone of Interest"
+      ]
+    },
+    {
+      "ceremony": 95, "year": 2023, "films": 2022,
+      "nominees": [
+        "Everything Everywhere All at Once", "All Quiet on the Western Front", "Avatar: The Way of Water",
+        "The Banshees of Inisherin", "Elvis", "The Fabelmans", "Tár", "Top Gun: Maverick",
+        "Triangle of Sadness", "Women Talking"
+      ]
+    },
+    {
+      "ceremony": 94, "year": 2022, "films": 2021,
+      "nominees": [
+        "CODA", "Belfast", "Don't Look Up", "Drive My Car", "Dune", "King Richard",
+        "Licorice Pizza", "Nightmare Alley", "The Power of the Dog", "West Side Story"
+      ]
+    }
+  ]
+}

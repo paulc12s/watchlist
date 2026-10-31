@@ -29,12 +29,12 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Run tests
-        run: node --test tests/watchlist.test.js
+        run: node --test tests/watchlist.test.js tests/ratings.test.js
 
       - name: Stamp version
         run: |
           VERSION="${GITHUB_SHA::7}"
-          sed -i "s/__APP_VERSION__/$VERSION/g" watchlist.html batch-upload.html js/config.js version.json
+          sed -i "s/__APP_VERSION__/$VERSION/g" watchlist.html batch-upload.html ratings.html js/config.js version.json
           if grep -rl "__APP_VERSION__" --include='*.html' --include='*.js' --include='*.json' . | grep -v '^./tests/'; then
             echo "Unstamped files remain" && exit 1
           fi

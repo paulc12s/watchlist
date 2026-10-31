@@ -34,7 +34,7 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 ## Tests
 
 ```
-node --test tests/watchlist.test.js
+node --test tests/watchlist.test.js tests/ratings.test.js
 ```
 
 ## Deploying
@@ -53,6 +53,19 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 - **Edit** — click a badge to edit inline, or click Edit for the full modal
 - **Poster click** — opens a Google search for the title
 - **Export/Import** — back up your list as JSON and restore on any browser
+
+## Ratings (`ratings.html`)
+
+A separate swipe feed for rating films and building a taste profile. It has its own storage (`RatingsDB`) and never changes the watchlist's data; the two exchange JSON files.
+
+- **Swipe right / left** — thumbs up / down. **Swipe up** — skip (not seen, or can't remember); skipped films don't come back unless you choose “Show skipped films again” in settings. **Swipe down** — back to the previous film. Arrow keys do the same on a computer
+- **On the card** — stars (1–5 keys), 🔖 want to watch (W), 🔁 would rewatch (R), ✏️ notes (N). Stars, notes or rewatch mean you've seen it, so the film needs a thumb rather than a skip
+- **Lists** — tap the list name to choose (most watched, love-it-or-hate-it, Oscar Best Picture nominees, decades, genres, hidden gems, a mix); ⏭ moves to the next list, and a finished list rolls on to the next automatically. Best-first or shuffled order is in settings
+- **Tags & the crowd** — cards show MovieLens viewers' tags (“twist ending”, “atmospheric”). After you give a thumb, you see what share of MovieLens viewers liked the film; it's hidden until then so it can't sway you
+- **📊 My taste** — genres, themes & style (tags), decades and directors you lean toward or away from; how often you agree with the crowd and where you don't; plus your liked / disliked / want / skipped films
+- **⚙ Settings** — export/import a backup; import a watchlist export (watched titles bring stars and notes: 4–5★ count as 👍, 1–2★ as 👎; unwatched become “want to watch”); export want-to-watch as a file the watchlist's Import accepts; copy a taste profile to paste into an AI assistant for recommendations
+
+The lists in `data/categories.json` are built from [MovieLens 32M](https://grouplens.org/datasets/movielens/) (ratings up to October 2023; non-commercial licence) plus hand-curated Oscar nominees in `tools/oscars.json`. Each film carries its top MovieLens tags (cleaned: opinions, awards and genre repeats dropped, synonyms folded) and the share of its raters who gave 4+ stars. To rebuild, unzip `ml-32m.zip` and run `node tools/build-categories.js path/to/ml-32m`. Posters and details come from OMDb when a card is shown and are cached, so each film costs one request.
 
 ## Files
 
@@ -75,4 +88,8 @@ js/
   batch-upload.js    Batch upload tool (uses the shared modules above)
   ui.js              Rendering & event handling
   app.js             Initialization
+  ratings/           Ratings page: config, db, store, catalog, taste, feed, ui, app
+ratings.html         Ratings swipe feed (+ ratings.css)
+data/categories.json Film lists for the ratings page
+tools/               build-categories.js (MovieLens → lists), oscars.json
 ```

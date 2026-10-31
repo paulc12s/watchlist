@@ -1,0 +1,198 @@
+// ============================================================================
+// Catalog
+// The film lists from data/categories.json (built from MovieLens by
+// tools/build-categories.js), plus OMDb details for each card.
+//
+// Films are keyed by IMDb ID. Recent films MovieLens doesn't have are keyed
+// "title:Name (Year)" and matched on OMDb by title the first time they're dealt.
+// ============================================================================
+
+const MIX_ID = 'mix';
+
+const MovieInfo = {
+  // key -> details, or { missing: true } when OMDb has no such film
+  cache: new Map(),
+  pending: new Map(),
+  onChange() {},
+
+  get(key) {
+    return this.cache.get(key);
+  },
+
+  imdbID(key) {
+    if (key.startsWith('tt')) return key;
+    const info = this.cache.get(key);
+    return info && info.imdbID ? info.imdbID : null;
+  },
+
+  // TV series sneak into MovieLens; they, and films OMDb can't find, are passed over
+  isUsable(info) {
+    return Boolean(info && !info.missing && info.type === 'movie');
+  },
+
+  // Shares one request per key; throws on network, key or quota problems
+  fetch(key) {
+    if (this.cache.has(key)) return Promise.resolve(this.cache.get(key));
+    if (!this.pending.has(key)) {
+      const request = this.request(key)
+        .then(info => {
+          this.cache.set(key, info);
+          // Films found by title can then be looked up by ID too
+          if (info.imdbID && info.imdbID !== key) this.cache.set(info.imdbID, info);
+          this.onChange();
+          return info;
+        })
+        .finally(() => this.pending.delete(key));
+      this.pending.set(key, request);
+    }
+    return this.pending.get(key);
+  },
+
+  async request(key) {
+    const url = new URL(CONFIG.API.OMDB_URL);
+    url.searchParams.set('apikey', CONFIG.API.OMDB_KEY);
+    if (key.startsWith('tt')) {
+      url.searchParams.set('i', key);
+    } else {
+      const { title, year } = Catalog.basics(key);
+      url.searchParams.set('t', title);
+      if (year) url.searchParams.set('y', year);
+      url.searchParams.set('type', 'movie');
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    let data;
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      data = await response.json();
+    } catch (error) {
+      throw new Error(error.name === 'AbortError' ? 'OMDb timed out' : 'Could not reach OMDb');
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (data.Response === 'False') {
+      if (/limit|api key/i.test(data.Error || '')) throw new Error(`OMDb: ${data.Error}`);
+      return { missing: true };
+    }
+    return this.parse(data);
+  },
+
+  parse(data) {
+    const value = field => (data[field] && data[field] !== 'N/A' ? String(data[field]) : '');
+    const year = parseInt(value('Year'), 10);
+    return {
+      imdbID: value('imdbID'),
+      title: value('Title'),
+      year: Number.isInteger(year) ? year : null,
+      type: value('Type'),
+      genres: value('Genre').split(',').map(g => g.trim()).filter(Boolean),
+      director: value('Director'),
+      actors: value('Actors'),
+      plot: value('Plot'),
+      runtime: value('Runtime'),
+      imdbRating: value('imdbRating'),
+      poster: Security.isSafeUrl(value('Poster')) ? value('Poster') : ''
+    };
+  },
+
+  load(entries) {
+    this.cache = new Map(Array.isArray(entries) ? entries : []);
+  },
+
+  dump() {
+    return [...this.cache.entries()];
+  }
+};
+
+const Catalog = {
+  movies: {},
+  categories: [],
+
+  async load() {
+    const response = await fetch(RATINGS.CATEGORIES_URL);
+    if (!response.ok) throw new Error('Could not load the film lists');
+    this.use(await response.json());
+  },
+
+  use(data) {
+    this.movies = data.movies || {};
+    const mix = {
+      id: MIX_ID, group: 'Start here', name: 'Mix of everything',
+      note: 'Every list shuffled together', keys: Object.keys(this.movies)
+    };
+    this.categories = [...(data.categories || []), mix];
+  },
+
+  get(id) {
+    return this.categories.find(c => c.id === id) || this.categories[0];
+  },
+
+  groups() {
+    const groups = new Map();
+    for (const category of this.categories) {
+      if (!groups.has(category.group)) groups.set(category.group, []);
+      groups.get(category.group).push(category);
+    }
+    return groups;
+  },
+
+  // What the lists know about a film: title, year and genres for showing a card
+  // before OMDb answers, plus MovieLens tags and the share of raters who liked
+  // it (likeRate 0-1, null when MovieLens doesn't have the film)
+  basics(key) {
+    const [title, year, genres, tags, likePct, crowdCount] = this.movies[key] || [];
+    const split = value => (value ? value.split('|') : []);
+    if (title) {
+      return {
+        title, year, genres: split(genres), tags: split(tags),
+        likeRate: typeof likePct === 'number' ? likePct / 100 : null, crowdCount: crowdCount || 0
+      };
+    }
+    const match = key.match(/^title:(.*) \((\d{4})\)$/);
+    return {
+      title: match ? match[1] : key, year: match ? Number(match[2]) : null,
+      genres: [], tags: [], likeRate: null, crowdCount: 0
+    };
+  },
+
+  // A film is out of the running once rated, skipped or wanted, or once OMDb
+  // has said it isn't a film
+  isDone(key) {
+    const imdbID = MovieInfo.imdbID(key);
+    if (imdbID && Ratings.isDone(imdbID)) return true;
+    const info = MovieInfo.get(key);
+    return Boolean(info && !MovieInfo.isUsable(info));
+  },
+
+  remaining(id) {
+    return this.get(id).keys.filter(key => !this.isDone(key)).length;
+  },
+
+  // Keys to deal, in list order or shuffled; the mix is always shuffled
+  queue(id, order) {
+    const keys = this.get(id).keys.filter(key => !this.isDone(key));
+    return order === 'shuffled' || id === MIX_ID ? shuffle(keys) : keys;
+  },
+
+  // The next list with anything left in it, wrapping round
+  nextId(id) {
+    const index = this.categories.findIndex(c => c.id === id);
+    for (let step = 1; step <= this.categories.length; step++) {
+      const next = this.categories[(index + step) % this.categories.length];
+      if (this.remaining(next.id) > 0) return next.id;
+    }
+    return null;
+  }
+};
+
+function shuffle(list) {
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}

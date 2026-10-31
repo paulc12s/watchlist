@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<!--
+  MOVIE RATINGS
+
+  A swipe feed for rating films, building a taste profile for recommendations.
+  Companion to watchlist.html, with its own storage; the two exchange JSON files.
+
+  - Swipe right / left: thumbs up / down
+  - Swipe up: skip (not seen, or can't remember it); skipped films don't return
+  - Swipe down: back to the previous film
+  - Stars, rewatch, notes and "want to watch" on the card
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://m.media-amazon.com https://image.tmdb.org; connect-src 'self' https://www.omdbapi.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#07090c">
+<link rel="apple-touch-icon" href="/watchlist/movie.png">
+<link rel="icon" type="image/png" href="/watchlist/movie.png">
+<title>Ratings</title>
+<link rel="stylesheet" href="ratings.css?v=__APP_VERSION__">
+</head>
+<body>
+<!-- Icon set: 24px grid, 1.75 stroke, round caps and joins. Used as <svg><use href="#i-name"/></svg> -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-thumb-up" viewBox="0 0 24 24"><rect x="2.5" y="10" width="4" height="11" rx="1.2"/><path d="M6.5 11.5 10.6 3.6c1.6.1 2.7 1.5 2.3 3.1L12.2 9.5h6.2a2.3 2.3 0 0 1 2.3 2.7l-1.3 6.9A2.3 2.3 0 0 1 17.1 21H6.5"/></symbol>
+  <symbol id="i-thumb-down" viewBox="0 0 24 24"><g transform="matrix(1 0 0 -1 0 24)"><rect x="2.5" y="10" width="4" height="11" rx="1.2"/><path d="M6.5 11.5 10.6 3.6c1.6.1 2.7 1.5 2.3 3.1L12.2 9.5h6.2a2.3 2.3 0 0 1 2.3 2.7l-1.3 6.9A2.3 2.3 0 0 1 17.1 21H6.5"/></g></symbol>
+  <symbol id="i-skip" viewBox="0 0 24 24"><path d="m6.5 12.5 5.5-5.5 5.5 5.5"/><path d="m6.5 18.5 5.5-5.5 5.5 5.5"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M5.5 5.2v13.6a.8.8 0 0 0 1.2.7l9.6-6.8a.8.8 0 0 0 0-1.3L6.7 4.5a.8.8 0 0 0-1.2.7Z"/><path d="M19.5 5v14"/></symbol>
+  <symbol id="i-taste" viewBox="0 0 24 24"><path d="M3 20.5h18"/><path d="M6.5 16.5v-5"/><path d="M12 16.5V5"/><path d="M17.5 16.5V9"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.3" stroke-width="3.2" stroke-dasharray="3.1 3.42" stroke-linecap="butt"/><circle cx="12" cy="12" r="6.2"/><circle cx="12" cy="12" r="2.4"/></symbol>
+  <symbol id="i-want" viewBox="0 0 24 24"><path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.6-6.5 4.6v-16a1 1 0 0 1 1-1Z"/></symbol>
+  <symbol id="i-rewatch" viewBox="0 0 24 24"><path d="m16.5 2.5 3 3-3 3"/><path d="M4.5 11.5v-1a5 5 0 0 1 5-5h10"/><path d="m7.5 21.5-3-3 3-3"/><path d="M19.5 12.5v1a5 5 0 0 1-5 5h-10"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24"><path d="M4 20h4L19.2 8.8a2.8 2.8 0 0 0-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.2l2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 17l-5.4 2.9 1.1-6.1-4.5-4.2 6.1-.8Z"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+</svg>
+<div class="app">
+  <header class="topbar">
+    <button type="button" class="category-button" id="categoryButton" aria-haspopup="dialog">
+      <span class="category-text">
+        <span class="category-name" id="categoryName">Loading…</span>
+        <span class="category-progress" id="categoryProgress"></span>
+      </span>
+      <svg class="icon chevron" aria-hidden="true"><use href="#i-chevron"/></svg>
+    </button>
+    <button type="button" class="icon-button" id="nextCategory" title="Next list" aria-label="Next list"><svg class="icon" aria-hidden="true"><use href="#i-next"/></svg></button>
+    <button type="button" class="icon-button" id="tasteButton" title="My taste" aria-label="My taste"><svg class="icon" aria-hidden="true"><use href="#i-taste"/></svg></button>
+    <button type="button" class="icon-button" id="settingsButton" title="Settings" aria-label="Settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg></button>
+  </header>
+
+  <main class="stage" id="stage">
+    <article class="card" id="card" aria-live="polite"></article>
+  </main>
+
+  <nav class="actions" aria-label="Rate">
+    <button type="button" class="action down" data-action="down" title="Thumbs down (←)" aria-label="Thumbs down"><svg class="icon" aria-hidden="true"><use href="#i-thumb-down"/></svg></button>
+    <button type="button" class="action minor" data-action="back" title="Previous (↓)" aria-label="Previous film"><svg class="icon" aria-hidden="true"><use href="#i-back"/></svg></button>
+    <button type="button" class="action minor" data-action="skip" title="Skip (↑)" aria-label="Skip"><svg class="icon" aria-hidden="true"><use href="#i-skip"/></svg></button>
+    <button type="button" class="action up" data-action="up" title="Thumbs up (→)" aria-label="Thumbs up"><svg class="icon" aria-hidden="true"><use href="#i-thumb-up"/></svg></button>
+  </nav>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<dialog class="sheet" id="categorySheet" aria-labelledby="categoryTitle">
+  <header class="sheet-header">
+    <h2 id="categoryTitle">Choose a list</h2>
+    <button type="button" class="icon-button" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+  </header>
+  <div class="sheet-body" id="categoryList"></div>
+</dialog>
+
+<dialog class="sheet" id="noteSheet" aria-labelledby="noteTitle">
+  <header class="sheet-header">
+    <h2 id="noteTitle">Notes</h2>
+    <button type="button" class="icon-button" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+  </header>
+  <div class="sheet-body">
+    <p class="sheet-subtitle" id="noteFilm"></p>
+    <textarea id="noteText" rows="5" maxlength="1000" placeholder="A few words: what worked, what didn't"></textarea>
+    <div class="sheet-actions">
+      <button type="button" class="button primary" id="noteSave">Save</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="tasteSheet" aria-labelledby="tasteTitle">
+  <header class="sheet-header">
+    <h2 id="tasteTitle">My taste</h2>
+    <button type="button" class="icon-button" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+  </header>
+  <div class="sheet-body" id="tasteBody"></div>
+</dialog>
+
+<dialog class="sheet" id="settingsSheet" aria-labelledby="settingsTitle">
+  <header class="sheet-header">
+    <h2 id="settingsTitle">Settings</h2>
+    <button type="button" class="icon-button" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
+  </header>
+  <div class="sheet-body">
+    <section class="setting">
+      <h3>Order</h3>
+      <div class="segmented" role="radiogroup" aria-label="Order">
+        <button type="button" role="radio" data-order="ranked">Best first</button>
+        <button type="button" role="radio" data-order="shuffled">Shuffled</button>
+      </div>
+    </section>
+    <section class="setting">
+      <h3>Backup</h3>
+      <div class="button-row">
+        <button type="button" class="button" id="exportBackup">Export ratings</button>
+        <button type="button" class="button" id="importButton">Import…</button>
+      </div>
+      <p class="hint">Import takes a ratings backup or a watchlist export. Watched titles bring their stars and notes (4–5 stars count as a like, 1–2 as a dislike); unwatched ones become “want to watch”.</p>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </section>
+    <section class="setting">
+      <h3>Share</h3>
+      <div class="button-row">
+        <button type="button" class="button" id="exportWant">Want-to-watch for Watchlist</button>
+        <button type="button" class="button" id="exportAI">Taste profile for AI</button>
+      </div>
+      <p class="hint">The first saves a file the watchlist’s Import accepts. The second copies a summary you can paste into Claude to ask for recommendations.</p>
+    </section>
+    <section class="setting">
+      <h3>Skipped films</h3>
+      <button type="button" class="button" id="clearSkips">Show skipped films again</button>
+    </section>
+    <p class="credits">
+      <a href="watchlist.html">Open Watchlist</a> ·
+      Lists built from <a href="https://grouplens.org/datasets/movielens/" rel="noopener" target="_blank">MovieLens</a> (GroupLens Research) ·
+      Details from <a href="https://www.omdbapi.com/" rel="noopener" target="_blank">OMDb</a>
+    </p>
+  </div>
+</dialog>
+
+<script src="js/config.js?v=__APP_VERSION__"></script>
+<script src="js/security.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/config.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/db.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/store.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/catalog.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/taste.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/feed.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/ui.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/app.js?v=__APP_VERSION__"></script>
+</body>
+</html>
