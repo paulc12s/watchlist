@@ -159,6 +159,13 @@
         </select>
       </div>
       <div class="edit-field">
+        <label>Your verdict</label>
+        <div class="thumb-input" id="edit-thumb" role="group" aria-label="Thumbs up or down">
+          <button type="button" class="thumb-toggle" data-thumb="up" aria-pressed="false">👍 Liked it</button>
+          <button type="button" class="thumb-toggle" data-thumb="down" aria-pressed="false">👎 Not for me</button>
+        </div>
+      </div>
+      <div class="edit-field">
         <label>Tag</label>
         <input type="text" id="edit-tag" list="tag-list" placeholder="family, airplane, art...">
       </div>
@@ -192,6 +199,10 @@
     <div class="modal-header">Review</div>
     <div class="review-subtitle" id="review-title"></div>
     <div class="modal-body">
+      <div class="thumb-input review-thumb" id="review-thumb" role="group" aria-label="Thumbs up or down">
+        <button type="button" class="thumb-toggle" data-thumb="up" aria-pressed="false">👍 Liked it</button>
+        <button type="button" class="thumb-toggle" data-thumb="down" aria-pressed="false">👎 Not for me</button>
+      </div>
       <div class="star-input" id="review-stars" role="radiogroup" aria-label="Your rating">
         <button type="button" class="star-btn" data-stars="1" role="radio" aria-label="1 star">★</button>
         <button type="button" class="star-btn" data-stars="2" role="radio" aria-label="2 stars">★</button>

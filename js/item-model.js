@@ -34,6 +34,28 @@ const ItemModel = {
     return key !== null && keys.has(key);
   },
 
+  // Folds an imported copy of an item into the one already in the list, so
+  // nothing either side knows is lost: empty fields are filled in, and nothing
+  // already set is overwritten. Priority and watched status stay as they are,
+  // since they're this list's own say about the queue. Returns whether
+  // anything changed.
+  mergeInto(existing, incoming) {
+    let changed = false;
+    const fill = (field, isEmpty) => {
+      if (isEmpty(existing[field]) && !isEmpty(incoming[field])) {
+        existing[field] = incoming[field];
+        changed = true;
+      }
+    };
+    const blank = value => !value;
+    ['tag', 'platform', 'genre', 'rating', 'plot', 'poster', 'duration', 'review', 'thumb', 'stars'].forEach(field => fill(field, blank));
+    if (!existing.rewatch && incoming.rewatch) {
+      existing.rewatch = true;
+      changed = true;
+    }
+    return changed;
+  },
+
   // Priority to group, filter and edit by. Unknown values (from a newer
   // version of the app) are kept in storage but behave as medium here.
   displayPriority(item) {

@@ -57,6 +57,10 @@ const Ratings = {
       type: raw.type === 'series' ? 'series' : 'movie',
       // TMDB's ID for shows, to fetch their recommendations
       tmdbId: Number.isInteger(raw.tmdbId) && raw.tmdbId > 0 ? raw.tmdbId : null,
+      // The watchlist's own organising fields, kept so a round trip loses nothing
+      tag: text(raw.tag, CONFIG.LIMITS.MAX_TAG_LENGTH),
+      platform: text(raw.platform, CONFIG.LIMITS.MAX_PLATFORM_LENGTH),
+      priority: typeof raw.priority === 'string' && /^[a-z-]{1,20}$/.test(raw.priority) ? raw.priority : '',
       // Where the recommender ranked this title for you when it was dealt
       // (1 = top pick), saved with your first verdict to measure its guesses
       guessPct: typeof raw.guessPct === 'number' && raw.guessPct >= 0 && raw.guessPct <= 1 ? raw.guessPct : null,
@@ -135,17 +139,29 @@ const Ratings = {
     };
   },
 
-  // Films you want to see, as items the watchlist's Import accepts as-is
+  // Everything the watchlist can use, as items its Import accepts as-is:
+  // titles you want to see (unwatched) and titles you've seen and given a
+  // thumb, stars, notes or a rewatch flag (watched). Skips stay here, since
+  // they mean you haven't seen it. Tag, platform and priority that came from
+  // the watchlist go back unchanged.
   watchlistItems() {
-    return this.all().filter(e => e.want).map(e => ({
+    const seen = e => e.verdict === 'up' || e.verdict === 'down' || e.stars || e.review || e.rewatch;
+    return this.all().filter(e => e.want || seen(e)).map(e => ({
       title: e.title,
       type: e.type,
-      priority: 'medium',
+      priority: e.priority || 'medium',
+      tag: e.tag,
+      platform: e.platform,
       genre: e.genres.join(', '),
+      rating: e.imdbRating ? String(e.imdbRating) : '',
       plot: e.plot,
       poster: e.poster,
       imdbID: e.imdbID,
-      watched: false
+      watched: !e.want,
+      thumb: e.verdict === 'up' || e.verdict === 'down' ? e.verdict : '',
+      stars: e.stars,
+      review: e.review,
+      rewatch: e.rewatch
     }));
   },
 
@@ -216,24 +232,26 @@ const Ratings = {
   },
 
   // Merges a watchlist export without losing anything already here:
-  // - Watched titles fill in stars, notes and rewatch where this app has none,
-  //   and 4-5 stars become a thumb up, 1-2 a thumb down, unless you've already
-  //   given a thumb here. A film you skipped or wanted is upgraded, since the
-  //   watchlist says you've now seen it.
-  // - Unwatched titles become "want to watch" unless you've rated them.
+  // - Titles the watchlist says you've seen (watched, or with a thumb, stars,
+  //   notes or rewatch) fill in what this app lacks. Its thumb, or else 4-5
+  //   stars / 1-2 stars, becomes a thumb here unless you've given one here. A
+  //   title you skipped or wanted is upgraded, since you've now seen it.
+  // - Other unwatched titles become "want to watch" unless you've rated them.
+  // - Tag, platform and priority are kept for the trip back.
   // - Nothing is removed, and a filled-in field is never overwritten.
   importWatchlist(unwatched, watched) {
     if (unwatched.length + watched.length > RATINGS.MAX_IMPORT) throw new Error('Too many items');
     let added = 0, updated = 0;
     const now = new Date().toISOString();
     const thumbed = entry => Boolean(entry && (entry.verdict === 'up' || entry.verdict === 'down'));
+    const hasOpinion = entry => thumbed(entry) || entry.stars || entry.review || entry.rewatch;
 
     const merge = (item, changes) => {
       if (!item || item.type === 'youtube') return;
       const existing = this.entries.get(item.imdbID);
       const base = existing || {
         imdbID: item.imdbID, title: item.title, genres: item.genre, plot: item.plot, poster: item.poster,
-        type: item.type
+        type: item.type, imdbRating: item.rating
       };
       const entry = this.sanitize({ ...base, ...changes(existing || {}) });
       if (!entry) return;
@@ -247,17 +265,29 @@ const Ratings = {
       this.entries.set(entry.imdbID, entry);
     };
 
-    for (const item of unwatched) {
-      const seen = entry => thumbed(entry) || entry.stars || entry.review || entry.rewatch;
-      merge(item, entry => (seen(entry) ? {} : { want: true, verdict: '' }));
-    }
-    for (const item of watched) {
+    const items = [
+      ...unwatched.map(item => item && { ...item, watched: false }),
+      ...watched.map(item => item && { ...item, watched: true })
+    ];
+    for (const item of items) {
+      if (!item) continue;
       const stars = Number.isInteger(item.stars) && item.stars >= 1 && item.stars <= 5 ? item.stars : 0;
-      const verdict = stars >= 4 ? 'up' : stars >= 1 && stars <= 2 ? 'down' : '';
+      const thumb = item.thumb === 'up' || item.thumb === 'down' ? item.thumb : '';
+      const verdict = thumb || (stars >= 4 ? 'up' : stars >= 1 && stars <= 2 ? 'down' : '');
+      const seenThere = item.watched || thumb || stars || item.review || item.rewatch;
+
       merge(item, entry => {
-        const changes = { want: false };
+        const changes = {};
+        if (!entry.tag && item.tag) changes.tag = item.tag;
+        if (!entry.platform && item.platform) changes.platform = item.platform;
+        if (!entry.priority && item.priority) changes.priority = item.priority;
+        if (!seenThere) {
+          if (!hasOpinion(entry)) Object.assign(changes, { want: true, verdict: '' });
+          return changes;
+        }
+        changes.want = false;
         if (!thumbed(entry)) {
-          // Seen now: a skip no longer applies, and stars may give a thumb
+          // Seen now: a skip no longer applies, and the watchlist's verdict carries over
           changes.verdict = verdict;
           if (verdict) changes.ratedAt = now;
         }

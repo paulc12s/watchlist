@@ -66,7 +66,9 @@ const Security = {
         // Personal review: 0 stars means unrated
         stars: Number.isInteger(item.stars) && item.stars >= 0 && item.stars <= 5 ? item.stars : 0,
         review: String(item.review || '').trim().substring(0, CONFIG.LIMITS.MAX_REVIEW_LENGTH),
-        rewatch: Boolean(item.rewatch)
+        rewatch: Boolean(item.rewatch),
+        // Thumbs up or down; '' when not given. Shared with the ratings page
+        thumb: item.thumb === 'up' || item.thumb === 'down' ? item.thumb : ''
       };
     } catch (error) {
       console.error('Sanitize error:', error, item);

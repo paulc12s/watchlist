@@ -131,16 +131,16 @@
         <button type="button" class="button" id="exportBackup">Export ratings</button>
         <button type="button" class="button" id="importButton">Import…</button>
       </div>
-      <p class="hint">Import takes a ratings backup or a watchlist export. Imports merge: nothing is removed, and nothing you’ve set here is overwritten. Watched titles fill in stars and notes (4–5 stars count as a like, 1–2 as a dislike, unless you’ve given a thumb here); unwatched ones become “want to watch”.</p>
+      <p class="hint">Import takes a ratings backup or a watchlist export. Imports merge: nothing is removed, and nothing you’ve set here is overwritten. Watchlist titles bring their thumbs, stars, notes, rewatch flag, tag, platform and priority (without a thumb, 4–5 stars count as a like and 1–2 as a dislike); unwatched ones become “want to watch”.</p>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
     <section class="setting">
       <h3>Share</h3>
       <div class="button-row">
-        <button type="button" class="button" id="exportWant">Want-to-watch for Watchlist</button>
+        <button type="button" class="button" id="exportWant">Export for Watchlist</button>
         <button type="button" class="button" id="exportAI">Taste profile for AI</button>
       </div>
-      <p class="hint">The first saves a file the watchlist’s Import accepts. The second copies a summary you can paste into Claude to ask for recommendations.</p>
+      <p class="hint">Export for Watchlist saves a file the watchlist’s Import accepts: want-to-watch titles as unwatched, and everything you’ve seen and rated as watched, with thumbs, stars, notes and rewatch. The watchlist merges it into titles it already has. Taste profile for AI copies a summary you can paste into Claude to ask for recommendations.</p>
     </section>
     <section class="setting">
       <h3>TV</h3>

@@ -274,20 +274,27 @@ const ItemManager = {
         throw new Error('No valid items found - all items failed validation');
       }
 
-      // Merge with existing items, avoiding duplicates (including within the file)
-      const keys = ItemModel.keySet(state.items);
+      // Merge with existing items: titles already in the list (or earlier in
+      // the file) are folded in field by field rather than added twice
+      const byKey = new Map();
+      state.items.forEach(item => {
+        const key = ItemModel.key(item);
+        if (key) byKey.set(key, item);
+      });
       let addedCount = 0;
-      let skippedCount = 0;
+      let updatedCount = 0;
+      let unchangedCount = 0;
 
       sanitized.forEach(newItem => {
-        if (ItemModel.isDuplicate(newItem, keys)) {
-          skippedCount++;
+        const key = ItemModel.key(newItem);
+        const existing = key && byKey.get(key);
+        if (existing) {
+          if (ItemModel.mergeInto(existing, newItem)) updatedCount++;
+          else unchangedCount++;
           return;
         }
 
-        const key = ItemModel.key(newItem);
-        if (key) keys.add(key);
-
+        if (key) byKey.set(key, newItem);
         // Fresh ID so imported items can't collide with existing ones
         newItem.id = ItemModel.newId();
         state.items.unshift(newItem);
@@ -297,11 +304,16 @@ const ItemManager = {
       this.save(false);
       UI.render();
 
-      if (addedCount > 0) {
-        const message = `Added ${addedCount} item${addedCount === 1 ? '' : 's'}${skippedCount > 0 ? `, skipped ${skippedCount} duplicate${skippedCount === 1 ? '' : 's'}` : ''}`;
-        UI.setStatus(message, true);
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+      if (addedCount > 0 || updatedCount > 0) {
+        const parts = [
+          addedCount > 0 && `added ${plural(addedCount, 'item')}`,
+          updatedCount > 0 && `updated ${updatedCount}`,
+          unchangedCount > 0 && `${unchangedCount} already up to date`
+        ].filter(Boolean);
+        UI.setStatus(parts.join(', ').replace(/^./, c => c.toUpperCase()), true);
       } else {
-        UI.setStatus('No new items added (all duplicates)', false);
+        UI.setStatus('Nothing new to import (all up to date)', false);
       }
 
       setTimeout(() => UI.setStatus('saved', true), 3000);

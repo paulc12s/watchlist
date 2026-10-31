@@ -655,8 +655,8 @@ const RatingsUI = {
     });
     this.els.exportWant.addEventListener('click', () => {
       const items = Ratings.watchlistItems();
-      if (!items.length) return this.toast('Nothing marked “want to watch” yet');
-      this.download(`want-to-watch-${today()}.json`, JSON.stringify(items, null, 2));
+      if (!items.length) return this.toast('Nothing rated or wanted yet');
+      this.download(`for-watchlist-${today()}.json`, JSON.stringify(items, null, 2));
     });
     this.els.exportAI.addEventListener('click', async () => {
       const text = Ratings.aiProfile(this.computeTaste());

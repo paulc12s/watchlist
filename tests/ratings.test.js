@@ -145,24 +145,136 @@ test('backup round-trips and keeps the most recently changed copy', () => {
   assert.throws(() => Ratings.import({ something: 1 }));
 });
 
-test('want-to-watch export is accepted by the watchlist import unchanged', () => {
-  const { Ratings } = loadRatings();
-  Ratings.update(film(1, { poster: 'https://m.media-amazon.com/x.jpg', plot: 'p' }), { want: true });
-  Ratings.setVerdict(film(2), 'up');
-  const exported = JSON.parse(JSON.stringify(Ratings.watchlistItems()));
-  assert.equal(exported.length, 1);
-
-  // Run it through the watchlist's own import code
+// The watchlist's own code, to check files really cross between the apps
+function loadWatchlist(items = []) {
   const files = ['config', 'state', 'security', 'item-model', 'movie-api', 'item-manager'];
   const context = vm.createContext({ console, crypto, setTimeout, clearTimeout, URL, UI: { setStatus() {}, render() {} } });
-  vm.runInContext(`${files.map(f => read(`js/${f}.js`)).join('\n')}\nthis.wl = { state, ItemManager };`, context);
-  const { state, ItemManager } = context.wl;
-  ItemManager.save = () => Promise.resolve();
-  assert.equal(ItemManager.import(JSON.stringify(exported)), true);
-  assert.equal(state.items.length, 1);
-  assert.equal(state.items[0].imdbID, 'tt0000001');
-  assert.equal(state.items[0].watched, false);
-  assert.equal(state.items[0].poster, 'https://m.media-amazon.com/x.jpg');
+  vm.runInContext(`${files.map(f => read(`js/${f}.js`)).join('\n')}\nthis.wl = { state, ItemManager, Security };`, context);
+  const wl = context.wl;
+  wl.ItemManager.save = () => Promise.resolve();
+  wl.state.items = items.map(item => wl.Security.sanitizeItem(item));
+  // What the watchlist's Export button writes
+  wl.exportFile = () => JSON.stringify({
+    unwatched: wl.state.items.filter(i => !i.watched), watched: wl.state.items.filter(i => i.watched)
+  });
+  wl.get = imdbID => wl.state.items.find(i => i.imdbID === imdbID);
+  return wl;
+}
+
+test('ratings export brings wanted and rated titles to the watchlist with every field', () => {
+  const { Ratings } = loadRatings();
+  Ratings.update(film(1, { poster: 'https://m.media-amazon.com/x.jpg', plot: 'p' }), { want: true, priority: 'high', tag: 'family' });
+  Ratings.update(film(2, { imdbRating: '7.9', type: 'series' }), { verdict: 'up', stars: 5, review: 'superb', rewatch: true, platform: 'Netflix' });
+  Ratings.setVerdict(film(3), 'down');
+  Ratings.setVerdict(film(4), 'skip');
+
+  const wl = loadWatchlist();
+  assert.equal(wl.ItemManager.import(JSON.stringify(Ratings.watchlistItems())), true);
+  assert.equal(wl.state.items.length, 3, 'skips stay behind: they mean not seen');
+
+  const wanted = wl.get('tt0000001');
+  assert.equal(wanted.watched, false);
+  assert.equal(wanted.priority, 'high');
+  assert.equal(wanted.tag, 'family');
+  assert.equal(wanted.poster, 'https://m.media-amazon.com/x.jpg');
+
+  const loved = wl.get('tt0000002');
+  assert.equal(loved.watched, true);
+  assert.equal(loved.thumb, 'up');
+  assert.equal(loved.stars, 5);
+  assert.equal(loved.review, 'superb');
+  assert.equal(loved.rewatch, true);
+  assert.equal(loved.platform, 'Netflix');
+  assert.equal(loved.rating, '7.9');
+  assert.equal(loved.type, 'series');
+  assert.equal(wl.get('tt0000003').thumb, 'down');
+});
+
+test('watchlist merges ratings into titles it already has without overwriting', () => {
+  const { Ratings } = loadRatings();
+  Ratings.update(film(1), { verdict: 'up', stars: 4, review: 'from ratings', rewatch: true });
+  Ratings.update(film(2), { verdict: 'down', review: 'meh' });
+
+  const wl = loadWatchlist([
+    { title: 'Film 1', imdbID: 'tt0000001', priority: 'watching', tag: 'date night', watched: false },
+    { title: 'Film 2', imdbID: 'tt0000002', watched: true, stars: 3, review: 'mine', thumb: 'up' }
+  ]);
+  wl.ItemManager.import(JSON.stringify(Ratings.watchlistItems()));
+  assert.equal(wl.state.items.length, 2, 'no duplicates');
+
+  const one = wl.get('tt0000001');
+  assert.equal(one.priority, 'watching', 'priority is the watchlist\'s own');
+  assert.equal(one.tag, 'date night');
+  assert.equal(one.watched, false, 'queue status is the watchlist\'s own');
+  assert.equal(one.thumb, 'up');
+  assert.equal(one.stars, 4);
+  assert.equal(one.review, 'from ratings');
+  assert.equal(one.rewatch, true);
+
+  const two = wl.get('tt0000002');
+  assert.equal(two.stars, 3, 'existing values win');
+  assert.equal(two.review, 'mine');
+  assert.equal(two.thumb, 'up');
+});
+
+test('watchlist → ratings → watchlist round trip loses nothing and changes nothing', () => {
+  const original = [
+    { title: 'Queued', imdbID: 'tt0000001', type: 'movie', priority: 'high', tag: 'airplane', platform: 'Max', genre: 'Drama', rating: '8.1' },
+    { title: 'Seen', imdbID: 'tt0000002', type: 'series', priority: 'low', tag: 'family', watched: true, stars: 2, review: 'slow', thumb: 'down' },
+    { title: 'Loved', imdbID: 'tt0000003', priority: 'watching', watched: true, stars: 5, review: 'wow', rewatch: true },
+    { title: 'Clip', type: 'youtube', youtubeID: 'dQw4w9WgXcQ', priority: 'medium' }
+  ];
+  const wl = loadWatchlist(original);
+  const before = JSON.stringify(wl.state.items);
+
+  const { Ratings } = loadRatings();
+  Ratings.import(JSON.parse(wl.exportFile()));
+  const queued = Ratings.get('tt0000001');
+  assert.equal(queued.want, true);
+  assert.equal(queued.priority, 'high');
+  assert.equal(queued.tag, 'airplane');
+  assert.equal(queued.platform, 'Max');
+  assert.equal(Ratings.get('tt0000002').verdict, 'down', 'the watchlist thumb wins over its stars');
+  assert.equal(Ratings.get('tt0000002').type, 'series');
+  assert.equal(Ratings.get('tt0000003').verdict, 'up');
+  assert.equal(Ratings.get('tt0000003').rewatch, true);
+
+  // Back again: the watchlist only gains the thumb implied by 5 stars
+  wl.ItemManager.import(JSON.stringify(Ratings.watchlistItems()));
+  const after = JSON.parse(JSON.stringify(wl.state.items));
+  assert.equal(after.length, 4, 'nothing added, YouTube untouched');
+  const beforeItems = JSON.parse(before);
+  for (const item of beforeItems) {
+    const now = after.find(i => i.id === item.id);
+    for (const [field, value] of Object.entries(item)) {
+      if (field === 'thumb' && !value) continue;
+      assert.deepEqual(now[field], value, `${item.title}.${field}`);
+    }
+  }
+  assert.equal(after.find(i => i.imdbID === 'tt0000003').thumb, 'up');
+});
+
+test('ratings → watchlist → ratings round trip keeps verdicts, stars, notes and flags', () => {
+  const { Ratings } = loadRatings();
+  Ratings.update(film(1), { verdict: 'up', stars: 5, review: 'great', rewatch: true });
+  Ratings.update(film(2), { verdict: 'down', review: 'no' });
+  Ratings.update(film(3), { want: true, priority: 'high' });
+  const strip = ({ updatedAt, ratedAt, priority, ...rest }) => rest;
+  const before = JSON.stringify(Ratings.all().map(strip));
+
+  const wl = loadWatchlist();
+  wl.ItemManager.import(JSON.stringify(Ratings.watchlistItems()));
+  Ratings.import(JSON.parse(wl.exportFile()));
+  assert.equal(JSON.stringify(Ratings.all().map(strip)), before, 'nothing lost or changed');
+  // The one addition: the watchlist files titles under its default priority
+  assert.equal(Ratings.get('tt0000001').priority, 'medium');
+  assert.equal(Ratings.get('tt0000003').priority, 'high');
+});
+
+test('watchlist sanitizes thumbs', () => {
+  const wl = loadWatchlist([{ title: 'A', thumb: 'up' }, { title: 'B', thumb: 'sideways' }]);
+  assert.equal(wl.state.items[0].thumb, 'up');
+  assert.equal(wl.state.items[1].thumb, '');
 });
 
 test('AI profile lists likes with stars and notes', () => {

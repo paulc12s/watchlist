@@ -1223,6 +1223,34 @@ body {
   color: var(--color-bg-elevated);
 }
 
+.thumb-input {
+  display: flex;
+  gap: 8px;
+}
+
+.review-thumb {
+  margin-bottom: 14px;
+}
+
+/* Same pill as the rewatch toggle */
+.thumb-toggle {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border: 1.5px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.thumb-toggle[aria-pressed="true"] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-bg-elevated);
+}
+
 .item-review {
   font-size: 14px;
   font-style: italic;
@@ -1243,6 +1271,10 @@ body {
 .badge.rewatch {
   background: var(--color-rewatch-bg);
   color: var(--color-rewatch);
+}
+
+.badge.thumb {
+  background: var(--color-bg-secondary);
 }
 
 /* ============================================================================

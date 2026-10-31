@@ -55,6 +55,7 @@ const UI = {
       editGenre: document.getElementById('edit-genre'),
       editRating: document.getElementById('edit-rating'),
       editPlot: document.getElementById('edit-plot'),
+      editThumb: document.getElementById('edit-thumb'),
       editSave: document.getElementById('edit-save'),
       editCancel: document.getElementById('edit-cancel'),
       reviewModal: document.getElementById('review-modal'),
@@ -62,6 +63,7 @@ const UI = {
       reviewStars: document.getElementById('review-stars'),
       reviewText: document.getElementById('review-text'),
       reviewRewatch: document.getElementById('review-rewatch'),
+      reviewThumb: document.getElementById('review-thumb'),
       reviewSave: document.getElementById('review-save'),
       reviewCancel: document.getElementById('review-cancel')
     };
@@ -169,6 +171,14 @@ const UI = {
     this.elements.editCancel.addEventListener('click', () => this.closeEditModal());
     this.elements.editModal.addEventListener('click', (e) => {
       if (e.target === this.elements.editModal) this.closeEditModal();
+    });
+    // Thumbs, in both the edit and review dialogs: tapping the pressed one again clears it
+    [this.elements.editThumb, this.elements.reviewThumb].forEach(group => {
+      group.addEventListener('click', (e) => {
+        const btn = e.target.closest('.thumb-toggle');
+        if (!btn) return;
+        this.setThumb(group, btn.dataset.thumb === this.thumbs.get(group) ? '' : btn.dataset.thumb);
+      });
     });
 
     // Review modal; tapping the current star rating again clears it
@@ -769,8 +779,19 @@ const UI = {
     this.elements.editGenre.value = item.genre || '';
     this.elements.editRating.value = item.rating || '';
     this.elements.editPlot.value = item.plot || '';
+    this.setThumb(this.elements.editThumb, item.thumb);
 
     this.elements.editModal.classList.add('visible');
+  },
+
+  // Current thumb per dialog's toggle group
+  thumbs: new Map(),
+
+  setThumb(group, thumb) {
+    this.thumbs.set(group, thumb || '');
+    group.querySelectorAll('.thumb-toggle').forEach(btn => {
+      btn.setAttribute('aria-pressed', String(btn.dataset.thumb === thumb));
+    });
   },
 
   closeEditModal() {
@@ -789,7 +810,8 @@ const UI = {
       platform: this.elements.editPlatform.value.trim(),
       genre: this.elements.editGenre.value.trim(),
       rating: this.elements.editRating.value.trim(),
-      plot: this.elements.editPlot.value.trim()
+      plot: this.elements.editPlot.value.trim(),
+      thumb: this.thumbs.get(this.elements.editThumb)
     });
 
     if (success) {
@@ -805,6 +827,7 @@ const UI = {
     state.reviewingId = itemId;
 
     this.elements.reviewTitle.textContent = item.title;
+    this.setThumb(this.elements.reviewThumb, item.thumb);
     this.setReviewStars(item.stars);
     this.elements.reviewText.value = item.review;
     this.elements.reviewRewatch.setAttribute('aria-pressed', String(item.rewatch));
@@ -832,7 +855,8 @@ const UI = {
     const success = ItemManager.update(state.reviewingId, {
       stars: this.reviewStars,
       review: this.elements.reviewText.value.trim(),
-      rewatch: this.elements.reviewRewatch.getAttribute('aria-pressed') === 'true'
+      rewatch: this.elements.reviewRewatch.getAttribute('aria-pressed') === 'true',
+      thumb: this.thumbs.get(this.elements.reviewThumb)
     });
 
     if (success) {
@@ -928,7 +952,7 @@ const UI = {
   itemHTML(item) {
     const priority = ItemModel.displayPriority(item);
     const isYoutube = item.type === 'youtube';
-    const hasReview = item.stars > 0 || item.review || item.rewatch;
+    const hasReview = item.stars > 0 || item.review || item.rewatch || item.thumb;
     const editable = (field, label) =>
       html`data-field="${field}" data-item-id="${item.id}" title="Click to ${label}"`;
 
@@ -956,6 +980,7 @@ const UI = {
             ${item.tag
               ? html`<span class="badge tag editable" ${editable('tag', 'edit tag')}>${item.tag}</span>`
               : html`<span class="badge tag editable empty" ${editable('tag', 'add tag')}>+ tag</span>`}
+            ${item.thumb && html`<span class="badge thumb" title="${item.thumb === 'up' ? 'You liked it' : 'Not for you'}">${item.thumb === 'up' ? '👍' : '👎'}</span>`}
             ${item.stars > 0 && html`<span class="badge stars" title="Your rating: ${item.stars}/5">${'★'.repeat(item.stars)}${'☆'.repeat(5 - item.stars)}</span>`}
             ${item.rewatch && html`<span class="badge rewatch">🔁 Rewatch</span>`}
           </div>

@@ -177,3 +177,31 @@ test('rewatch filter applies to both the active and watched lists', () => {
   state.watchedMode = true;
   assert.deepEqual(titles(), ['Loved It']);
 });
+
+test('import merges duplicates field by field: fills blanks, never overwrites', () => {
+  const { state, ItemManager } = loadApp();
+  state.items = [
+    { id: 'a', title: 'Heat', imdbID: 'tt0113277', type: 'movie', priority: 'high', tag: 'crime', watched: false, stars: 0, review: '', rewatch: false, thumb: '', platform: '' },
+    { id: 'b', title: 'Alien', imdbID: 'tt0078748', type: 'movie', priority: 'low', tag: '', watched: true, stars: 4, review: 'tense', rewatch: false, thumb: 'up', platform: '' }
+  ];
+  ItemManager.import(JSON.stringify([
+    { title: 'Heat', imdbID: 'tt0113277', priority: 'low', tag: 'other', watched: true, stars: 5, review: 'classic', thumb: 'up', rewatch: true, platform: 'Max' },
+    { title: 'Alien', imdbID: 'tt0078748', stars: 1, review: 'nope', thumb: 'down', tag: 'space' },
+    { title: 'New One', imdbID: 'tt0000099' }
+  ]));
+  assert.equal(state.items.length, 3);
+  const heat = state.items.find(i => i.id === 'a');
+  assert.equal(heat.priority, 'high', 'priority is kept');
+  assert.equal(heat.tag, 'crime', 'tag is kept');
+  assert.equal(heat.watched, false, 'watched status is kept');
+  assert.equal(heat.stars, 5);
+  assert.equal(heat.review, 'classic');
+  assert.equal(heat.thumb, 'up');
+  assert.equal(heat.rewatch, true);
+  assert.equal(heat.platform, 'Max');
+  const alien = state.items.find(i => i.id === 'b');
+  assert.equal(alien.stars, 4);
+  assert.equal(alien.review, 'tense');
+  assert.equal(alien.thumb, 'up');
+  assert.equal(alien.tag, 'space', 'blank tag is filled');
+});
