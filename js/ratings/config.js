@@ -67,7 +67,9 @@ const AWARD_LISTS = [
   { id: 'awards-international', name: 'International feature nominees', note: 'Oscar nominees for Best International Feature', type: 'movie' },
   { id: 'awards-documentary', name: 'Documentary feature nominees', note: 'Oscar nominees for Best Documentary Feature', type: 'movie' },
   { id: 'awards-animated', name: 'Animated feature nominees', note: 'Oscar nominees for Best Animated Feature', type: 'movie' },
-  { id: 'awards-globes-tv', name: 'Golden Globe TV nominees', note: 'Drama, musical or comedy, and limited series. No TMDB key needed', type: 'series' }
+  { id: 'awards-globes-tv', name: 'Golden Globe & Emmy TV nominees', note: 'Drama, comedy and limited series. No TMDB key needed', type: 'series' },
+  { id: 'awards-festivals', name: 'Festival top prizes', note: 'Cannes, Venice and Berlin winners from the last 25 years', type: 'movie' },
+  { id: 'awards-sight-sound', name: 'Sight and Sound critics’ poll', note: 'The 2022 critics’ top 100 greatest films, in poll order', type: 'movie' }
 ];
 
 const TV_LISTS = (() => {

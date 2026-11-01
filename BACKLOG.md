@@ -44,7 +44,6 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - **Go if:** iCloud sync and background updates matter more than the recommendation gain. A web version gets most of the gain from text embeddings.
 
 ## Later
-- More award lists, which need Wikipedia's tables (Wikidata is too sparse): Emmy TV nominees (merge into the Golden Globe list), festival top prizes (Cannes, Venice, Berlin winners), the Sight and Sound critics' poll.
 - CSS: a z-index scale as tokens.
 - Taste over time, now that reviews are dated (`reviewDate`).
 - In the watchlist import, flag conflicting verdicts (an existing 👎 alongside imported 4★) instead of keeping both.
@@ -52,7 +51,7 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
-- Award lists: Best Picture (replacing the five yearly lists), Oscar acting, Oscar directing/writing/cinematography, International, Documentary, Animated, Golden Globe TV; built by tools/build-awards.js, fetched on demand.
+- Award lists: Best Picture (replacing the five yearly lists), Oscar acting, Oscar directing/writing/cinematography, International, Documentary, Animated, Golden Globe & Emmy TV, festival top prizes, Sight and Sound poll; built by tools/build-awards.js, fetched on demand.
 - Settings → Appearance: Auto, Light or Dark (data-scheme on <html>, set before the page draws); the browser bar colour follows the page. Themes checked readable in every combination.
 - Search: suggestions as you type with typos forgiven (your titles, bundled films, TMDB's recent and popular titles), OMDb prefix matching ("bugo*"), "Did you mean", Enter picks; in review and the add sheet. Themes: Basic (was Classic) plus five that colour the whole app. App icon attribution (monkik, Flaticon).
 - Review: search in Choose a list to rate any one film or show straight away (your titles first, then OMDb).

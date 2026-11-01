@@ -548,7 +548,8 @@ test('award lists: listed where the yearly Best Picture lists were, fetched only
     ]
   });
   assert.deepEqual(plain(Catalog.categories.filter(c => c.media === 'film').map(c => c.id)),
-    ['popular', 'awards-best-picture', 'awards-acting', 'awards-craft', 'awards-international', 'awards-documentary', 'awards-animated', 'awards-globes-tv', 'drama', 'mix']);
+    ['popular', 'awards-best-picture', 'awards-acting', 'awards-craft', 'awards-international', 'awards-documentary', 'awards-animated',
+      'awards-globes-tv', 'awards-festivals', 'awards-sight-sound', 'drama', 'mix']);
   assert.equal(Catalog.get('awards-acting').loaded, false);
 
   let fetches = 0;
@@ -585,7 +586,7 @@ test('data/awards.json matches the award lists the page names', () => {
       assert.ok(Array.isArray(data.titles[key]) && data.titles[key][0], `${key} has a title`);
     }
   }
-  assert.equal(data.lists.length, 7);
+  assert.equal(data.lists.length, 9);
   const names = [...config.matchAll(/id: '(awards-[a-z-]+)'/g)].map(m => m[1]);
   assert.deepEqual(names, data.lists.map(l => l.id), 'the page names every list in the file, in the same order');
 });

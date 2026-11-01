@@ -2,9 +2,12 @@
 // Builds data/awards.json: review lists of award nominees.
 //   Oscars: from Wikidata (CC0), with Best Picture's newest ceremonies also
 //     taken from the hand-curated lists in data/categories.json
-//   Golden Globe TV: from the nominee tables on Wikipedia, whose shows link
-//     to Wikidata for their IMDb IDs (Wikidata's own Golden Globe TV data is
-//     too sparse). Only titles and IDs are kept, which are facts.
+//   Golden Globe and Emmy TV, festival winners: from the tables on
+//     Wikipedia, whose titles link to Wikidata for their IMDb IDs (Wikidata's
+//     own data for these is too sparse)
+//   Sight and Sound poll: from the BFI's page, matched through Wikipedia's
+//     search to Wikidata for IMDb IDs
+// Only titles, years, ranks and IDs are kept, which are facts.
 //
 //   node tools/build-awards.js            last 10 ceremonies (the default)
 //   node tools/build-awards.js --years 15
@@ -59,13 +62,27 @@ const LISTS = [
     awards: { Q106800: 'Animated Feature' }
   },
   {
-    id: 'awards-globes-tv', name: 'Golden Globe TV nominees', type: 'series', on: 'wikipedia',
-    note: 'Drama, musical or comedy, and limited series',
+    // The ID predates the Emmys joining it, and is kept so saved choices still find it
+    id: 'awards-globes-tv', name: 'Golden Globe & Emmy TV nominees', type: 'series', on: 'wikipedia',
+    note: 'Drama, comedy and limited series',
     pages: {
-      'Golden Globe Award for Best Television Series – Drama': 'Drama series',
-      'Golden Globe Award for Best Television Series – Musical or Comedy': 'Musical or comedy series',
-      'Golden Globe Award for Best Limited or Anthology Series or Television Film': 'Limited series or TV film'
+      'Golden Globe Award for Best Television Series – Drama': 'Globes drama series',
+      'Golden Globe Award for Best Television Series – Musical or Comedy': 'Globes musical or comedy series',
+      'Golden Globe Award for Best Limited or Anthology Series or Television Film': 'Globes limited series or TV film',
+      'Primetime Emmy Award for Outstanding Drama Series': 'Emmy drama series',
+      'Primetime Emmy Award for Outstanding Comedy Series': 'Emmy comedy series',
+      'Primetime Emmy Award for Outstanding Limited or Anthology Series': 'Emmy limited series'
     }
+  },
+  {
+    id: 'awards-festivals', name: 'Festival top prizes', type: 'movie', on: 'wikipedia', winners: true, years: 25,
+    note: 'Cannes Palme d’Or, Venice Golden Lion and Berlin Golden Bear winners',
+    pages: { "Palme d'Or": 'Cannes Palme d’Or', 'Golden Lion': 'Venice Golden Lion', 'Golden Bear': 'Berlin Golden Bear' }
+  },
+  {
+    id: 'awards-sight-sound', name: 'Sight and Sound critics’ poll', type: 'movie', on: 'poll',
+    note: 'The 2022 critics’ top 100 greatest films, in poll order',
+    url: 'https://www.bfi.org.uk/sight-and-sound/greatest-films-all-time', top: 100
   }
 ];
 
@@ -88,24 +105,28 @@ const decode = text => text.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').repla
 // first cell in italics; the winner is shaded and in bold. A show named again
 // in a later year is often not linked, so it takes the link from its first
 // mention.
-function parseNominees(page) {
+// winners: a page listing only winners (the festivals). Every row is a
+// winner, and a row counts only if it states its own year, which keeps out
+// side tables that carry a year down from an earlier row.
+function parseNominees(page, { winners = false } = {}) {
   const rows = [];
   const articleFor = new Map();
   for (const table of page.split(/<table/).slice(1)) {
     let year = null;
     for (const tr of table.split(/<tr[\s>]/).slice(1)) {
-      const cells = tr.split(/<td/).slice(1);
+      const cells = tr.split(/<t[dh][\s>]/).slice(1);
       const first = cells.length ? decode(cells[0].replace(/^[^>]*>/, '')) : '';
       const yearCell = first.match(/^((?:19|20)\d{2})(?:\b|$)/);
-      if (yearCell && !/<i>/.test(cells[0])) year = Number(yearCell[1]);
+      const ownYear = yearCell && !/<i>/.test(cells[0]);
+      if (ownYear) year = Number(yearCell[1]);
       const cell = cells.find(td => /<i>/.test(td));
-      if (!cell || !year) continue;
+      if (!cell || !year || (winners && !ownYear)) continue;
       const italic = cell.match(/<i>([\s\S]*?)<\/i>/)[1];
       const link = italic.match(/<a href="\/wiki\/[^"]+" title="([^"]+)"/);
       const title = decode(italic);
       if (!title) continue;
       if (link) articleFor.set(title, decode(link[1]));
-      rows.push({ title, article: link ? decode(link[1]) : null, year, won: /<b>/.test(italic) || /^[^>]*background/i.test(tr) });
+      rows.push({ title, article: link ? decode(link[1]) : null, year, won: winners || /<b>/.test(italic) || /^[^>]*background/i.test(tr) });
     }
   }
   return rows.map(r => ({ ...r, article: r.article || articleFor.get(r.title) || null }));
@@ -129,16 +150,59 @@ async function articleItems(articles) {
   return items;
 }
 
-async function wikipediaNominations(pages) {
+async function wikipediaNominations(pages, options = {}) {
   const all = [];
   for (const [page, label] of Object.entries(pages)) {
     const data = await wikipedia({ action: 'parse', page, prop: 'text', redirects: '1' });
-    const rows = parseNominees(data.parse.text);
+    const rows = parseNominees(data.parse.text, options);
     console.log(`  ${label}: ${rows.length} nominations from Wikipedia, ${rows.filter(r => !r.article).length} without an article`);
     all.push(...rows);
   }
   const items = await articleItems(all.filter(r => r.article).map(r => r.article));
   return all.filter(r => r.article && items.has(r.article)).map(r => ({ work: items.get(r.article), year: r.year, won: r.won }));
+}
+
+// The Sight and Sound poll from the BFI's own page (Wikipedia has only its
+// top 10): each entry's rank and "Title (Year)" from the data the page
+// carries, top places only, in rank order (ties share a rank)
+async function pollEntries(url, top) {
+  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  if (!response.ok) throw new Error(`BFI ${response.status}`);
+  const page = await response.text();
+  const entries = [];
+  for (const match of page.matchAll(/"nameAndYear":"([^"]+)"/g)) {
+    const ranks = [...page.slice(Math.max(0, match.index - 6000), match.index).matchAll(/"rank":"?(\d+)/g)];
+    const named = decode(match[1]).replace(/\s+/g, ' ').match(/^(.*) \((\d{4})\)$/);
+    if (!ranks.length || !named) continue;
+    entries.push({ rank: Number(ranks[ranks.length - 1][1]), title: named[1], year: Number(named[2]) });
+  }
+  return entries.filter(e => e.rank <= top).sort((a, b) => a.rank - b.rank);
+}
+
+// Wikidata IDs for films by title and year, through Wikipedia: first the
+// article names Wikipedia gives films ("8½", "Vertigo (film)", "Earth (1930
+// film)"), then its search. A candidate counts only if Wikidata dates it
+// within two years of the poll (so "Vertigo", the condition, doesn't).
+// No OMDb requests, so building never spends the app's daily OMDb quota.
+async function findFilms(entries) {
+  const candidates = new Map(entries.map(e => [e, [`${e.title} (${e.year} film)`, `${e.title} (film)`, e.title]]));
+  const items = await articleItems([...candidates.values()].flat());
+  const years = await details(new Set(items.values()));
+  const fits = (entry, item) => {
+    const found = item && years.get(item);
+    return Boolean(found && found.year && Math.abs(found.year - entry.year) <= 2);
+  };
+  const found = new Map();
+  for (const entry of entries) {
+    let item = candidates.get(entry).map(name => items.get(name)).find(id => fits(entry, id));
+    if (!item) {
+      const data = await wikipedia({ action: 'query', list: 'search', srsearch: `${entry.title} ${entry.year} film`, srlimit: '1' });
+      const hit = data.query && data.query.search && data.query.search[0];
+      if (hit) item = (await articleItems([hit.title])).get(hit.title);
+    }
+    if (item) found.set(entry, item);
+  }
+  return found;
 }
 
 // Retries busy or dropped requests a couple of times
@@ -236,20 +300,44 @@ function addCurated(entries) {
   console.log(`  + ${added} from the curated Best Picture lists`);
 }
 
+// A poll in its own order; no years or winners. A match must be a film
+// from within two years of the poll's date for it, or it's left out.
+async function buildPoll(list, titles) {
+  const entries = await pollEntries(list.url, list.top);
+  const works = await findFilms(entries);
+  const info = await details(new Set(works.values()));
+  const keys = [];
+  const missing = [];
+  for (const entry of entries) {
+    const found = info.get(works.get(entry));
+    if (!found || !found.year || Math.abs(found.year - entry.year) > 2) { missing.push(`${entry.title} (${entry.year})`); continue; }
+    if (keys.includes(found.imdb)) continue;
+    keys.push(found.imdb);
+    if (!titles[found.imdb]) titles[found.imdb] = [entry.title, entry.year, list.type];
+  }
+  console.log(`${list.name}: ${keys.length} titles${missing.length ? `; not matched: ${missing.join(', ')}` : ''}\n`);
+  return { id: list.id, group: 'Awards', name: list.name, note: list.note, type: list.type, keys };
+}
+
 async function build(years) {
   const titles = {};
   const lists = [];
   for (const list of LISTS) {
+    if (list.on === 'poll') {
+      lists.push(await buildPoll(list, titles));
+      continue;
+    }
     const found = new Map(); // work -> { year, won }
+    const window = list.years || years;
     const sources = list.on === 'wikipedia'
-      ? [['Wikipedia', await wikipediaNominations(list.pages)]]
+      ? [['Wikipedia', await wikipediaNominations(list.pages, { winners: list.winners })]]
       : [];
     // One query at a time: Wikidata asks for no more than a few at once
     for (const [award, label] of Object.entries(list.awards || {})) sources.push([label, await nominations(award, list.on)]);
     for (const [label, rows] of sources) {
       const newest = Math.max(...rows.map(r => r.year));
       for (const r of rows) {
-        if (r.year <= newest - years) continue;
+        if (r.year <= newest - window) continue;
         const seen = found.get(r.work);
         // A title nominated in several categories or years keeps its newest year
         if (!seen || r.year > seen.year || (r.year === seen.year && r.won && !seen.won)) found.set(r.work, { year: r.year, won: r.won || (seen && seen.year === r.year && seen.won) });
@@ -291,4 +379,4 @@ if (require.main === module) {
     .catch(error => { console.error(error); process.exit(1); });
 }
 
-module.exports = { LISTS };
+module.exports = { LISTS, parseNominees, wikipedia };
