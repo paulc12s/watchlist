@@ -5,7 +5,7 @@
 // imports and exports them; records have the shape in js/title.js. The feed
 // works with films and shows, which are keyed by IMDb ID.
 //
-// verdict: 'up' | 'down' | 'skip' | ''  ('' = not judged yet)
+// verdict: 'up' | 'down' | 'skip' | 'pass' | ''  ('' = not judged yet; pass = not interested)
 // want:    not seen, would like to; excluded from the feed like a verdict
 // ============================================================================
 
@@ -58,7 +58,7 @@ const Ratings = {
   },
 
   counts() {
-    const counts = { up: 0, down: 0, skip: 0, want: 0 };
+    const counts = { up: 0, down: 0, skip: 0, pass: 0, want: 0 };
     for (const entry of this.all()) {
       if (entry.verdict) counts[entry.verdict]++;
       if (entry.want) counts.want++;
@@ -81,6 +81,7 @@ const Ratings = {
     const liked = this.all().filter(e => e.verdict === 'up').sort(byRecent);
     const disliked = this.all().filter(e => e.verdict === 'down').sort(byRecent);
     const wanted = this.all().filter(e => e.want);
+    const passed = this.all().filter(e => e.verdict === 'pass');
     const leanings = rows => rows.map(r => `${r.name} (liked ${r.up} of ${r.up + r.down})`).join(', ') || 'not enough ratings yet';
 
     return [
@@ -100,7 +101,8 @@ const Ratings = {
       '',
       `## Liked (${liked.length})`, ...liked.map(line), '',
       `## Disliked (${disliked.length})`, ...disliked.map(line), '',
-      `## Want to watch (${wanted.length})`, ...wanted.map(line), ''
+      `## Want to watch (${wanted.length})`, ...wanted.map(line), '',
+      `## Not interested, haven't seen (${passed.length})`, ...passed.map(line), ''
     ].join('\n');
   }
 };

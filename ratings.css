@@ -1168,3 +1168,46 @@ textarea:focus {
     animation: none;
   }
 }
+
+/* ---- Top picks: Want and Not interested beside each pick ------------------ */
+.film-list li.with-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.film-list li.with-actions .film-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.pick-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.pick-action {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: var(--button-fill);
+  color: var(--ink-2);
+}
+
+.pick-action .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.pick-action:active {
+  transform: scale(0.9);
+}
+
+/* The reasons matter more than the crowd figure where space is short */
+.film-list li.with-actions .film-crowd {
+  display: none;
+}

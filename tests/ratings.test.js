@@ -180,7 +180,10 @@ test('recommender weights ratings by strength: rewatch and 5 stars count most', 
   assert.equal(w({ verdict: 'up', stars: 5, rewatch: true }), REC.FIVE_STARS + REC.REWATCH);
   assert.equal(w({ verdict: 'up', stars: 5, rewatch: true }, 'flat'), REC.UP);
   assert.equal(w({ verdict: 'down' }), REC.DOWN);
-  assert.ok(w({ verdict: 'skip' }) < 0 && w({ verdict: 'skip' }) > -1, 'skips count slightly against');
+  assert.equal(w({ verdict: 'skip' }), 0, 'a skip means not seen, so it says nothing either way');
+  assert.equal(w({ verdict: 'pass' }), REC.NOT_INTERESTED, 'not interested counts against');
+  assert.equal(w({ want: true }), REC.WANT, 'on your list to watch counts a little for');
+  assert.equal(w({ verdict: 'up', want: true }), REC.UP, 'a thumb outranks the list');
   assert.ok(w({ imdbID: 'tt0000004', verdict: 'up' }, 'fun') > w({ imdbID: 'tt0000001', verdict: 'up' }, 'fun'),
     'a like the crowd panned counts extra in the fun lane');
 });
@@ -200,6 +203,43 @@ test('recommender ranks films near your likes, explains them, and keeps lanes ap
   assert.equal(fun[0].imdbID, 'tt0000005', 'fun lane follows the panned comedy');
   assert.ok(!fun.some(f => g.some(x => x.imdbID === f.imdbID)), 'no film in both lanes');
   assert.ok(!Recommender.recommend(entries, 'great', 10).some(f => f.imdbID === 'tt0000001'), 'rated films are left out');
+});
+
+test('wanted titles lift their neighbours but never explain a pick', () => {
+  const { Recommender } = loadRecommender();
+  const entries = [{ imdbID: 'tt0000001', verdict: 'up' }, { imdbID: 'tt0000004', want: true }];
+  const { results, reasons } = Recommender.score(entries, 'flat');
+  const e = results.find(r => r.film.id === 'tt0000005');
+  assert.ok(e.score > 0, 'near a wanted film');
+  assert.equal(e.evidence, 0, 'but no liked film behind it');
+  assert.ok(!reasons.has(e.i));
+  assert.ok(!Recommender.recommend(entries, 'fun', 10).some(f => f.imdbID === 'tt0000005'), 'so it is not offered');
+});
+
+test('strong picks: top 1% only, each close to at least three liked titles, never padded', () => {
+  const { Recommender, REC, makeGraph } = require('../js/ratings/recommend.js');
+  const item = (id, likeRate = 0.8) => ({ id, imdbID: id, title: id, likeRate, average: 4, popularity: 0.5 });
+  const ids = ['L1', 'L2', 'L3', 'P', 'Q', 'R', ...Array.from({ length: 20 }, (_, k) => `Z${k}`)];
+  const graph = makeGraph(ids.map(id => item(id)), entry => entry.imdbID);
+  const at = id => graph.index.get(id);
+  const link = (a, b, sim) => { graph.link(at(a), at(b), sim); graph.link(at(b), at(a), sim); };
+  ['L1', 'L2', 'L3'].forEach(l => link(l, 'P', 0.3));     // P: three close links
+  link('L1', 'Q', 0.4); link('L2', 'Q', 0.05);              // Q: one close link
+  ['L1', 'L2', 'L3'].forEach(l => link(l, 'R', 0.1));     // R: three weak links
+  const entries = ['L1', 'L2', 'L3'].map(imdbID => ({ imdbID, verdict: 'up' }));
+
+  const picks = Recommender.strongPicks(entries, graph);
+  assert.deepEqual(plain(picks.map(p => p.id)), ['P']);
+  assert.equal(picks[0].strong, 3);
+  assert.deepEqual(plain(picks[0].because), ['L1', 'L2']);
+  assert.equal(Recommender.strongCut(23), REC.STRONG_MIN_RANK, 'small lists still get a few places');
+  assert.equal(Recommender.strongCut(4700), 47);
+
+  const guess = Recommender.guess('P', entries, graph);
+  assert.deepEqual([guess.rank, guess.top, guess.strong], [1, true, true]);
+  const weak = Recommender.guess('R', entries, graph);
+  assert.equal(weak.strong, false, 'top place, but only weak links');
+  assert.deepEqual(plain(Recommender.strongPicks([], graph)), [], 'nothing liked, nothing picked');
 });
 
 test('similarity file is well formed and has no TV series flagged by raters', () => {
@@ -335,18 +375,21 @@ test('TV bridge ranks shows by how many of your film themes they share', async (
 test('guesses are kept with the first verdict and summarised against your verdicts', () => {
   const { Ratings, Guesses, Title } = loadRatings();
   const add = (n, verdict, guessPct) => Ratings.update(film(n, { imdbID: `tt30000${String(n).padStart(2, '0')}` }), { verdict, guessPct });
-  for (let n = 0; n < 6; n++) add(n, 'up', 0.9);
-  add(6, 'down', 0.95);
+  for (let n = 0; n < 6; n++) add(n, 'up', 0.995);
+  add(6, 'down', 0.99);
   for (let n = 7; n < 10; n++) add(n, 'skip', 0.3);
-  add(10, 'up', 0.2);
+  add(10, 'up', 0.95);
+  add(11, 'pass', 0.5);
   const record = Guesses.record(Ratings.all());
-  assert.equal(record.total, 11);
-  assert.equal(record.top.count, 7);
+  assert.equal(record.total, 12);
+  assert.equal(record.top.count, 7, 'the top is the top 1%');
   assert.equal(record.top.seen, 1);
   assert.equal(Math.round(record.top.liked * 100), 86);
-  assert.equal(record.rest.seen, 0.25);
-  assert.equal(Guesses.label(0.97), 'a top pick for you');
-  assert.equal(Guesses.label(0.1), 'not your usual');
+  assert.equal(record.rest.seen, 0.2);
+  assert.equal(record.rest.passed, 0.2);
+  assert.equal(Guesses.label({ top: true, strong: true }), 'a strong pick for you');
+  assert.equal(Guesses.label({ top: true, strong: false }), 'a likely match');
+  assert.equal(Guesses.label({ top: false, strong: false }), 'not one of our picks');
   assert.equal(Title.sanitize({ imdbID: 'tt1234567', title: 'A', guessPct: 2 }).guessPct, null);
 });
 
@@ -363,6 +406,19 @@ test('learn-fastest order puts widely seen films with little evidence first', ()
   Catalog.learnScore = () => Guesses.learnScore();
   assert.deepEqual([...Catalog.queue('one', 'learn')], ['tt0000001', 'tt0000002']);
   assert.deepEqual([...Catalog.queue('two', 'learn')].slice(0, 1), ['tt0000003']);
+});
+
+test('not interested: kept as a verdict, unseen, out of the feed, counted, and in the AI profile', () => {
+  const { Ratings, Title, Taste } = loadRatings();
+  const entry = Ratings.update(film(1), { verdict: 'pass', want: false });
+  assert.equal(entry.verdict, 'pass');
+  assert.equal(Title.isSeen(entry), false);
+  assert.equal(entry.reviewDate, '', 'not a review of something seen');
+  assert.equal(Ratings.isDone('tt0000001'), true, 'not dealt again');
+  assert.equal(Ratings.counts().pass, 1);
+  assert.equal(Ratings.clearSkips(), 0, 'showing skips again leaves it alone');
+  assert.match(Ratings.aiProfile(Taste.compute(Ratings.all())), /## Not interested, haven't seen \(1\)\n- Film 1 \(1991\)/);
+  assert.equal(Title.sanitize({ title: 'A', verdict: 'pass', stars: 4 }).verdict, 'up', 'stars mean seen, so it becomes a thumb');
 });
 
 test('review date: thumbs, stars, notes and rewatch date a review; skips and wants do not', () => {

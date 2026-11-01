@@ -11,7 +11,8 @@
 //   priority, tag, platform                          how you organise it
 //   want      on your list to watch
 //   verdict   'up' | 'down' (seen, with your thumb), 'skip' (not seen, don't
-//             offer again) or '' (not seen). Seen and rated are the same thing
+//             offer again), 'pass' (not seen, and not interested) or '' (not
+//             seen). Seen and rated are the same thing
 //   stars, review, rewatch                           the rest of your review
 //   reviewDate   when the review last changed
 //   updatedDate  when anything last changed ('' if never, e.g. an old file)
@@ -24,7 +25,7 @@
 
 const Title = {
   TYPES: ['movie', 'series', 'youtube'],
-  VERDICTS: ['up', 'down', 'skip'],
+  VERDICTS: ['up', 'down', 'skip', 'pass'],
   REVIEW_FIELDS: ['verdict', 'stars', 'review', 'rewatch'],
 
   newId() {
@@ -173,7 +174,7 @@ const Title = {
     const reviewWins = newer(incoming.reviewDate, local.reviewDate);
     const restWins = newer(incoming.updatedDate, local.updatedDate);
 
-    // A skip isn't a review, so it goes by when the title last changed
+    // A skip or pass isn't a review of something seen, so it goes by when the title last changed
     const verdictIsReview = this.isSeen(local) || this.isSeen(incoming);
     for (const field of Object.keys(incoming)) {
       if (field === 'id' || field === 'reviewDate' || field === 'updatedDate' || !supplied.has(field)) continue;

@@ -10,8 +10,14 @@
 // scoring, so a 5-star show counts like a 5-star film.
 //
 // Your ratings count by strength, not just direction:
-//   thumbs down -2 · thumbs up +1 · 4★ +1.5 · 5★ +2.5 · rewatch +1 on top
-//   skipping a widely seen title counts slightly against (you passed on it)
+//   thumbs down -2 · thumbs up +1 · 4★ +1.5 · 5★ +2.5 (❤️) · rewatch +1 on top
+//   not interested -1 · on your list to watch +0.5
+//   a skip counts for nothing: it means "not seen", and counting it against
+//   films ranked your own likes lower (measured with tools/eval-similar.js)
+//
+// Strong picks are the few titles worth calling out: in your top 1%, and
+// linked closely to at least three titles you liked. In testing, below the
+// top 1% the ranking barely separated films you'd seen from the rest.
 //
 // Two lanes, because quality and enjoyment are different things:
 //   great - near your best-rated titles, nudged up by the crowd's verdict
@@ -25,9 +31,8 @@ const REC = {
   FOUR_STARS: 1.5,
   FIVE_STARS: 2.5,
   REWATCH: 1,
-  // Skips: from SKIP_MIN for obscure titles to SKIP_MIN + SKIP_POPULAR for the most watched
-  SKIP_MIN: -0.2,
-  SKIP_POPULAR: -0.3,
+  NOT_INTERESTED: -1,
+  WANT: 0.5,
   // A like counts up to 1 + SURPRISE extra in the fun lane the further the
   // crowd's like-rate falls below SURPRISE_BELOW
   SURPRISE: 2,
@@ -40,7 +45,14 @@ const REC = {
   QUALITY: 1.5,
   QUALITY_EVIDENCE: 1,
   GREAT_MIN_LIKE_RATE: 0.6,
-  REASONS: 2
+  REASONS: 2,
+  // Strong picks: the top STRONG_SHARE of titles (never fewer than
+  // STRONG_MIN_RANK places), each with STRONG_LINKS or more liked titles at
+  // STRONG_LINK similarity or above (about the top 3% of film links)
+  STRONG_SHARE: 0.01,
+  STRONG_MIN_RANK: 5,
+  STRONG_LINK: 0.15,
+  STRONG_LINKS: 3
 };
 
 // A similarity graph: items to recommend, and links between them.
@@ -100,11 +112,10 @@ const Recommender = {
     const key = graph.keyOf(entry);
     const i = key ? graph.index.get(key) : undefined;
     if (entry.verdict === 'down') return REC.DOWN;
-    if (entry.verdict === 'skip') {
-      return i === undefined ? 0 : REC.SKIP_MIN + REC.SKIP_POPULAR * graph.items[i].popularity;
-    }
-    const liked = entry.verdict === 'up' || entry.stars >= 4 || entry.rewatch;
-    if (!liked) return 0;
+    if (entry.verdict === 'pass') return REC.NOT_INTERESTED;
+    if (entry.verdict === 'skip') return 0;
+    if (!entry.verdict && entry.want) return REC.WANT;
+    if (!this.isLike(entry)) return 0;
 
     let weight = lane === 'flat' ? REC.UP
       : entry.stars === 5 ? REC.FIVE_STARS : entry.stars === 4 ? REC.FOUR_STARS : REC.UP;
@@ -116,9 +127,20 @@ const Recommender = {
     return weight;
   },
 
+  // A title you've seen and liked: the only ratings that explain a pick
+  isLike(entry) {
+    return entry.verdict === 'up' || entry.stars >= 4 || Boolean(entry.rewatch);
+  },
+
+  // How many places count as the top for a list of n titles
+  strongCut(n) {
+    return Math.max(REC.STRONG_MIN_RANK, Math.round(n * REC.STRONG_SHARE));
+  },
+
   // Every title you haven't dealt with, scored for a lane:
   // 'great', 'fun', 'flat' (all likes equal, for comparison) or 'crowd' (crowd only).
-  // evidence is how strongly each title links to titles you liked.
+  // evidence is how strongly each title links to titles you liked, and
+  // strong how many of those links are close ones (STRONG_LINK).
   score(entries, lane, graph = this.filmGraph) {
     const n = graph.items.length;
     const touched = new Set(entries.filter(e => e.verdict || e.want).map(e => graph.keyOf(e)).filter(Boolean));
@@ -126,6 +148,7 @@ const Recommender = {
     const mass = new Float64Array(n);
     // Similarity to titles you liked, as opposed to skipped or disliked
     const positive = new Float64Array(n);
+    const strong = new Uint16Array(n);
     const reasons = new Map();
 
     if (lane !== 'crowd') {
@@ -134,11 +157,13 @@ const Recommender = {
         const j = key ? graph.index.get(key) : undefined;
         const w = j === undefined ? 0 : this.weight(entry, lane, graph);
         if (!w) continue;
+        const like = w > 0 && this.isLike(entry);
         for (const [c, sim] of graph.links[j]) {
           sums[c] += sim * w;
           mass[c] += sim;
-          if (w > 0) {
+          if (like) {
             positive[c] += sim;
+            if (sim >= REC.STRONG_LINK) strong[c]++;
             if (!reasons.has(c)) reasons.set(c, []);
             reasons.get(c).push([j, sim]);
           }
@@ -156,7 +181,7 @@ const Recommender = {
         const evidence = Math.min(1, positive[i] / REC.QUALITY_EVIDENCE);
         score += REC.QUALITY * (item.average - 3.5) * evidence;
       }
-      results.push({ film: item, score, i, evidence: positive[i] });
+      results.push({ film: item, score, i, evidence: positive[i], strong: strong[i] });
     });
     results.sort((a, b) => b.score - a.score);
     return { results, reasons };
@@ -165,17 +190,32 @@ const Recommender = {
   // Top picks for a lane, each with the liked titles most similar to it
   recommend(entries, lane, limit = 20, graph = this.filmGraph) {
     const { results, reasons } = this.score(entries, lane, graph);
-    const fits = lane === 'great'
-      ? r => r.film.likeRate >= REC.GREAT_MIN_LIKE_RATE && r.evidence > 0
-      : r => r.evidence > 0;
-    return results.filter(fits).slice(0, limit).map(({ film, score, i }) => ({
+    return results.filter(r => this.fits(r, lane)).slice(0, limit).map(r => this.pick(r, reasons, graph));
+  },
+
+  fits(r, lane) {
+    return r.evidence > 0 && (lane !== 'great' || !(r.film.likeRate < REC.GREAT_MIN_LIKE_RATE));
+  },
+
+  pick({ film, score, i, strong }, reasons, graph) {
+    return {
       ...film,
       score,
+      strong,
       because: (reasons.get(i) || [])
         .sort((a, b) => b[1] - a[1])
         .slice(0, REC.REASONS)
         .map(([j]) => graph.items[j].title)
-    }));
+    };
+  },
+
+  // The standouts: great-lane titles in your top 1% with at least
+  // STRONG_LINKS close links to titles you liked. Often none; never padded.
+  strongPicks(entries, graph = this.filmGraph) {
+    const { results, reasons } = this.score(entries, 'great', graph);
+    return results.slice(0, this.strongCut(results.length))
+      .filter(r => r.strong >= REC.STRONG_LINKS && this.fits(r, 'great'))
+      .map(r => this.pick(r, reasons, graph));
   },
 
   // Both lanes, with the fun lane leaving out titles already in the great lane
@@ -187,15 +227,23 @@ const Recommender = {
   },
 
   // How a title you haven't rated ranks for you, as a guess to reveal after
-  // you've given your own verdict: percentile 1 = our top pick, 0 = bottom.
-  // null when the title isn't in the graph or nothing you've rated links to it.
+  // you've given your own verdict: percentile 1 = our top pick, 0 = bottom;
+  // rank 1 = top; strong when it would be a strong pick.
+  // null when the title isn't in the graph or nothing you've liked links to it.
   guess(id, entries, graph = this.filmGraph) {
     const i = graph.index.get(id);
     if (i === undefined) return null;
     const { results } = this.score(entries.filter(e => graph.keyOf(e) !== id), 'great', graph);
     const at = results.findIndex(r => r.i === i);
     if (at === -1 || !results[at].evidence) return null;
-    return { percentile: 1 - at / Math.max(1, results.length - 1), evidence: results[at].evidence };
+    const top = at < this.strongCut(results.length);
+    return {
+      percentile: 1 - at / Math.max(1, results.length - 1),
+      rank: at + 1,
+      top,
+      strong: top && results[at].strong >= REC.STRONG_LINKS,
+      evidence: results[at].evidence
+    };
   },
 
   // Where a title lands among everything unrated: 1 = top pick. For testing.

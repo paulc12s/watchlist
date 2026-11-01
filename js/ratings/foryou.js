@@ -1,9 +1,11 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // For you, guesses and learn-fastest order
-// The For you sheet lists picks in lanes: films (great, fun) from the
+// The For you sheet lists picks in lanes: Top picks first (the few strong
+// picks, see Recommender.strongPicks), then films (great, fun) from the
 // MovieLens similarity data, and TV (great, fun, and a bridge from your film
-// taste) from TMDB. Tapping a pick deals it as the next card.
+// taste) from TMDB. Tapping a pick deals it as the next card; Top picks also
+// take Want and Not interested straight from the list.
 //
 // Guesses: when you give a title its first verdict, where the recommender
 // ranked it for you is saved with the rating and revealed afterwards, never
@@ -18,35 +20,44 @@ const Guesses = {
     return { graph: Recommender.filmGraph, id: info.imdbID };
   },
 
-  // Percentile 0-1 for a title you haven't judged yet, or null when there's
-  // nothing to go on
+  // The recommender's guess for a title you haven't judged yet
+  // ({ percentile, rank, top, strong }), or null when there's nothing to go on
   forCard(key, info) {
     const where = this.locate(key, info);
     if (!where) return null;
-    const guess = Recommender.guess(where.id, Ratings.all(), where.graph);
-    return guess ? guess.percentile : null;
+    return Recommender.guess(where.id, Ratings.all(), where.graph);
   },
 
-  label(percentile) {
-    return RATINGS.GUESS_LABELS.find(([cut]) => percentile >= cut)[1];
+  // Saved with a title's first verdict: the percentile (guessPct)
+  saved(guess) {
+    return guess ? { guessPct: guess.percentile } : {};
   },
 
-  // How the guesses have done: of titles ranked in your top slice versus the
-  // rest, how many you'd seen (a thumb, not a skip) and how many of those you liked
+  label(guess) {
+    const { GUESS_LABELS } = RATINGS;
+    return guess.strong ? GUESS_LABELS.strong : guess.top ? GUESS_LABELS.top : GUESS_LABELS.rest;
+  },
+
+  // How the guesses have done: of titles ranked in your top 1% versus the
+  // rest, how many you'd seen (a thumb), how many of those you liked, and how
+  // many you weren't interested in
   record(entries) {
     const guessed = entries.filter(e => typeof e.guessPct === 'number' && e.verdict);
+    const share = (list, test) => (list.length ? list.filter(test).length / list.length : 0);
     const group = list => {
       const seen = list.filter(e => e.verdict === 'up' || e.verdict === 'down');
       return {
         count: list.length,
-        seen: list.length ? seen.length / list.length : 0,
-        liked: seen.length ? seen.filter(e => e.verdict === 'up').length / seen.length : 0
+        seen: share(list, e => e.verdict === 'up' || e.verdict === 'down'),
+        liked: share(seen, e => e.verdict === 'up'),
+        passed: share(list, e => e.verdict === 'pass')
       };
     };
+    const top = e => e.guessPct >= 1 - REC.STRONG_SHARE;
     return {
       total: guessed.length,
-      top: group(guessed.filter(e => e.guessPct >= RATINGS.GUESS_TOP)),
-      rest: group(guessed.filter(e => e.guessPct < RATINGS.GUESS_TOP))
+      top: group(guessed.filter(top)),
+      rest: group(guessed.filter(e => !top(e)))
     };
   },
 
@@ -80,6 +91,8 @@ const ForYou = {
         this.tab = tab.dataset.tab;
         return this.render();
       }
+      const decide = event.target.closest('[data-decide]');
+      if (decide) return this.decide(decide.dataset.key, decide.dataset.decide);
       const pick = event.target.closest('[data-pick]');
       if (pick) {
         RatingsUI.els.forYouSheet.close();
@@ -117,11 +130,13 @@ const ForYou = {
     if (judged < RATINGS.MIN_FOR_YOU) {
       return this.show(html`<p class="hint">Give at least ${RATINGS.MIN_FOR_YOU} films a thumb up or down first. So far: ${judged}.</p>`);
     }
-    const { great, fun } = Recommender.lanes(entries, RATINGS.FOR_YOU_PICKS);
+    const top = Recommender.strongPicks(entries);
+    const { great, fun } = this.without(Recommender.lanes(entries, RATINGS.FOR_YOU_PICKS), top);
     this.show(html`
+      ${this.topLane(top, 'films')}
       ${this.lane('Great films for you', 'Close to your best-rated films, and well regarded', great, 'films')}
       ${this.lane('Fun picks', 'Your comfort zones, whatever the critics said', fun, 'films')}`);
-    this.fillPosters([...great.slice(0, RATINGS.FOR_YOU_POSTERS), ...fun.slice(0, RATINGS.FOR_YOU_POSTERS)]);
+    this.fillPosters([...top, ...great.slice(0, RATINGS.FOR_YOU_POSTERS), ...fun.slice(0, RATINGS.FOR_YOU_POSTERS)]);
   },
 
   async renderTv(seq) {
@@ -132,16 +147,17 @@ const ForYou = {
     }
     this.show(html`<p class="hint">Finding shows…</p>`);
     const entries = Ratings.all();
-    let lanes, bridge = [];
+    let lanes, top, bridge = [];
     try {
       await TvRecs.refresh(entries);
       const graph = TvRecs.graph(entries);
-      lanes = Recommender.lanes(entries, RATINGS.FOR_YOU_PICKS, graph);
+      top = Recommender.strongPicks(entries, graph);
+      lanes = this.without(Recommender.lanes(entries, RATINGS.FOR_YOU_PICKS, graph), top);
       if (TvRecs.ratedShows(entries) < TV_REC.BRIDGE_UNTIL_RATED) {
         const filmTaste = Taste.compute(entries.filter(e => e.type === 'movie'), {
           tagsOf: entry => Catalog.basics(entry.imdbID).tags
         });
-        const shown = new Set([...lanes.great, ...lanes.fun].map(item => item.id));
+        const shown = new Set([...top, ...lanes.great, ...lanes.fun].map(item => item.id));
         bridge = (await TvRecs.bridge(entries, filmTaste.tags))
           .filter(item => !shown.has(item.id)).slice(0, RATINGS.FOR_YOU_PICKS);
       }
@@ -155,9 +171,49 @@ const ForYou = {
     this.show(html`
       ${rated === 0 && bridge.length === 0
         ? html`<p class="hint">Rate some shows from the TV lists, or more films, to get TV picks.</p>` : ''}
+      ${rated > 0 ? this.topLane(top, 'tv') : ''}
       ${this.lane('Great shows for you', 'Recommended from your best-rated shows', lanes.great, 'tv')}
       ${this.lane('Fun picks', 'Shows like the ones you enjoy, whatever their score', lanes.fun, 'tv')}
       ${this.lane('From your film taste', 'Well-known shows with the themes you like in films. Fades out once you’ve rated 15 shows', bridge, 'themes')}`);
+  },
+
+  // Lanes leave out what Top picks already shows
+  without({ great, fun }, top) {
+    const shown = new Set(top.map(item => item.id));
+    return { great: great.filter(item => !shown.has(item.id)), fun: fun.filter(item => !shown.has(item.id)) };
+  },
+
+  // Only strong picks, however few: a short list beats a padded one
+  topLane(items, kind) {
+    return html`
+      <section class="lane top-picks">
+        <h3>Top picks</h3>
+        <p class="lane-note">In your top 1%, and close to at least three titles you liked</p>
+        ${items.length
+          ? html`<ul class="film-list">${items.map(item => this.row(item, kind, true))}</ul>`
+          : html`<p class="hint">No standouts right now. Keep rating, and ❤️ your favourites: they count most.</p>`}
+      </section>`;
+  },
+
+  // Want or Not interested from Top picks, without dealing the card. The
+  // guess isn't saved: you saw it was a top pick before deciding.
+  async decide(key, decision) {
+    try {
+      const info = await MovieInfo.fetch(key);
+      if (!MovieInfo.isUsable(info, key)) return RatingsUI.toast('Couldn’t find that title');
+      if (decision === 'want') {
+        const entry = Ratings.get(info.imdbID);
+        const unseen = entry && (entry.verdict === 'skip' || entry.verdict === 'pass');
+        Ratings.update(info, unseen ? { want: true, verdict: '' } : { want: true });
+        RatingsUI.toast(`Added ${info.title} to want to watch`, 'want');
+      } else {
+        Ratings.update(info, { verdict: 'pass', want: false });
+        RatingsUI.toast(`Not interested in ${info.title}`, 'pass');
+      }
+      this.render();
+    } catch (error) {
+      RatingsUI.toast(`Couldn’t save that: ${error.message}`);
+    }
   },
 
   lane(title, note, items, kind) {
@@ -170,7 +226,7 @@ const ForYou = {
       </section>`;
   },
 
-  row(item, kind) {
+  row(item, kind, actions = false) {
     const cached = MovieInfo.get(item.id);
     const poster = item.poster || (cached && cached.poster) || '';
     const why = item.because && item.because.length
@@ -179,14 +235,18 @@ const ForYou = {
       ? `${Math.round(item.likeRate * 100)}% liked`
       : typeof item.tmdbRating === 'number' ? `TMDB ${item.tmdbRating.toFixed(1)}` : '';
     return html`
-      <li><button type="button" class="film-row" data-pick="${item.id}">
+      <li class="${actions ? 'with-actions' : ''}"><button type="button" class="film-row" data-pick="${item.id}">
         ${poster ? html`<img src="${poster}" alt="" loading="lazy">` : html`<span class="thumb"></span>`}
         <span class="film-text">
           <span class="film-title">${item.title}${item.year && ` (${item.year})`}</span>
           ${why && html`<span class="film-why">${why}</span>`}
         </span>
         ${crowd && html`<span class="film-crowd">${crowd}</span>`}
-      </button></li>`;
+      </button>${actions && html`
+        <span class="pick-actions">
+          <button type="button" class="pick-action" data-decide="want" data-key="${item.id}" title="Want to watch" aria-label="Want to watch ${item.title}">${icon('want')}</button>
+          <button type="button" class="pick-action" data-decide="pass" data-key="${item.id}" title="Not interested" aria-label="Not interested in ${item.title}">${icon('pass')}</button>
+        </span>`}</li>`;
   },
 
   // Film picks have no poster until OMDb is asked; fetch a few, two at a time

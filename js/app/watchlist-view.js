@@ -495,7 +495,8 @@ const UI = {
     const want = draft.verdict ? draft.want : true;
     const current = Library.get(id);
     ItemManager.update(id, {
-      verdict: draft.verdict || (current && current.verdict === 'skip' ? 'skip' : ''),
+      // Keep a skip or not-interested from review mode unless a thumb replaces it
+      verdict: draft.verdict || (current && !Title.isSeen(current) ? current.verdict : ''),
       want,
       rewatch: draft.rewatch,
       stars: draft.stars,

@@ -161,6 +161,19 @@ test('merge: a thumb settles a skip; "want" only fills in for titles you havenâ€
   assert.equal(unseen.want, true);
 });
 
+test('merge: not interested carries like a skip, and a thumb from either copy settles it', () => {
+  const newer = merged(
+    { title: 'A', imdbID: 'tt0000001', verdict: 'skip', updatedDate: OLD },
+    { title: 'A', imdbID: 'tt0000001', verdict: 'pass', updatedDate: NEW }
+  );
+  assert.equal(newer.verdict, 'pass');
+  const seen = merged(
+    { title: 'A', imdbID: 'tt0000001', verdict: 'pass', updatedDate: NEW },
+    { title: 'A', imdbID: 'tt0000001', verdict: 'up', reviewDate: OLD, updatedDate: OLD }
+  );
+  assert.equal(seen.verdict, 'up', 'having seen it outranks not being interested');
+});
+
 test('merge: a newer skip carries, though a skip isnâ€™t a review', () => {
   const result = merged(
     { title: 'A', imdbID: 'tt0000001', verdict: '', updatedDate: OLD },

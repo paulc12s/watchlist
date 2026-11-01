@@ -7,7 +7,7 @@
 // ============================================================================
 
 const VERDICT_LABELS = {
-  up: ['thumb-up', 'Liked'], down: ['thumb-down', 'Disliked'], skip: ['skip', 'Skipped']
+  up: ['thumb-up', 'Liked'], down: ['thumb-down', 'Disliked'], skip: ['skip', 'Skipped'], pass: ['pass', 'Not interested']
 };
 
 // An icon from the sprite at the top of ratings.html
@@ -239,6 +239,9 @@ const RatingsUI = {
           <button type="button" class="rail-button ${entry && entry.want ? 'on' : ''}" data-action="want" aria-pressed="${Boolean(entry && entry.want)}" title="Want to watch (W)">
             ${icon('want')}<span class="rail-label">Want</span>
           </button>
+          <button type="button" class="rail-button ${entry && entry.verdict === 'pass' ? 'on' : ''}" data-action="pass" aria-pressed="${Boolean(entry && entry.verdict === 'pass')}" title="Not interested (X)">
+            ${icon('pass')}<span class="rail-label">Pass</span>
+          </button>
           <button type="button" class="rail-button ${entry && entry.rewatch ? 'on' : ''}" data-action="rewatch" aria-pressed="${Boolean(entry && entry.rewatch)}" title="Would rewatch (R)">
             ${icon('rewatch')}<span class="rail-label">Rewatch</span>
           </button>
@@ -333,37 +336,32 @@ const RatingsUI = {
     switch (action) {
       case 'up':
       case 'down':
-      {
-        const guess = this.firstVerdict(info) ? Guesses.forCard(key, info) : null;
-        Ratings.update(info, { verdict: action, ...(guess !== null ? { guessPct: guess } : {}) });
-        this.reveal(key, action, guess);
-      }
-        await this.fly(action);
+      case 'love': {
+        const verdict = action === 'down' ? 'down' : 'up';
+        const guess = this.judge(key, info, action === 'love' ? { verdict, stars: Title.LOVED_STARS } : { verdict });
+        this.reveal(key, verdict, guess);
+        await this.fly(verdict);
         return this.advance();
-      case 'love':
-      {
-        const guess = this.firstVerdict(info) ? Guesses.forCard(key, info) : null;
-        Ratings.update(info, { verdict: 'up', stars: Title.LOVED_STARS, ...(guess !== null ? { guessPct: guess } : {}) });
-        this.reveal(key, 'up', guess);
       }
-        await this.fly('up');
-        return this.advance();
       case 'skip':
-        if (Ratings.hasOpinion(info.imdbID) && !(entry && entry.verdict && entry.verdict !== 'skip')) {
-          this.nudge();
-          return this.toast('You’ve rated this one. Swipe right or left to save it.');
-        }
+        if (Ratings.hasOpinion(info.imdbID) && !(entry && Title.isSeen(entry))) return this.refuseSeen();
         // Moving past a film already dealt with leaves its rating alone
-        if (!Ratings.isDone(info.imdbID)) {
-          const guess = this.firstVerdict(info) ? Guesses.forCard(key, info) : null;
-          Ratings.update(info, { verdict: 'skip', ...(guess !== null ? { guessPct: guess } : {}) });
-        }
+        if (!Ratings.isDone(info.imdbID)) this.judge(key, info, { verdict: 'skip' });
         await this.fly('skip');
         return this.advance();
+      case 'pass': {
+        // Not interested: you haven't seen it and don't want to
+        if (Ratings.hasOpinion(info.imdbID) || Title.isSeen(entry)) return this.refuseSeen();
+        const guess = this.judge(key, info, { verdict: 'pass', want: false });
+        this.toast(guess ? `Not interested. We guessed ${Guesses.label(guess)}` : 'Not interested', 'pass');
+        await this.fly('skip');
+        return this.advance();
+      }
       case 'want': {
         const want = !(entry && entry.want);
-        // Wanting a film you skipped earlier un-skips it
-        Ratings.update(info, want && entry && entry.verdict === 'skip' ? { want, verdict: '' } : { want });
+        // Wanting a film you skipped or passed on earlier takes that back
+        const unseenVerdict = entry && (entry.verdict === 'skip' || entry.verdict === 'pass');
+        Ratings.update(info, want && unseenVerdict ? { want, verdict: '' } : { want });
         if (!want) return this.renderCard(key, info);
         this.toast('Added to want to watch', 'want');
         await this.fly('skip');
@@ -378,6 +376,21 @@ const RatingsUI = {
       case 'note':
         return this.openNote(info);
     }
+  },
+
+  // Saves a verdict from the card; a title's first verdict keeps the guess
+  // made before it, to score the recommender honestly. Returns the guess.
+  judge(key, info, changes) {
+    const guess = this.firstVerdict(info) ? Guesses.forCard(key, info) : null;
+    Ratings.update(info, { ...changes, ...Guesses.saved(guess) });
+    return guess;
+  },
+
+  // Not interested means unseen, so a title you've rated (or given stars,
+  // notes or rewatch, which mean seen) can't take it
+  refuseSeen() {
+    this.nudge();
+    this.toast('You’ve rated this one. Swipe right or left to save it.');
   },
 
   // Only a title's first verdict is scored against the guess
@@ -489,7 +502,7 @@ const RatingsUI = {
       if (this.paused || document.querySelector('dialog[open]') || event.metaKey || event.ctrlKey || event.altKey) return;
       const keys = {
         ArrowRight: 'up', ArrowLeft: 'down', ArrowUp: 'skip', ArrowDown: 'back',
-        w: 'want', r: 'rewatch', n: 'note', l: 'love'
+        w: 'want', r: 'rewatch', n: 'note', l: 'love', x: 'pass'
       };
       if (keys[event.key]) {
         event.preventDefault();
@@ -535,16 +548,17 @@ const RatingsUI = {
     const record = Guesses.record(Ratings.all());
     if (record.total < RATINGS.MIN_GUESSES) return '';
     const pct = x => `${Math.round(x * 100)}%`;
-    const top = Math.round((1 - RATINGS.GUESS_TOP) * 100);
+    const top = Math.round(REC.STRONG_SHARE * 100);
+    const detail = group => `Seen ${pct(group.seen)} · liked ${pct(group.liked)} of those seen · not interested ${pct(group.passed)}`;
     return html`
       <section class="lean guesses">
         <h3>How our guesses do</h3>
         <p class="hint">From ${record.total} cards where we made a guess before you swiped.</p>
         <ul>
           <li class="lean-row"><span class="lean-name">Ranked in your top ${top}%</span><span class="lean-count">${record.top.count}</span></li>
-          <li class="guess-detail">Seen ${pct(record.top.seen)} · liked ${pct(record.top.liked)} of those seen</li>
+          <li class="guess-detail">${detail(record.top)}</li>
           <li class="lean-row"><span class="lean-name">Everything else</span><span class="lean-count">${record.rest.count}</span></li>
-          <li class="guess-detail">Seen ${pct(record.rest.seen)} · liked ${pct(record.rest.liked)} of those seen</li>
+          <li class="guess-detail">${detail(record.rest)}</li>
         </ul>
         <p class="hint">Good guesses show up as a higher seen and liked share in the top group.</p>
       </section>`;
@@ -596,14 +610,15 @@ const RatingsUI = {
       up: e => e.verdict === 'up',
       down: e => e.verdict === 'down',
       want: e => e.want,
-      skip: e => e.verdict === 'skip'
+      skip: e => e.verdict === 'skip',
+      pass: e => e.verdict === 'pass'
     };
     const films = Ratings.all()
       .filter(filters[tab])
       .sort((a, b) => (b.updatedDate || '').localeCompare(a.updatedDate || ''))
       .slice(0, 300);
     const tabs = [['up', 'thumb-up', counts.up, 'Liked'], ['down', 'thumb-down', counts.down, 'Disliked'],
-      ['want', 'want', counts.want, 'Want to watch'], ['skip', 'skip', counts.skip, 'Skipped']];
+      ['want', 'want', counts.want, 'Want to watch'], ['pass', 'pass', counts.pass, 'Not interested'], ['skip', 'skip', counts.skip, 'Skipped']];
 
     this.els.tasteBody.innerHTML = html`
       ${taste.judged < 20

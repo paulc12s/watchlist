@@ -21,9 +21,9 @@ const RATINGS = {
   FOR_YOU_PICKS: 12,
   // OMDb lookups for posters in For you, per lane
   FOR_YOU_POSTERS: 8,
-  // Guesses about cards, revealed after you swipe: percentile cut-offs
-  GUESS_LABELS: [[0.95, 'a top pick for you'], [0.8, 'a good match'], [0.5, 'a maybe'], [0, 'not your usual']],
-  GUESS_TOP: 0.8,
+  // Guesses about cards, revealed after you swipe. Only the top 1% is called
+  // a match: below it, the ranking barely beat chance (tools/eval-similar.js)
+  GUESS_LABELS: { strong: 'a strong pick for you', top: 'a likely match', rest: 'not one of our picks' },
   MIN_GUESSES: 10,
   // Pixels, or a quick flick, to count a drag as a swipe
   SWIPE_DISTANCE: 90,

@@ -80,7 +80,7 @@ Both pages store titles in the same shape (`js/title.js`) through the same code 
 
 A separate swipe feed for rating films and TV shows and building a taste profile. It keeps its own copy of your titles (`RatingsDB`) and never changes the watchlist's; the two pages exchange files (see below).
 
-- **Swipe right / left** — thumbs up / down. **Swipe up** — skip (not seen, or can't remember); skipped films don't come back unless you choose “Show skipped films again” in settings. **Swipe down** — back to the previous film. Arrow keys do the same on a computer. **❤️** (or L) — loved it: 👍 with five stars, the strongest signal the recommender gets
+- **Swipe right / left** — thumbs up / down. **Swipe up** — skip (not seen, or can't remember). **Pass** on the card (or X) — not interested: not seen and don't want to, which counts against similar titles; skipped films don't come back unless you choose “Show skipped films again” in settings. **Swipe down** — back to the previous film. Arrow keys do the same on a computer. **❤️** (or L) — loved it: 👍 with five stars, the strongest signal the recommender gets
 - **On the card** — stars (1–5 keys), 🔖 want to watch (W), 🔁 would rewatch (R), ✏️ notes (N). Stars, notes or rewatch mean you've seen it, so the film needs a thumb rather than a skip
 - **TV** — add a free [TMDB](https://www.themoviedb.org/settings/api) key in settings (kept on that device only) to unlock live TV lists: most watched, top rated, trending, genres, networks and decades. Shows are rated like films and stored by IMDb ID, so they match the watchlist's TV items in both directions. TV ratings shape the taste profile but not recommendations, which use MovieLens films
 - **Lists** — tap the list name to choose (most watched, love-it-or-hate-it, Oscar Best Picture nominees, decades, genres, hidden gems, a mix); ⏭ moves to the next list, and a finished list rolls on to the next automatically. Best-first or shuffled order is in settings
@@ -93,12 +93,15 @@ The lists in `data/categories.json` are built from [MovieLens 32M](https://group
 ### Recommendations
 
 - **✨ For you** — picks in lanes, each with a reason (“because you liked…”); tap one to rate it or mark it want-to-watch
+  - **Top picks** first: only titles in your top 1% that sit close to at least three titles you liked. Often a handful, sometimes none; never padded. Each row has **Want** and **Not interested** buttons
   - **Films:** *Great* (close to your best-rated films, and well regarded) and *Fun* (your comfort zones, whatever the critics said), from `data/similar.json`: for about 5,000 of the most-rated MovieLens films, each film's 30 most similar films by how the same people rated both
   - **TV** (needs the TMDB key): the same two lanes, built live from TMDB's recommended shows for each show you've rated, plus *From your film taste*, which matches well-known shows to the themes you like in films until you've rated 15 shows
-- **Guesses, revealed after you swipe** — the first time you judge a title, where the recommender ranked it for you is saved and shown afterwards (“We guessed a good match”), never before, so it can't sway you. *My taste → How our guesses do* compares titles it ranked in your top 20% with the rest
+- **Guesses, revealed after you swipe** — the first time you judge a title, where the recommender ranked it for you is saved and shown afterwards, never before, so it can't sway you: *a strong pick for you* (would be a Top pick), *a likely match* (top 1%) or *not one of our picks*. Below the top 1% the ranking barely separated films you'd seen from the rest, so nothing there is called a match. *My taste → How our guesses do* compares the top 1% with the rest
 - **Learn fastest** order (settings) — deals widely seen films the recommender knows least about, so each swipe teaches it the most
 
-Ratings count by strength: 👎 −2 · 👍 +1 · 4★ +1.5 · 5★ +2.5 · rewatch +1, and skipping a widely seen title counts slightly against. Likes the crowd panned count extra in the *Fun* lanes. Scoring lives in `js/ratings/recommend.js` (shared by films and TV), TV data in `js/ratings/tvrecs.js`, and the sheet, guesses and learn order in `js/ratings/foryou.js`.
+Ratings count by strength: 👎 −2 · 👍 +1 · 4★ +1.5 · 5★ or ❤️ +2.5 · rewatch +1 · not interested −1 · on your list to watch +0.5. Skips count for nothing (they mean “not seen”; counting them against ranked your own likes lower). Likes the crowd panned count extra in the *Fun* lanes.
+
+**Measuring it on your own ratings:** `node tools/eval-similar.js personal your-export.json` takes any export, hides each title you were dealt in turn, and reports where your likes and loved titles rank, how often strong picks turned out to be films you'd seen, how the saved guesses held up, and which rated films are missing from the film data. Your file stays on your computer (exports are git-ignored). Scoring lives in `js/ratings/recommend.js` (shared by films and TV), TV data in `js/ratings/tvrecs.js`, and the sheet, guesses and learn order in `js/ratings/foryou.js`.
 
 ```
 node tools/build-similar.js path/to/ml-32m                           # rebuild data/similar.json (~1 min)
