@@ -65,8 +65,8 @@
   <header class="modebar">
     <div class="mode-switch segmented" role="tablist" aria-label="Mode">
       <button type="button" role="tab" data-mode="watchlist" aria-selected="true"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>Watchlist</button>
-      <button type="button" role="tab" data-mode="review" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#i-cards"/></svg>Review</button>
       <button type="button" role="tab" data-mode="rated" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>Rated</button>
+      <button type="button" role="tab" data-mode="review" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#i-cards"/></svg>Review</button>
     </div>
     <button type="button" class="icon-button" id="addButton" title="Add a title" aria-label="Add a title"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
     <button type="button" class="icon-button" id="settingsButton" title="Settings" aria-label="Settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg></button>
@@ -76,7 +76,7 @@
     <div class="list-tools">
       <label class="search-field">
         <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-        <input type="search" id="listSearch" placeholder="Search your titles" autocomplete="off" aria-label="Search your titles">
+        <input type="search" id="listSearch" placeholder="Search your watchlist" autocomplete="off" aria-label="Search your watchlist">
       </label>
       <div class="segmented list-tabs" id="listTabs" role="tablist" aria-label="Show"></div>
       <div class="list-options" id="listOptions"></div>
@@ -91,6 +91,7 @@
         <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
         <input type="search" id="ratedSearch" placeholder="Search your ratings" autocomplete="off" aria-label="Search your ratings">
       </label>
+      <div class="segmented list-tabs" id="ratedTabs" role="tablist" aria-label="Show"></div>
       <div class="list-options" id="ratedOptions"></div>
       <div class="chips" id="ratedChips" role="group" aria-label="Filter"></div>
     </div>

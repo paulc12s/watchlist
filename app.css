@@ -879,3 +879,19 @@
 .swatch-pride { background: linear-gradient(90deg, #e40303, #ff8c00, #ffed00, #008026, #24408e, #732982); }
 .swatch-desert { background: linear-gradient(90deg, #f8e2c4, #f2a46b 45%, #a84a17 75%, #ff8a75); }
 .swatch-aurora { background: linear-gradient(90deg, #5eeac0, #2cc79c 45%, #4e6bd8 70%, #c99bff); }
+
+/* Rated → Not rated: rate a watched title in one tap */
+.quick-rate {
+  display: flex;
+  gap: 4px;
+}
+
+.quick-rate .thumb {
+  width: 34px;
+  height: 34px;
+}
+
+.quick-rate .thumb .icon {
+  width: 16px;
+  height: 16px;
+}

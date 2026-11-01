@@ -26,12 +26,13 @@ const UI = {
 
     this.views = {
       watchlist: ListView.create({
-        name: 'watchlist', state, tabs: [['queue', 'To watch'], ['watched', 'Watched']], sortKey: 'list_sort',
+        name: 'watchlist', state, tabs: [['queue', 'To watch']], sortKey: 'list_sort',
         ids: { search: 'listSearch', tabs: 'listTabs', options: 'listOptions', chips: 'filterChips', list: 'titleList' }
       }),
       rated: ListView.create({
-        name: 'rated', state: state.rated, tabs: [], verdicts: true, compact: true, sortKey: 'rated_sort',
-        ids: { search: 'ratedSearch', options: 'ratedOptions', chips: 'ratedChips', list: 'ratedList' }
+        name: 'rated', state: state.rated, tabs: [['rated', 'Rated'], ['unrated', 'Not rated']], verdicts: true, compact: true,
+        sortKey: 'rated_sort',
+        ids: { search: 'ratedSearch', tabs: 'ratedTabs', options: 'ratedOptions', chips: 'ratedChips', list: 'ratedList' }
       })
     };
     els.undoButton.addEventListener('click', () => UndoManager.undo());
@@ -273,11 +274,10 @@ const UI = {
     });
     if (!added) return;
     els.addSheet.close();
-    // Show the list the new title went to
-    state.list = verdict.want === false ? 'watched' : 'queue';
     state.filter = 'all';
     this.render();
-    RatingsUI.toast(`Added ${fields.title}`, verdict.verdict ? `thumb-${verdict.verdict}` : 'check');
+    // Seen titles go to Rated, not the list to watch
+    RatingsUI.toast(verdict.verdict ? `Added ${fields.title} to Rated` : `Added ${fields.title}`, verdict.verdict ? `thumb-${verdict.verdict}` : 'check');
   },
 
   // ---- A title's sheet: review and edit in one place -------------------------------

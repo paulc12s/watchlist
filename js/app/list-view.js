@@ -2,10 +2,11 @@
 // ============================================================================
 // List views of the combined page (app.html): one implementation, used twice
 //
-//   Watchlist mode: To watch (grouped by priority) and Watched, full rows
-//                   with ❤️ / 👍 / 👎 buttons
-//   Rated mode:     everything you've rated, compact rows with your verdict
-//                   as one icon, narrowed by ❤️ / 👍 / 👎
+//   Watchlist mode: To watch, grouped by priority, full rows with ❤️ / 👍 /
+//                   👎 buttons for when you've watched one (it moves to Rated)
+//   Rated mode:     Rated: compact rows with your verdict as one icon,
+//                   narrowed by ❤️ / 👍 / 👎. Not rated: titles marked
+//                   watched without a rating, with ❤️ / 👍 / 👎 to rate them
 //
 // Each view has its own search, chips and order (view.state), so moving
 // between modes keeps where you were in each. Which titles a view shows and
@@ -86,10 +87,13 @@ const ListView = {
     if (visible && this.stale) this.render();
   },
 
+  // A view with one list shows no tabs
   renderTabs() {
     if (!this.els.tabs) return;
     const s = this.state;
     if (!this.tabs.some(([list]) => list === s.list)) s.list = this.tabs[0][0];
+    this.els.tabs.hidden = this.tabs.length < 2;
+    if (this.tabs.length < 2) return;
     const shown = ItemManager.shown();
     const count = list => shown.filter(ItemManager.LISTS[list]).length;
     this.els.tabs.innerHTML = html`${this.tabs.map(([list, label]) => html`
@@ -103,11 +107,13 @@ const ListView = {
     const s = this.state;
     const shown = ItemManager.shown();
     const verdicts = [['all', 'All', ''], ['loved', 'Loved', 'heart'], ['up', 'Liked', 'thumb-up'], ['down', 'Not for me', 'thumb-down']];
-    const count = v => shown.filter(v === 'all' ? ItemManager.LISTS.rated : ItemManager.LISTS[v]).length;
+    const rated = shown.filter(ItemManager.LISTS.rated);
+    const count = v => (v === 'all' ? rated : rated.filter(ItemManager.LISTS[v])).length;
     const sorted = s.list !== 'queue';
-    this.els.options.hidden = !sorted && !this.verdicts;
+    const verdictsShown = this.verdicts && s.list === 'rated';
+    this.els.options.hidden = !sorted && !verdictsShown;
     this.els.options.innerHTML = html`
-      ${this.verdicts && html`
+      ${verdictsShown && html`
         <div class="segmented verdicts" role="radiogroup" aria-label="Your verdict">
           ${verdicts.map(([v, label, iconName]) => html`
             <button type="button" role="radio" data-verdict="${v}" aria-checked="${String(s.verdict === v)}" aria-label="${label}" title="${label}">
@@ -152,7 +158,8 @@ const ListView = {
       const query = s.quickSearch;
       const empty = {
         queue: 'Nothing to watch yet.', watched: 'Nothing watched yet. Tap a thumb on a title once you’ve seen it.',
-        rated: 'Nothing rated here yet. Rate titles with 👍, 👎 or ❤️ in Watchlist or Review.'
+        rated: 'Nothing rated here yet. Rate titles with 👍, 👎 or ❤️ in Watchlist or Review.',
+        unrated: 'Every title you’ve watched has a rating.'
       }[s.list];
       list.innerHTML = html`<div class="empty">
         <p>${query ? `Nothing here matches “${query}”.` : empty}</p>
@@ -213,6 +220,7 @@ const ListView = {
     const typeIcon = { movie: 'film', series: 'tv', youtube: 'play' }[t.type];
     const meta = [t.year, t.genres[0], t.imdbRating && `IMDb ${Title.formatRating(t.imdbRating)}`].filter(Boolean);
     const verdict = loved ? 'Loved' : thumb === 'up' ? 'Liked' : 'Not for me';
+    const unrated = Title.isUnrated(t);
     return html`
       <article class="title-row rated-row" data-id="${t.id}">
         <button type="button" class="row-poster" data-action="web" aria-label="${t.type === 'youtube' ? 'Watch' : 'Search the web for'} ${t.title}">
@@ -222,10 +230,15 @@ const ListView = {
           <span class="row-title">${t.title}</span>
           <span class="row-meta">${icon(typeIcon, 'tiny')}${meta.join(' · ')}${t.rewatch && icon('rewatch', 'tiny')}${t.review && icon('note', 'tiny')}</span>
         </button>
-        <button type="button" class="verdict-badge ${loved ? 'loved' : thumb}" data-action="open" aria-label="Your verdict: ${verdict}${t.stars && !loved ? `, ${t.stars} stars` : ''}" title="${verdict}">
-          ${icon(loved ? 'heart' : `thumb-${thumb}`, loved ? 'filled' : '')}
-          ${t.stars > 0 && !loved && html`<span class="badge-stars">${t.stars}★</span>`}
-        </button>
+        ${unrated ? html`
+          <div class="quick-rate" role="group" aria-label="Rate ${t.title}">
+            ${[['love', 'heart', 'Loved it'], ['up', 'thumb-up', 'Liked it'], ['down', 'thumb-down', 'Not for me']].map(([choice, iconName, label]) => html`
+              <button type="button" class="thumb ${choice}" data-action="rate-watched" data-choice="${choice}" aria-label="${label}" title="${label}">${icon(iconName)}</button>`)}
+          </div>` : html`
+          <button type="button" class="verdict-badge ${loved ? 'loved' : thumb}" data-action="open" aria-label="Your verdict: ${verdict}${t.stars && !loved ? `, ${t.stars} stars` : ''}" title="${verdict}">
+            ${icon(loved ? 'heart' : `thumb-${thumb}`, loved ? 'filled' : '')}
+            ${t.stars > 0 && !loved && html`<span class="badge-stars">${t.stars}★</span>`}
+          </button>`}
       </article>`;
   },
 
@@ -241,6 +254,7 @@ const ListView = {
     if (!t) return;
     if (button.dataset.action === 'rate') ItemManager.rate(t.id, button.dataset.thumb);
     else if (button.dataset.action === 'love') ItemManager.love(t.id);
+    else if (button.dataset.action === 'rate-watched') ItemManager.rateWatched(t.id, button.dataset.choice);
     else if (button.dataset.action === 'open') UI.openTitle(t);
     else if (button.dataset.action === 'web') UI.openWeb(t);
   }

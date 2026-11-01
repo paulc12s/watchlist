@@ -86,6 +86,24 @@ const ItemManager = {
     UndoManager.push(unlove ? 'Watched: 👍' : 'Watched: ❤️', { type: 'edit', data: { id, previous } });
   },
 
+  // Rating a title that was only marked watched (Rated → Not rated):
+  // ❤️, 👍 or 👎 becomes your own rating, dated, so it moves to Rated
+  rateWatched(id, choice) {
+    const item = Library.get(id);
+    if (!item || !['love', 'up', 'down'].includes(choice)) return;
+    const previous = { ...item };
+    const changes = choice === 'love' ? { verdict: 'up', stars: Title.LOVED_STARS } : { verdict: choice };
+    Library.change(item, { ...changes, want: false });
+    // 👍 on a default 👍 changes nothing, so date it as a rating here
+    if (!item.reviewDate) {
+      item.reviewDate = new Date().toISOString();
+      item.updatedDate = item.reviewDate;
+      Library.changed();
+    }
+    UI.render();
+    UndoManager.push(`Rated: ${{ love: '❤️', up: '👍', down: '👎' }[choice]}`, { type: 'edit', data: { id, previous } });
+  },
+
   delete(id) {
     const item = Library.get(id);
     if (!item) return;
@@ -103,7 +121,9 @@ const ItemManager = {
     down: t => Title.thumb(t) === 'down',
     loved: t => Title.isLoved(t),
     // Everything you've rated, watched or still on the list
-    rated: t => Title.isSeen(t)
+    rated: t => Title.isSeen(t) && !Title.isUnrated(t),
+    // Watched, with only the default 👍
+    unrated: t => Title.isUnrated(t)
   },
 
   // Orders for every list but the queue (which groups by priority)

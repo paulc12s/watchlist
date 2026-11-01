@@ -49,6 +49,12 @@ const Title = {
     return Boolean(this.thumb(t));
   },
 
+  // Watched, but never rated: the 👍 is only the default a watched title
+  // gets (see sanitize). A rating of your own always carries a review date.
+  isUnrated(t) {
+    return this.isSeen(t) && !t.reviewDate && !t.stars && !t.review && !t.rewatch;
+  },
+
   // ❤️ is shorthand for five stars: seen, and loved
   LOVED_STARS: 5,
   isLoved(t) {

@@ -58,10 +58,14 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 
 ## Watchlist & Review (`app.html`)
 
-One page with three modes, switched with **Watchlist | Review | Rated** at the top. All three work on the same titles, so a thumb given in one shows in the others straight away. The page keeps its own database (`TitlesDB`) and starts empty: export from the classic pages and import here to bring titles over. Its export is the same file format as theirs. Light and dark themes follow the device.
+One page with three modes, switched with **Watchlist | Rated | Review** at the top. All three work on the same titles, so a thumb given in one shows in the others straight away. The page keeps its own database (`TitlesDB`) and starts empty: export from the classic pages and import here to bring titles over. Its export is the same file format as theirs. Light and dark themes follow the device.
 
-- **Watchlist mode** — *To watch* and *Watched* lists with counts; filter chips for what's in the list (priority on To watch; type, rewatch, platform, tag); a search box that filters your titles. Watched sorts by recently rated, your rating, title, year or IMDb rating (remembered on the device)
-- **Rated mode** — every title you've rated, including ones still on your list to watch, as compact rows with your verdict as an icon (❤️, 👍 or 👎, plus stars if you gave 1–4). Its own search, chips and order; narrow it to ❤️, 👍 or 👎; tap a row to change the rating. Each mode keeps its own search and filters, so switching doesn't lose your place Tap 👍 / 👎 on a title once you've seen it (tap the lit one to put it back on the list), or ❤️ if you loved it (👍 with five stars; tap it again to keep just the 👍), or tap the title for its sheet: verdict, on-the-list and rewatch toggles, stars, notes, priority, tag, platform, delete, web search. Undo appears after each change
+- **Watchlist mode** — just what you want to watch, grouped by priority, with a search box and filter chips (priority, type, rewatch, platform, tag). Tap ❤️, 👍 or 👎 once you've watched a title and it moves to Rated
+- **Rated mode** — two lists, each sortable by recently rated, your rating, title, year or IMDb rating (remembered on the device):
+  - *Rated*: every title with a rating of your own, including ones still on your list to watch, as compact rows with your verdict as an icon (❤️, 👍 or 👎, plus stars if you gave 1–4). Narrow it to ❤️, 👍 or 👎; tap a row to change the rating
+  - *Not rated*: titles marked watched without a rating (they carry a default 👍), with ❤️ / 👍 / 👎 buttons to rate each in one tap, which moves it to Rated
+
+  Each mode keeps its own search and filters, so switching doesn't lose your place Tap 👍 / 👎 on a title once you've seen it (tap the lit one to put it back on the list), or ❤️ if you loved it (👍 with five stars; tap it again to keep just the 👍), or tap the title for its sheet: verdict, on-the-list and rewatch toggles, stars, notes, priority, tag, platform, delete, web search. Undo appears after each change
 - **Adding** — **+** opens a sheet: search OMDb (with year, type, or an IMDb link), add by hand, or add a YouTube video; then add it to watch, or as already seen with 👍 or 👎
 - **Review mode** — the ratings swipe feed (below), started the first time you open it, so its lists only load when you use them
 - **⚙ Settings** — export, import and the taste profile for both modes, plus review order, TMDB key and skipped titles; links to batch upload and the classic pages

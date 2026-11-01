@@ -245,6 +245,31 @@ test('Rated lists every rated title, narrows by verdict, and sorts', () => {
   state.quickSearch = '';
 });
 
+test('Not rated: watched titles with only the default 👍; rating one moves it to Rated', () => {
+  const app = withTitles([
+    { id: 'w', title: 'Watched long ago', watched: true },
+    { id: 'r', title: 'Rated', want: false, verdict: 'up', reviewDate: '2026-01-01T00:00:00.000Z' },
+    { id: 's', title: 'Starred, undated', want: false, verdict: 'up', stars: 4 }
+  ]);
+  const { ItemManager, UndoManager, Library, Title } = app;
+  const list = name => plain(ItemManager.getFiltered({ list: name, filter: 'all', quickSearch: '', verdict: 'all' }).map(t => t.title));
+  assert.deepEqual(list('unrated'), ['Watched long ago'], 'stars count as a rating even without a date');
+  assert.deepEqual(list('rated'), ['Rated', 'Starred, undated']);
+
+  ItemManager.rateWatched('w', 'up');
+  const w = Library.get('w');
+  assert.deepEqual(plain([w.verdict, w.want, Title.isUnrated(w)]), ['up', false, false], '👍 on the default 👍 still counts');
+  assert.ok(w.reviewDate);
+  assert.deepEqual(list('unrated'), []);
+  UndoManager.undo();
+  assert.deepEqual(list('unrated'), ['Watched long ago'], 'undo puts it back');
+
+  ItemManager.rateWatched('w', 'love');
+  assert.deepEqual(plain([w.verdict, w.stars]), ['up', 5]);
+  ItemManager.rateWatched('w', 'down');
+  assert.equal(w.verdict, 'down');
+});
+
 // ---- Thumbs and edits -------------------------------------------------------------
 
 test('card thumbs: a thumb marks watched; tapping the shown thumb puts it back on the list', () => {

@@ -12,7 +12,7 @@
 
 const Main = {
   MODE_KEY: 'app_mode',
-  MODES: ['watchlist', 'review', 'rated'],
+  MODES: ['watchlist', 'rated', 'review'],
   PANELS: { watchlist: 'watchlistPanel', review: 'reviewPanel', rated: 'ratedPanel' },
   mode: 'watchlist',
   reviewStart: null,
