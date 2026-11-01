@@ -11,6 +11,8 @@ const state = {
   verdict: 'all',
   // How lists other than the queue are ordered (ItemManager.SORTS)
   sort: 'recent',
+  // The combined page's Rated mode: its own search, filter, verdict and order
+  rated: { list: 'rated', filter: 'all', quickSearch: '', verdict: 'all', sort: 'recent' },
   selectedSearchResult: null,
   searchResults: [],
   searchTimeout: null,

@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// Palette: the colour theme (Settings → Colour theme), kept per browser like
+// Palette: the colour theme (Settings → Theme), kept per browser like
 // the app icon. Loaded in <head>, before the page draws, so it never flashes
 // the default colours. The palettes themselves are CSS (ratings.css), keyed
 // by data-palette on <html>; Classic is the default and sets nothing.

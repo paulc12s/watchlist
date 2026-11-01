@@ -1,23 +1,21 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// Watchlist mode of the combined page (app.html)
-// The view only: what you do here goes through ItemManager (adds, edits,
-// thumbs, deletes, undo, which titles each list shows) and from there the
-// shared Library. Named UI because ItemManager and UndoManager report to UI.
+// The combined page's shared UI (app.html): the two list views (Watchlist
+// and Rated, js/app/list-view.js), the add sheet and the title sheet.
+// What you do here goes through ItemManager (adds, edits, thumbs, deletes,
+// undo, which titles each list shows) and from there the shared Library.
+// Named UI because ItemManager and UndoManager report to UI.
 // Everything rendered goes through html`` so titles can't inject markup.
 // ============================================================================
 
 const UI = {
   elements: {},
-  // Set while the panel is hidden; it re-renders when shown
-  hidden: false,
-  stale: false,
+  views: {},
   add: { mode: 'search', type: '', chosen: null, results: [], seq: 0, timer: null },
-  SORT_KEY: 'list_sort',
   editing: null,
 
   init() {
-    const ids = ['listSearch', 'listTabs', 'listOptions', 'filterChips', 'titleList', 'addButton', 'undoBar', 'undoMessage', 'undoButton',
+    const ids = ['addButton', 'undoBar', 'undoMessage', 'undoButton',
       'tagOptions', 'platformOptions', 'addSheet', 'addModes', 'addSearch', 'addType', 'addResults', 'manualTitle',
       'manualType', 'manualGenre', 'youtubeUrl', 'youtubeTitle', 'addOptions', 'addChosen', 'addPriority', 'addTag',
       'addPlatform', 'addSeenUp', 'addSeenDown', 'addToList', 'titleSheet', 'titleName', 'titleDetails', 'titleThumbs',
@@ -26,45 +24,16 @@ const UI = {
     ids.forEach(id => { this.elements[id] = document.getElementById(id); });
     const els = this.elements;
 
-    els.listSearch.addEventListener('input', () => {
-      state.quickSearch = els.listSearch.value.trim();
-      this.renderList();
-    });
-    els.listTabs.addEventListener('click', event => {
-      const tab = event.target.closest('[data-list]');
-      if (!tab) return;
-      state.list = tab.dataset.list;
-      this.render();
-    });
-    els.listOptions.addEventListener('click', event => {
-      const button = event.target.closest('[data-verdict]');
-      if (!button) return;
-      state.verdict = button.dataset.verdict;
-      this.render();
-    });
-    els.listOptions.addEventListener('change', event => {
-      if (event.target.id !== 'listSort') return;
-      state.sort = event.target.value;
-      try {
-        localStorage.setItem(this.SORT_KEY, state.sort);
-      } catch (error) {
-        // Not remembered; harmless
-      }
-      this.renderList();
-    });
-    try {
-      const sort = localStorage.getItem(this.SORT_KEY);
-      if (ItemManager.SORTS[sort]) state.sort = sort;
-    } catch (error) {
-      // Private browsing: default order
-    }
-    els.filterChips.addEventListener('click', event => {
-      const chip = event.target.closest('[data-filter]');
-      if (!chip) return;
-      state.filter = state.filter === chip.dataset.filter ? 'all' : chip.dataset.filter;
-      this.render();
-    });
-    els.titleList.addEventListener('click', event => this.listClick(event));
+    this.views = {
+      watchlist: ListView.create({
+        name: 'watchlist', state, tabs: [['queue', 'To watch'], ['watched', 'Watched']], sortKey: 'list_sort',
+        ids: { search: 'listSearch', tabs: 'listTabs', options: 'listOptions', chips: 'filterChips', list: 'titleList' }
+      }),
+      rated: ListView.create({
+        name: 'rated', state: state.rated, tabs: [], verdicts: true, compact: true, sortKey: 'rated_sort',
+        ids: { search: 'ratedSearch', options: 'ratedOptions', chips: 'ratedChips', list: 'ratedList' }
+      })
+    };
     els.undoButton.addEventListener('click', () => UndoManager.undo());
     els.addButton.addEventListener('click', () => this.openAdd());
     this.bindAdd();
@@ -73,17 +42,15 @@ const UI = {
 
   // ---- What ItemManager and UndoManager call -----------------------------------
 
+  // Every view, after any change; hidden ones catch up when shown
   render() {
-    if (this.hidden) {
-      this.stale = true;
-      return;
-    }
-    this.stale = false;
-    this.renderTabs();
-    this.renderListOptions();
-    this.renderChips();
-    this.renderList();
+    Object.values(this.views).forEach(view => view.render());
     this.renderOptions();
+  },
+
+  // Which list view is on screen (null: neither, e.g. review mode)
+  showView(name) {
+    for (const [key, view] of Object.entries(this.views)) view.show(key === name);
   },
 
   // Routine save messages stay quiet; anything else is worth a toast
@@ -96,168 +63,6 @@ const UI = {
   // Imports run from the settings sheet, which shows its own errors
   showImportError() {},
   hideImportError() {},
-
-  show(visible) {
-    this.hidden = !visible;
-    if (visible && this.stale) this.render();
-  },
-
-  // ---- The list ---------------------------------------------------------------------
-
-  renderTabs() {
-    const shown = ItemManager.shown();
-    const count = list => shown.filter(ItemManager.LISTS[list]).length;
-    // ❤️ / 👍 / 👎 live inside Rated (renderListOptions)
-    if (!['queue', 'watched', 'rated'].includes(state.list)) state.list = 'rated';
-    const tabs = [['queue', 'To watch'], ['watched', 'Watched'], ['rated', 'Rated']];
-    this.elements.listTabs.innerHTML = html`${tabs.map(([list, label]) => html`
-      <button type="button" role="tab" data-list="${list}" aria-selected="${String(state.list === list)}">
-        ${label}<span class="count">${count(list)}</span>
-      </button>`)}`;
-  },
-
-  // Rated: which verdicts, and every list but the queue: the order
-  renderListOptions() {
-    const shown = ItemManager.shown();
-    const verdicts = [['all', 'All', ''], ['loved', 'Loved', 'heart'], ['up', 'Liked', 'thumb-up'], ['down', 'Not for me', 'thumb-down']];
-    const count = v => shown.filter(v === 'all' ? ItemManager.LISTS.rated : ItemManager.LISTS[v]).length;
-    const sorts = Object.entries(ItemManager.SORTS);
-    this.elements.listOptions.hidden = state.list === 'queue';
-    this.elements.listOptions.innerHTML = state.list === 'queue' ? '' : html`
-      ${state.list === 'rated' && html`
-        <div class="segmented verdicts" role="radiogroup" aria-label="Your verdict">
-          ${verdicts.map(([v, label, iconName]) => html`
-            <button type="button" role="radio" data-verdict="${v}" aria-checked="${String(state.verdict === v)}" aria-label="${label}" title="${label}">
-              ${iconName ? icon(iconName) : label}<span class="count">${count(v)}</span>
-            </button>`)}
-        </div>`}
-      <label class="sort-field">
-        <span class="visually-hidden">Sort by</span>
-        <select id="listSort">
-          ${sorts.map(([key, [label]]) => html`<option value="${key}" ${state.sort === key ? 'selected' : ''}>${label}</option>`)}
-        </select>
-      </label>`;
-  },
-
-  // Chips for what's in the current list: priorities only on the list to watch
-  renderChips() {
-    const shown = ItemManager.shown().filter(ItemManager.LISTS[state.list] || ItemManager.LISTS.queue);
-    const has = test => shown.some(test);
-    const chips = [
-      ['all', 'All'],
-      ...CONFIG.PRIORITIES.filter(p => state.list === 'queue' && has(t => t.want && Title.displayPriority(t) === p))
-        .map(p => [p, p === 'watching' ? 'Watching now' : CONFIG.PRIORITY_LABELS[p]]),
-      ...[['movie', 'Films'], ['series', 'TV'], ['youtube', 'YouTube']].filter(([type]) => has(t => t.type === type)),
-      ...(has(t => t.rewatch) ? [['rewatch', 'Rewatch']] : []),
-      ...[...new Set(shown.map(t => t.platform).filter(Boolean))].sort().map(p => [p, p]),
-      ...[...new Set(shown.map(t => t.tag).filter(Boolean))].sort().map(t => [t, `#${t}`])
-    ];
-    // A filter whose titles have all gone falls back to All
-    if (!chips.some(([key]) => key === state.filter)) state.filter = 'all';
-    this.elements.filterChips.innerHTML = html`${chips.map(([key, label]) =>
-      html`<button type="button" class="chip" data-filter="${key}" aria-pressed="${String(state.filter === key)}">${label}</button>`)}`;
-  },
-
-  renderList() {
-    const titles = ItemManager.getFiltered();
-    const list = this.elements.titleList;
-    if (!titles.length) {
-      const query = state.quickSearch;
-      list.innerHTML = html`<div class="empty">
-        <p>${query ? `Nothing here matches “${query}”.` : {
-          queue: 'Nothing to watch yet.', watched: 'Nothing watched yet. Tap a thumb on a title once you’ve seen it.',
-          rated: 'Nothing rated here yet. Rate titles with 👍, 👎 or ❤️ here or in Review.',
-          up: 'No liked titles yet.', down: 'No titles marked “not for me”.'
-        }[state.list]}</p>
-        <button type="button" class="button primary" data-action="add">${icon('plus')}${query ? `Add “${query}”` : 'Add a title'}</button>
-      </div>`;
-      return;
-    }
-
-    if (state.list === 'queue') {
-      // Grouped by priority, in the order CONFIG.PRIORITIES gives
-      const groups = CONFIG.PRIORITIES.map(p => [p, titles.filter(t => Title.displayPriority(t) === p)]).filter(([, g]) => g.length);
-      list.innerHTML = html`${groups.map(([p, group]) => html`
-        <h2 class="group-label">${p === 'watching' ? 'Watching now' : `${CONFIG.PRIORITY_LABELS[p]} priority`}</h2>
-        ${group.map(t => this.rowHTML(t))}`)}`;
-    } else {
-      const sorted = ItemManager.sorted(titles);
-      const row = state.list === 'rated' ? t => this.ratedRowHTML(t) : t => this.rowHTML(t);
-      list.innerHTML = html`${sorted.map(row)}`;
-    }
-  },
-
-  rowHTML(t) {
-    const thumb = Title.thumb(t);
-    const watched = !t.want;
-    const typeIcon = { movie: 'film', series: 'tv', youtube: 'play' }[t.type];
-    const meta = [t.year, t.genres[0], t.imdbRating && `★ ${Title.formatRating(t.imdbRating)}`, t.type === 'youtube' && t.duration].filter(Boolean);
-    return html`
-      <article class="title-row" data-id="${t.id}">
-        <button type="button" class="row-poster" data-action="web" aria-label="${t.type === 'youtube' ? 'Watch' : 'Search the web for'} ${t.title}">
-          ${t.poster ? html`<img src="${t.poster}" alt="" loading="lazy">` : icon(typeIcon)}
-        </button>
-        <button type="button" class="row-main" data-action="open" aria-label="${t.title}: details and review">
-          <span class="row-title">${t.title}</span>
-          <span class="row-meta">${icon(typeIcon, 'tiny')}${meta.join(' · ')}</span>
-          <span class="row-tags">
-            ${t.platform && html`<span class="tag">${t.platform}</span>`}
-            ${t.tag && html`<span class="tag">#${t.tag}</span>`}
-            ${t.stars > 0 && !Title.isLoved(t) && html`<span class="tag tag-stars" aria-label="${t.stars} stars">${'★'.repeat(t.stars)}</span>`}
-            ${t.rewatch && html`<span class="tag">${icon('rewatch', 'tiny')}Rewatch</span>`}
-            ${!watched && thumb && html`<span class="tag">${icon(`thumb-${thumb}`, 'tiny')}Rated, still to watch</span>`}
-          </span>
-          ${t.review && html`<span class="row-review">${t.review}</span>`}
-        </button>
-        <div class="row-thumbs" role="group" aria-label="${watched ? 'Your verdict' : 'Watched it? Rate it'}">
-          <button type="button" class="thumb love" data-action="love" aria-pressed="${String(Title.isLoved(t))}"
-            title="${Title.isLoved(t) ? 'Loved: tap for just 👍' : 'Watched: loved it'}" aria-label="Loved it">${icon('heart')}</button>
-          ${['up', 'down'].map(dir => html`<button type="button" class="thumb ${dir}" data-action="rate" data-thumb="${dir}"
-            aria-pressed="${String(watched && thumb === dir)}"
-            title="${watched && thumb === dir ? 'Put back on the list to watch' : dir === 'up' ? 'Watched: liked it' : 'Watched: not for me'}"
-            aria-label="${dir === 'up' ? 'Thumbs up' : 'Thumbs down'}">${icon(`thumb-${dir}`)}</button>`)}
-        </div>
-      </article>`;
-  },
-
-  // Rated: a compact row with your verdict as one badge; tap to change it
-  ratedRowHTML(t) {
-    const thumb = Title.thumb(t);
-    const loved = Title.isLoved(t);
-    const typeIcon = { movie: 'film', series: 'tv', youtube: 'play' }[t.type];
-    const meta = [t.year, t.genres[0], t.imdbRating && `IMDb ${Title.formatRating(t.imdbRating)}`].filter(Boolean);
-    const verdict = loved ? 'Loved' : thumb === 'up' ? 'Liked' : 'Not for me';
-    return html`
-      <article class="title-row rated-row" data-id="${t.id}">
-        <button type="button" class="row-poster" data-action="web" aria-label="${t.type === 'youtube' ? 'Watch' : 'Search the web for'} ${t.title}">
-          ${t.poster ? html`<img src="${t.poster}" alt="" loading="lazy">` : icon(typeIcon, 'tiny')}
-        </button>
-        <button type="button" class="row-main" data-action="open" aria-label="${t.title}: ${verdict}. Details and review">
-          <span class="row-title">${t.title}</span>
-          <span class="row-meta">${icon(typeIcon, 'tiny')}${meta.join(' · ')}${t.rewatch && icon('rewatch', 'tiny')}${t.review && icon('note', 'tiny')}</span>
-        </button>
-        <button type="button" class="verdict-badge ${loved ? 'loved' : thumb}" data-action="open" aria-label="Your verdict: ${verdict}${t.stars && !loved ? `, ${t.stars} stars` : ''}" title="${verdict}">
-          ${icon(loved ? 'heart' : `thumb-${thumb}`, loved ? 'filled' : '')}
-          ${t.stars > 0 && !loved && html`<span class="badge-stars">${t.stars}★</span>`}
-        </button>
-      </article>`;
-  },
-
-  listClick(event) {
-    const button = event.target.closest('[data-action]');
-    if (!button) return;
-    if (button.dataset.action === 'add') {
-      this.openAdd(state.quickSearch);
-      return;
-    }
-    const row = button.closest('.title-row');
-    const t = row && Library.get(row.dataset.id);
-    if (!t) return;
-    if (button.dataset.action === 'rate') ItemManager.rate(t.id, button.dataset.thumb);
-    else if (button.dataset.action === 'love') ItemManager.love(t.id);
-    else if (button.dataset.action === 'open') this.openTitle(t);
-    else if (button.dataset.action === 'web') this.openWeb(t);
-  },
 
   // A video opens on YouTube; anything else, a web search for the title
   openWeb(t) {

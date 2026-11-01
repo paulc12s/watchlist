@@ -6,7 +6,7 @@
    press. Icons come from the SVG sprite in ratings.html and take currentColor.
    Colours are tokens on :root, so app.css can add a light theme.
 
-   Palettes (Settings → Colour theme, js/palette.js) set data-palette on
+   Palettes (Settings → Theme, js/palette.js) set data-palette on
    <html>. A palette sets only the --p-* values below, each in a dark and a
    light version; everything else derives from them. Soft, edge and glow
    tints are mixed from the accent, so no colour is written twice.

@@ -66,6 +66,7 @@
     <div class="mode-switch segmented" role="tablist" aria-label="Mode">
       <button type="button" role="tab" data-mode="watchlist" aria-selected="true"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>Watchlist</button>
       <button type="button" role="tab" data-mode="review" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#i-cards"/></svg>Review</button>
+      <button type="button" role="tab" data-mode="rated" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#i-star"/></svg>Rated</button>
     </div>
     <button type="button" class="icon-button" id="addButton" title="Add a title" aria-label="Add a title"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
     <button type="button" class="icon-button" id="settingsButton" title="Settings" aria-label="Settings"><svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg></button>
@@ -83,6 +84,18 @@
     </div>
     <div class="title-list" id="titleList" aria-live="polite"></div>
   </main>
+
+  <section class="mode-panel watchlist-panel rated-panel" id="ratedPanel" aria-label="Rated" hidden>
+    <div class="list-tools">
+      <label class="search-field">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input type="search" id="ratedSearch" placeholder="Search your ratings" autocomplete="off" aria-label="Search your ratings">
+      </label>
+      <div class="list-options" id="ratedOptions"></div>
+      <div class="chips" id="ratedChips" role="group" aria-label="Filter"></div>
+    </div>
+    <div class="title-list" id="ratedList" aria-live="polite"></div>
+  </section>
 
   <section class="mode-panel review-panel" id="reviewPanel" hidden>
     <div class="app">
@@ -284,8 +297,8 @@
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
     <section class="setting">
-      <h3>Colour theme</h3>
-      <div class="palette-choice" id="paletteChoice" role="radiogroup" aria-label="Colour theme">
+      <h3>Theme</h3>
+      <div class="palette-choice" id="paletteChoice" role="radiogroup" aria-label="Theme">
         <button type="button" role="radio" data-palette="classic"><span class="swatch swatch-classic"></span>Classic</button>
         <button type="button" role="radio" data-palette="pastel"><span class="swatch swatch-pastel"></span>Pastel</button>
         <button type="button" role="radio" data-palette="metal"><span class="swatch swatch-metal"></span>Metal</button>
@@ -358,6 +371,7 @@
 <script src="js/ratings/foryou.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/ui.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/app.js?v=__APP_VERSION__"></script>
+<script src="js/app/list-view.js?v=__APP_VERSION__"></script>
 <script src="js/app/watchlist-view.js?v=__APP_VERSION__"></script>
 <script src="js/app/main.js?v=__APP_VERSION__"></script>
 </body>

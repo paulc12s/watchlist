@@ -95,7 +95,7 @@
 
 .mode-switch {
   flex: 1;
-  max-width: 340px;
+  max-width: 400px;
   margin-right: auto;
 }
 
@@ -701,10 +701,14 @@
   fill: currentColor;
 }
 
-@media (max-width: 420px) {
+/* Three modes: icons only where there's room for them beside the names */
+@media (max-width: 500px) {
   .mode-switch button .icon {
     display: none;
   }
+}
+
+@media (max-width: 420px) {
 
   .field-row {
     grid-template-columns: 1fr;

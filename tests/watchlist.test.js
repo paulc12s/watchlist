@@ -236,6 +236,13 @@ test('Rated lists every rated title, narrows by verdict, and sorts', () => {
   state.list = 'watched';
   assert.deepEqual(sorted('recent'), ['Zeta', 'beta', 'Alpha'], 'the verdict filter only applies to Rated');
   state.verdict = 'all';
+
+  // The Rated mode keeps its own view state: the watchlist's search and list don't touch it
+  state.quickSearch = 'zeta';
+  const rated = { list: 'rated', filter: 'all', quickSearch: '', verdict: 'down', sort: 'recent' };
+  assert.deepEqual(plain(ItemManager.getFiltered(rated).map(t => t.title)), ['Gamma']);
+  assert.deepEqual(plain(ItemManager.getFiltered().map(t => t.title)), ['Zeta'], 'and the watchlist keeps its own');
+  state.quickSearch = '';
 });
 
 // ---- Thumbs and edits -------------------------------------------------------------

@@ -1,15 +1,19 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// The combined page (app.html): watchlist mode and review mode over one set
-// of titles in this page's own database. Watchlist mode is the view in
-// js/app/watchlist-view.js; review mode is the ratings feed (js/ratings/),
-// started the first time you open it so its lists only load when needed.
-// Both change titles through the shared Library, so each mode sees the
-// other's changes at once.
+// The combined page (app.html): three modes over one set of titles in this
+// page's own database.
+//   Watchlist  what to watch and what you've watched (js/app/list-view.js)
+//   Review     the ratings feed (js/ratings/), started the first time you
+//              open it so its lists only load when needed
+//   Rated      everything you've rated, filtered and sorted (list-view.js)
+// All change titles through the shared Library, so each mode sees the
+// others' changes at once.
 // ============================================================================
 
 const Main = {
   MODE_KEY: 'app_mode',
+  MODES: ['watchlist', 'review', 'rated'],
+  PANELS: { watchlist: 'watchlistPanel', review: 'reviewPanel', rated: 'ratedPanel' },
   mode: 'watchlist',
   reviewStart: null,
 
@@ -66,7 +70,7 @@ const Main = {
     } catch (error) {
       // Private browsing: start in watchlist mode
     }
-    this.setMode(saved === 'review' ? 'review' : 'watchlist');
+    this.setMode(this.MODES.includes(saved) ? saved : 'watchlist');
     VersionCheck.start();
   },
 
@@ -76,12 +80,11 @@ const Main = {
     document.querySelectorAll('.mode-switch [data-mode]').forEach(tab => {
       tab.setAttribute('aria-selected', String(tab.dataset.mode === mode));
     });
-    document.getElementById('watchlistPanel').hidden = review;
-    document.getElementById('reviewPanel').hidden = !review;
-    document.getElementById('addButton').hidden = review;
+    for (const [name, id] of Object.entries(this.PANELS)) document.getElementById(id).hidden = name !== mode;
+    document.getElementById('addButton').hidden = mode !== 'watchlist';
     document.body.dataset.mode = mode;
     RatingsUI.paused = !review;
-    UI.show(!review);
+    UI.showView(review ? null : mode);
     try {
       localStorage.setItem(this.MODE_KEY, mode);
     } catch (error) {
@@ -96,7 +99,7 @@ const Main = {
           this.reviewStart = null;
         });
       } else {
-        // Titles may have changed in watchlist mode
+        // Titles may have changed in the other modes
         RatingsUI.updateHeader();
       }
     }

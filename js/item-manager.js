@@ -132,14 +132,16 @@ const ItemManager = {
     return [...titles].sort((a, b) => compare(a, b) || recent(a, b));
   },
 
-  getFiltered() {
-    const { filter, list, quickSearch } = state;
+  // The titles a view shows: view is { list, filter, quickSearch, verdict };
+  // the watchlist's is the global state, the Rated view keeps its own
+  getFiltered(view = state) {
+    const { filter, list, quickSearch } = view;
     const query = quickSearch.toLowerCase();
     const inList = this.LISTS[list] || this.LISTS.queue;
 
     const matchesSearch = (i) => !query || i.title.toLowerCase().includes(query);
     // Rated narrows further by your verdict: ❤️, 👍 (includes ❤️) or 👎
-    const byVerdict = list === 'rated' && ['loved', 'up', 'down'].includes(state.verdict) ? this.LISTS[state.verdict] : null;
+    const byVerdict = list === 'rated' && ['loved', 'up', 'down'].includes(view.verdict) ? this.LISTS[view.verdict] : null;
     const matchesVerdict = (i) => !byVerdict || byVerdict(i);
 
     const matchesSecondaryFilter = (i) => {
