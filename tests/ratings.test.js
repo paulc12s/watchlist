@@ -412,3 +412,12 @@ test('TMDB show details: non-strings dropped, lengths capped, posters only from 
   assert.equal(TMDB.parse({ id: 5, external_ids: { imdb_id: 'javascript:1' } }).missing, true);
 });
 
+
+test('settings saved before the feed starts keep the saved key and list', async () => {
+  const app = loadRatings();
+  app.Store.saved.set('prefs_v1', { order: 'shuffled', tmdbKey: 'secret', categoryId: 'two' });
+  await app.RatingsApp.loadPrefs();
+  app.Feed.order = 'learn';
+  app.RatingsApp.savePrefs();
+  assert.deepEqual(plain(app.Store.saved.get('prefs_v1')), { categoryId: 'two', order: 'learn', tmdbKey: 'secret' });
+});

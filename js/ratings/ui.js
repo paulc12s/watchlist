@@ -17,6 +17,10 @@ function icon(name, className = '') {
 
 const RatingsUI = {
   els: {},
+  // The combined page pauses the feed's keyboard shortcuts outside review mode
+  paused: false,
+  // Export file names start with this
+  exportPrefix: 'ratings',
   renderSeq: 0,
   busy: false,
   toastTimer: null,
@@ -91,7 +95,7 @@ const RatingsUI = {
     if (category.media === 'tv') {
       if (!TMDB.hasKey()) {
         Feed.start(id);
-        App.savePrefs();
+        RatingsApp.savePrefs();
         return this.renderMessage('Add a TMDB key to rate TV',
           'TV lists come from TMDB, which needs a free key. Get one at themoviedb.org, then add it in Settings.', true);
       }
@@ -106,12 +110,18 @@ const RatingsUI = {
       if (seq !== this.renderSeq) return; // Another list was chosen meanwhile
     }
     Feed.start(id);
-    App.savePrefs();
+    RatingsApp.savePrefs();
     if (announce) this.toast(category.name);
     this.advance();
   },
 
+  // On the combined page the feed starts the first time you open review mode
+  feedStarted() {
+    return Boolean(Feed.categoryId && Catalog.get(Feed.categoryId));
+  },
+
   updateHeader() {
+    if (!this.feedStarted()) return;
     const category = Catalog.get(Feed.categoryId);
     const total = category.keys.length;
     this.els.categoryName.textContent = category.name;
@@ -468,7 +478,7 @@ const RatingsUI = {
 
   bindKeys() {
     document.addEventListener('keydown', event => {
-      if (document.querySelector('dialog[open]') || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (this.paused || document.querySelector('dialog[open]') || event.metaKey || event.ctrlKey || event.altKey) return;
       const keys = {
         ArrowRight: 'up', ArrowLeft: 'down', ArrowUp: 'skip', ArrowDown: 'back',
         w: 'want', r: 'rewatch', n: 'note'
@@ -637,22 +647,23 @@ const RatingsUI = {
       button.addEventListener('click', () => {
         Feed.order = button.dataset.order;
         this.openSettings();
+        RatingsApp.savePrefs();
+        if (!this.feedStarted()) return;
         Feed.start(Feed.categoryId);
-        App.savePrefs();
         this.advance();
       });
     });
 
     this.els.tmdbSave.addEventListener('click', () => {
       TMDB.key = this.els.tmdbKey.value.trim();
-      App.savePrefs();
+      RatingsApp.savePrefs();
       this.els.settingsSheet.close();
       this.toast(TMDB.key ? 'TMDB key saved on this device' : 'TMDB key removed', 'check');
-      if (Catalog.isTv(Feed.categoryId)) this.switchCategory(Feed.categoryId, { announce: false });
+      if (this.feedStarted() && Catalog.isTv(Feed.categoryId)) this.switchCategory(Feed.categoryId, { announce: false });
     });
 
     this.els.exportBackup.addEventListener('click', () => {
-      this.download(Library.fileName('ratings'), Library.exportText('ratings'));
+      this.download(Library.fileName(this.exportPrefix), Library.exportText(this.exportPrefix));
     });
     this.els.exportAI.addEventListener('click', async () => {
       const text = Ratings.aiProfile(this.computeTaste());
@@ -687,6 +698,7 @@ const RatingsUI = {
       const count = Ratings.clearSkips();
       this.toast(count ? `${count} skipped title${count > 1 ? 's' : ''} will come round again` : 'Nothing skipped');
       this.els.settingsSheet.close();
+      if (!this.feedStarted()) return;
       Feed.start(Feed.categoryId);
       this.updateHeader();
     });

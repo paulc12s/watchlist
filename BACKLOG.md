@@ -9,14 +9,11 @@ item to **Done** (with the commit) when it ships.
 The rest of this item shipped (see Done). Still open:
 - GitHub settings: turn on Dependabot alerts, and optionally require SHA-pinned Actions.
 
-### 2. One page for both watchlist and ratings
-A single page with a switch between the watchlist and the swipe-rating views. Both views read the same records, so nothing needs to be imported or exported between them. Needs:
-- one data store
-- a migration from today's two stores (watchlist IndexedDB key, `RatingsDB`)
-- a combined record shape
-- one CSP
-
-The shared record and library (`js/title.js`, `js/library.js`) are in place; this is now mostly UI plus pointing both views at one database.
+### 2. Retire the classic pages
+`app.html` does what `watchlist.html` and `ratings.html` do. Once you're happy with it:
+- Point `watchlist.html` and `ratings.html` (and so existing home-screen icons) at `app.html`, after a last export from each.
+- Remove their page-only code: `js/ui.js`, `js/app.js`, `watchlist.css`, `js/ratings/boot.js`, and the markup in both pages.
+- Decide whether `app.html` should offer to copy the classic pages' data on first open (it starts empty today, by choice).
 
 ### 3. Top-picks list of strong matches you haven't rated
 A list that shows only titles the recommender rates as a very strong match and you haven't rated yet. It should read like a run of standout suggestions, not a ranked dump.
@@ -25,7 +22,7 @@ A list that shows only titles the recommender rates as a very strong match and y
 - **Actions:** from the list you can rate a title, add it to want to watch, or dismiss it.
 - **Films and TV:** both.
 - **Relation to today's For you sheet:** For you already shows the top 20 per lane. This is stricter, with a threshold instead of a count. It could replace For you or be a mode within it; decide when building.
-- **Fits the single page (item 2):** it could feed the watchlist directly.
+- **Fits the combined page:** it could feed the watchlist directly.
 
 ### 4. Choose where a title's link opens
 Tapping a poster on the watchlist runs a Google search for the title. Make the destination a setting:
@@ -45,6 +42,7 @@ Notes:
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Combined page `app.html`: watchlist mode (new design, light and dark) and review mode over one database, same export format as the classic pages.
 - Shared data layer: one record shape (`js/title.js`), one library for every change, import and export (`js/library.js`), one storage module (`js/store.js`), one OMDb client and parser (`js/omdb.js`), one version check. Each page keeps its own database. Imports take the newer version of each title; deletes stay local. Manual entries no longer duplicate on re-import.
 - MIT licence (`LICENSE`), copyright notice on every source file, with a test.
 - Watchlist: 👍 Liked / 👎 Not for me lists alongside Watched, cards readable in every list, status shows “saved” after loading.

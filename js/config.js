@@ -13,6 +13,8 @@ const CONFIG = {
     // out-of-date copy of the app still finds its own data intact
     WATCHLIST: { name: 'WatchlistDB', storeName: 'items', legacyKey: 'watchlist_v1' },
     RATINGS: { name: 'RatingsDB', storeName: 'kv', legacyKey: 'ratings_v1' },
+    // The combined page (app.html): both modes share this one; it starts empty
+    APP: { name: 'TitlesDB', storeName: 'kv' },
     TITLES_KEY: 'titles_v2',
     SAVE_DELAY_MS: 300,
     RETRY_DELAY_MS: 2000

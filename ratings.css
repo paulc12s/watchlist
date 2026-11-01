@@ -4,6 +4,7 @@
    Monochrome on near-black with one cool accent. Controls are frosted glass:
    a translucent fill, a hairline edge, a soft top highlight and a spring on
    press. Icons come from the SVG sprite in ratings.html and take currentColor.
+   Colours are tokens on :root, so app.css can add a light theme.
    ============================================================================ */
 
 :root {
@@ -18,6 +19,15 @@
   --glass-hi: rgba(255, 255, 255, 0.13);
   --hairline: rgba(255, 255, 255, 0.11);
   --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04));
+  --button-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  --orb: radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03) 70%);
+  --edge-strong: rgba(255, 255, 255, 0.26);
+  --well: rgba(255, 255, 255, 0.04);
+  --track: rgba(0, 0, 0, 0.3);
+  --sheet-top: #151a22;
+  --poster-fallback: linear-gradient(160deg, #1b2330, #0a0d12);
+  --error-ink: #ffb4b4;
 
   --accent: #5cd2ff;
   --accent-deep: #1aa7e6;
@@ -100,7 +110,7 @@ button:focus-visible {
 .toast,
 .status,
 .tags li {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04));
+  background: var(--glass-fill);
   border: 1px solid var(--hairline);
   box-shadow: var(--highlight);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
@@ -257,7 +267,7 @@ button:focus-visible {
   padding: 32px;
   background:
     radial-gradient(90% 60% at 30% 20%, rgba(92, 210, 255, 0.16), transparent 60%),
-    linear-gradient(160deg, #1b2330, #0a0d12);
+    var(--poster-fallback);
   font-size: 1.7rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -573,7 +583,7 @@ button:focus-visible {
   padding: 0;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-full);
-  background: radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03) 70%);
+  background: var(--orb);
   box-shadow: var(--highlight), 0 6px 16px -6px rgba(0, 0, 0, 0.6);
   color: var(--ink);
   transition: transform 0.35s var(--spring), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease), color 0.2s var(--ease);
@@ -607,7 +617,7 @@ button:focus-visible {
 
 @media (hover: hover) {
   .action:hover {
-    border-color: rgba(255, 255, 255, 0.28);
+    border-color: var(--edge-strong);
     transform: translateY(-2px);
   }
 
@@ -672,7 +682,7 @@ button:focus-visible {
   border: 1px solid var(--hairline);
   border-bottom: 0;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  background: linear-gradient(180deg, #151a22, var(--surface) 120px);
+  background: linear-gradient(180deg, var(--sheet-top), var(--surface) 120px);
   box-shadow: var(--highlight), 0 -20px 60px rgba(0, 0, 0, 0.6);
   color: var(--ink);
   overflow: hidden;
@@ -767,7 +777,7 @@ button:focus-visible {
   padding: 10px 14px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--well);
   color: var(--ink);
   font: inherit;
   font-size: 16px; /* Keeps iOS from zooming in */
@@ -786,7 +796,7 @@ button:focus-visible {
   border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 120, 120, 0.45);
   background: rgba(255, 90, 90, 0.12);
-  color: #ffb4b4;
+  color: var(--error-ink);
   font-size: 0.84rem;
   line-height: 1.45;
 }
@@ -804,7 +814,7 @@ textarea {
   padding: 12px 14px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--well);
   color: var(--ink);
   font: inherit;
   font-size: 16px; /* Keeps iOS from zooming in */
@@ -835,7 +845,7 @@ textarea:focus {
   padding: 10px 16px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-full);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  background: var(--button-fill);
   box-shadow: var(--highlight);
   color: var(--ink);
   font-size: 0.86rem;
@@ -845,7 +855,7 @@ textarea:focus {
 
 @media (hover: hover) {
   .button:hover {
-    border-color: rgba(255, 255, 255, 0.24);
+    border-color: var(--edge-strong);
     background: var(--glass-hi);
   }
 }
@@ -872,7 +882,7 @@ textarea:focus {
   padding: 3px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--track);
 }
 
 .segmented button {
@@ -1006,7 +1016,7 @@ textarea:focus {
 .lean-bar {
   height: 6px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--glass);
   overflow: hidden;
 }
 

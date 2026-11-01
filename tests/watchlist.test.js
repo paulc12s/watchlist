@@ -288,3 +288,13 @@ test('status shows saved once stored titles have loaded, including an empty list
   await broken.ItemManager.load();
   assert.equal(broken.statuses.at(-1), 'data corrupted - starting fresh');
 });
+
+test('a title can be added as already seen, with its thumb', () => {
+  const app = loadWatchlist();
+  assert.equal(app.ItemManager.add({ title: 'Arrival', imdbID: 'tt2543164', verdict: 'up', want: false }), true);
+  const t = app.Library.byImdb('tt2543164');
+  assert.deepEqual(plain([t.want, t.verdict]), [false, 'up']);
+  assert.ok(t.reviewDate, 'adding it as seen dates the review');
+  app.state.list = 'watched';
+  assert.deepEqual(plain(app.ItemManager.getFiltered().map(i => i.title)), ['Arrival']);
+});

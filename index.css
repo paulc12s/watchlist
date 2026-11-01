@@ -197,3 +197,12 @@ svg {
     transition: none;
   }
 }
+
+.section-label {
+  margin: 28px 0 10px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}

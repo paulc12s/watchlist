@@ -11,7 +11,7 @@
 // ============================================================================
 
 const ItemManager = {
-  async load() {
+  async load(database = CONFIG.STORAGE.WATCHLIST) {
     Store.onSaving = () => UI.setStatus('saving...', false);
     Store.onSaved = () => UI.setStatus('saved', true);
     Store.onError = error => {
@@ -20,7 +20,7 @@ const ItemManager = {
     };
 
     try {
-      await Library.open(CONFIG.STORAGE.WATCHLIST);
+      await Library.open(database);
       // What's shown is what's stored. No save here: rewriting storage on every
       // launch would let an out-of-date copy of the app clobber newer data
       UI.setStatus('saved', true);
@@ -33,8 +33,9 @@ const ItemManager = {
     UI.render();
   },
 
+  // Adds to the list to watch, unless fields say otherwise (e.g. already seen: { verdict, want: false })
   add(fields) {
-    const { title, duplicate } = Library.add({ ...fields, want: true });
+    const { title, duplicate } = Library.add({ want: true, ...fields });
     if (duplicate) {
       UI.setStatus('duplicate item', false);
       setTimeout(() => UI.setStatus('saved', true), 2000);

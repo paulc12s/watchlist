@@ -25,7 +25,7 @@ const Library = {
   async open(database) {
     await Store.open(database);
     const stored = await Store.load(CONFIG.STORAGE.TITLES_KEY);
-    this.load(stored !== undefined ? stored : await Store.load(database.legacyKey));
+    this.load(stored !== undefined || !database.legacyKey ? stored : await Store.load(database.legacyKey));
   },
 
   // Accepts an array of records in any version's shape, or the JSON string

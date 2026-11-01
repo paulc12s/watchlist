@@ -284,6 +284,14 @@ test('the ratings page migrates its old store too', async () => {
   assert.deepEqual(plain([Ratings.get('tt0000001').verdict, Ratings.get('tt0000001').reviewDate]), ['up', OLD]);
 });
 
+test('a database with no earlier version to migrate starts empty', async () => {
+  const { Library, CONFIG } = loadWatchlist();
+  await Library.open(CONFIG.STORAGE.APP);
+  assert.equal(Library.all().length, 0);
+  Library.add({ title: 'A' });
+  assert.equal(Library.all().length, 1);
+});
+
 test('two stored copies of one title are merged, not dropped', () => {
   const { Library } = loadWatchlist();
   Library.load([{ title: 'A', imdbID: 'tt0000001', tag: 'x' }, { title: 'A', imdbID: 'tt0000001', platform: 'Max' }]);

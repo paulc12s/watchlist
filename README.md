@@ -1,6 +1,6 @@
 # Watchlist
 
-A client-side movie, TV, and YouTube watchlist app. All data stays in your browser via IndexedDB — no server, no account required.
+A client-side movie, TV, and YouTube watchlist with a swipe feed for reviewing films and shows. `app.html` combines both; the classic `watchlist.html` and `ratings.html` remain. All data stays in your browser via IndexedDB — no server, no account required.
 
 ## Features
 
@@ -56,6 +56,15 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 - **Poster click** — opens a Google search for the title
 - **Export/Import** — see *Moving titles between pages, browsers and devices* below. A failed import shows an error that stays until you dismiss it
 
+## Watchlist & Review (`app.html`)
+
+One page with both apps, switched with **Watchlist | Review** at the top. Both modes work on the same titles, so a thumb given in either shows in the other straight away. The page keeps its own database (`TitlesDB`) and starts empty: export from the classic pages and import here to bring titles over. Its export is the same file format as theirs. Light and dark themes follow the device.
+
+- **Watchlist mode** — *To watch*, *Watched*, 👍 and 👎 lists with counts; filter chips (priority, type, rewatch, platform, tag); a search box that filters your titles. Tap 👍 / 👎 on a title once you've seen it (tap the lit one to put it back on the list), or tap the title for its sheet: verdict, on-the-list and rewatch toggles, stars, notes, priority, tag, platform, delete, web search. Undo appears after each change
+- **Adding** — **+** opens a sheet: search OMDb (with year, type, or an IMDb link), add by hand, or add a YouTube video; then add it to watch, or as already seen with 👍 or 👎
+- **Review mode** — the ratings swipe feed (below), started the first time you open it, so its lists only load when you use them
+- **⚙ Settings** — export, import and the taste profile for both modes, plus review order, TMDB key and skipped titles; links to batch upload and the classic pages
+
 ## Moving titles between pages, browsers and devices
 
 Both pages store titles in the same shape (`js/title.js`) through the same code (`js/library.js`), each in its own database, so they never change each other's data. Files carry titles between them, and between browsers or devices:
@@ -101,8 +110,9 @@ node tools/eval-similar.js personal ratings-export.json             # how well i
 ## Files
 
 ```
-index.html           Landing page linking the two apps (+ index.css)
-watchlist.html       Main app
+index.html           Landing page (+ index.css)
+app.html             Watchlist & Review in one page (+ app.css, over ratings.css)
+watchlist.html       Classic watchlist
 batch-upload.html    Bulk title importer (+ batch-upload.css)
 version.json         Deployed version, stamped by the Pages workflow
 watchlist.css        Styles (light/dark, responsive)
@@ -124,9 +134,11 @@ js/
   ui.js              Rendering & event handling
   app.js             Initialization
   batch-upload.js    Batch upload tool
-  ratings/           Ratings page: config, store (feed rules over the Library), tmdb,
-                     catalog, taste, feed, recommend, tvrecs, foryou, ui, app
-ratings.html         Ratings swipe feed (+ ratings.css)
+  ratings/           Ratings feed: config, store (feed rules over the Library), tmdb,
+                     catalog, taste, feed, recommend, tvrecs, foryou, ui, app, and
+                     boot (starts ratings.html; app.html starts the feed itself)
+  app/               Combined page: watchlist-view (watchlist mode), main (modes)
+ratings.html         Classic ratings swipe feed (+ ratings.css)
 data/categories.json Film lists for the ratings page
 data/similar.json    Similar-films data for recommendations
 tools/               build-categories.js (MovieLens → lists), oscars.json,
