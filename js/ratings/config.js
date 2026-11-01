@@ -14,6 +14,8 @@ const RATINGS = {
     TV_RECS_KEY: 'tv_recs_v1'
   },
   CATEGORIES_URL: 'data/categories.json',
+  // Award lists (tools/build-awards.js), fetched the first time one is opened
+  AWARDS_URL: 'data/awards.json',
   SIMILAR_URL: 'data/similar.json',
   ORDERS: ['ranked', 'shuffled', 'learn'],
   // Films or shows with a thumb before For you has much to go on
@@ -50,6 +52,23 @@ const TMDB_CONFIG = {
   LIST_MAX_AGE_MS: 7 * 24 * 60 * 60 * 1000,
   EXCLUDED_GENRES: '10763,10764,10766,10767'
 };
+
+// ============================================================================
+// Award lists: names here, titles in data/awards.json (built by
+// tools/build-awards.js from Wikidata and Wikipedia), fetched the first time
+// one is opened. They replace the yearly Best Picture lists in
+// data/categories.json (group "Oscars"), which the build reads instead.
+// ============================================================================
+
+const AWARD_LISTS = [
+  { id: 'awards-best-picture', name: 'Best Picture nominees', note: 'Oscar nominees from the last 10 ceremonies, newest first', type: 'movie' },
+  { id: 'awards-acting', name: 'Oscar acting nominees', note: 'Films with a nominated lead or supporting performance', type: 'movie' },
+  { id: 'awards-craft', name: 'Oscar directing, writing & cinematography', note: 'Nominated for Best Director, a screenplay award, or Best Cinematography', type: 'movie' },
+  { id: 'awards-international', name: 'International feature nominees', note: 'Oscar nominees for Best International Feature', type: 'movie' },
+  { id: 'awards-documentary', name: 'Documentary feature nominees', note: 'Oscar nominees for Best Documentary Feature', type: 'movie' },
+  { id: 'awards-animated', name: 'Animated feature nominees', note: 'Oscar nominees for Best Animated Feature', type: 'movie' },
+  { id: 'awards-globes-tv', name: 'Golden Globe TV nominees', note: 'Drama, musical or comedy, and limited series. No TMDB key needed', type: 'series' }
+];
 
 const TV_LISTS = (() => {
   const known = { sort_by: 'vote_count.desc', without_genres: TMDB_CONFIG.EXCLUDED_GENRES };

@@ -109,6 +109,15 @@ const RatingsUI = {
         return this.renderMessage('Couldn’t load this list', error.message, /key/i.test(error.message));
       }
       if (seq !== this.renderSeq) return; // Another list was chosen meanwhile
+    } else if (category.awards && !category.loaded) {
+      const seq = ++this.renderSeq;
+      this.renderMessage(category.name, 'Loading the list…');
+      try {
+        await Catalog.prepare(id);
+      } catch (error) {
+        return this.renderMessage('Couldn’t load this list', error.message);
+      }
+      if (seq !== this.renderSeq) return;
     }
     Feed.start(id);
     RatingsApp.savePrefs();

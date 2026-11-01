@@ -74,7 +74,7 @@ test('catalog treats films found by title as done once rated, and passes over se
   MovieInfo.cache.set('tt0000003', film(3, { type: 'series' }));
   assert.equal(Catalog.remaining('two'), 0);
   assert.equal(Catalog.nextId('two'), 'mix', 'the mix of everything follows the last list');
-  assert.equal(Catalog.nextId('mix'), 'one');
+  assert.equal(Catalog.nextId('mix'), 'awards-best-picture', 'then the award lists, not fetched yet');
   assert.equal(JSON.stringify(Catalog.basics('title:Delta (2025)')), '{"title":"Delta","year":2025,"genres":[],"tags":[],"likeRate":null,"crowdCount":0}');
 });
 
@@ -534,4 +534,58 @@ test('recent titles from TMDB are parsed defensively', () => {
   assert.equal(TitleSearch.parseTmdb({ id: 8, name: 'A show', poster_path: 'javascript:x' }, 'tv').poster, '');
   assert.equal(TitleSearch.parseTmdb({ id: 9, name: 'Someone' }, 'person'), null);
   assert.equal(TitleSearch.parseTmdb({ id: '10', title: 'Bad id' }, 'movie'), null);
+});
+
+test('award lists: listed where the yearly Best Picture lists were, fetched only when opened', async () => {
+  const app = loadRatings();
+  const { Catalog, MovieInfo } = app;
+  Catalog.use({
+    movies: { tt0000001: ['Alpha', 1984, 'Drama'], 'title:Bugonia (2025)': ['Bugonia', 2025, ''] },
+    categories: [
+      { id: 'popular', group: 'Start here', name: 'Most watched', keys: ['tt0000001'] },
+      { id: 'oscars-2026', group: 'Oscars', name: 'Best Picture nominees 2026', keys: ['title:Bugonia (2025)'] },
+      { id: 'drama', group: 'Genres', name: 'Drama', keys: ['tt0000001'] }
+    ]
+  });
+  assert.deepEqual(plain(Catalog.categories.filter(c => c.media === 'film').map(c => c.id)),
+    ['popular', 'awards-best-picture', 'awards-acting', 'awards-craft', 'awards-international', 'awards-documentary', 'awards-animated', 'awards-globes-tv', 'drama', 'mix']);
+  assert.equal(Catalog.get('awards-acting').loaded, false);
+
+  let fetches = 0;
+  app.setFetch(async url => {
+    fetches++;
+    assert.equal(url, 'data/awards.json');
+    return { ok: true, json: async () => ({
+      lists: [
+        { id: 'awards-acting', keys: ['tt0000001', 'tt1234567', 'javascript:alert(1)'] },
+        { id: 'awards-globes-tv', keys: ['tt7654321'] }
+      ],
+      titles: { tt1234567: ['Hamnet', 2025, 'movie'], tt7654321: ['The Pitt', 2025, 'series'] }
+    }) };
+  });
+  await Catalog.prepare('awards-acting');
+  await Catalog.prepare('awards-globes-tv');
+  assert.equal(fetches, 1, 'one fetch for every award list');
+  assert.deepEqual(plain(Catalog.get('awards-acting').keys), ['tt0000001', 'tt1234567'], 'odd keys dropped');
+  assert.deepEqual(plain(Catalog.basics('tt1234567')).title, 'Hamnet');
+  assert.equal(Catalog.basics('tt0000001').title, 'Alpha', 'titles already known keep their details');
+  assert.equal(MovieInfo.expectedType('tt7654321'), 'series', 'shows are dealt as shows, without a TMDB key');
+  assert.equal(Catalog.remaining('awards-globes-tv'), 1);
+});
+
+test('data/awards.json matches the award lists the page names', () => {
+  const { RATINGS } = { RATINGS: null };
+  const data = JSON.parse(read('data/awards.json'));
+  const config = read('js/ratings/config.js');
+  for (const list of data.lists) {
+    assert.match(config, new RegExp(`id: '${list.id}'`), `${list.id} is named in js/ratings/config.js`);
+    assert.ok(list.keys.length >= 20, `${list.id} has titles`);
+    for (const key of list.keys) {
+      assert.match(key, /^(tt\d{7,10}|title:.+)$/);
+      assert.ok(Array.isArray(data.titles[key]) && data.titles[key][0], `${key} has a title`);
+    }
+  }
+  assert.equal(data.lists.length, 7);
+  const names = [...config.matchAll(/id: '(awards-[a-z-]+)'/g)].map(m => m[1]);
+  assert.deepEqual(names, data.lists.map(l => l.id), 'the page names every list in the file, in the same order');
 });

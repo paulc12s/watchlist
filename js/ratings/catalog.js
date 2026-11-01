@@ -105,9 +105,47 @@ const Catalog = {
       id: MIX_ID, group: 'Start here', name: 'Mix of everything',
       note: 'Every list shuffled together', keys: Object.keys(this.movies)
     };
-    const films = [...(data.categories || []), mix].map(category => ({ ...category, media: 'film', loaded: true }));
+    // The award lists stand where the yearly Best Picture lists were
+    const awards = AWARD_LISTS.map(list => ({ ...list, group: 'Awards', media: 'film', awards: true, keys: [], loaded: false }));
+    const listed = data.categories || [];
+    const at = listed.findIndex(c => c.group === 'Oscars');
+    const films = [...listed.filter(c => c.group !== 'Oscars'), mix].map(category => ({ ...category, media: 'film', loaded: true }));
+    films.splice(at === -1 ? films.length : at, 0, ...awards);
     const tv = TV_LISTS.map(list => ({ ...list, media: 'tv', keys: [], loaded: false }));
     this.categories = [...films, ...tv];
+  },
+
+  // data/awards.json, fetched once, the first time an award list is opened
+  awardsData: null,
+  loadAwards() {
+    if (!this.awardsData) {
+      this.awardsData = fetch(RATINGS.AWARDS_URL)
+        .then(response => {
+          if (!response.ok) throw new Error('Could not load the award lists');
+          return response.json();
+        })
+        .catch(error => {
+          this.awardsData = null; // Try again next time
+          throw error;
+        });
+    }
+    return this.awardsData;
+  },
+
+  async prepareAwards(category) {
+    const data = await this.loadAwards();
+    const list = (data.lists || []).find(l => l.id === category.id);
+    const titles = data.titles || {};
+    category.keys = [];
+    for (const key of (list && Array.isArray(list.keys) ? list.keys : [])) {
+      if (typeof key !== 'string' || !(/^tt\d{7,10}$/.test(key) || key.startsWith('title:'))) continue;
+      const [title, year, type] = Array.isArray(titles[key]) ? titles[key] : [];
+      if (!this.movies[key] && typeof title === 'string') this.movies[key] = [title.slice(0, 500), Number.isInteger(year) ? year : null, ''];
+      // Shows are found on OMDb by IMDb ID like films, so no TMDB key is needed
+      if (type === 'series') MovieInfo.expected.set(key, 'series');
+      category.keys.push(key);
+    }
+    category.loaded = true;
   },
 
   // Snapshots saved by an earlier visit
@@ -127,6 +165,10 @@ const Catalog = {
   // TV lists: from the week-old snapshot if there is one, otherwise from TMDB
   async prepare(id) {
     const category = this.get(id);
+    if (category.awards) {
+      if (!category.loaded) await this.prepareAwards(category);
+      return;
+    }
     if (category.media !== 'tv') return;
     const snapshot = this.tvLists[category.id];
     if (category.loaded && snapshot && Date.now() - snapshot.fetchedDate < TMDB_CONFIG.LIST_MAX_AGE_MS) return;
