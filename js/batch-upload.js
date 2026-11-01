@@ -1,7 +1,8 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Batch Upload Tool
 // Looks up a list of titles and produces a JSON file for the watchlist's Import.
-// Search, sanitizing and item creation come from the shared js/ modules.
+// Search, records and the export format come from the shared js/ modules.
 // ============================================================================
 
 'use strict';
@@ -131,8 +132,9 @@ async function processTitle(line) {
 }
 
 function addItem(details) {
-  const item = ItemModel.create({
+  const item = Title.sanitize({
     ...details,
+    want: true,
     priority: BatchUI.defaultPriority.value,
     tag: BatchUI.defaultTag.value.trim(),
     platform: details.type === 'youtube' ? 'YouTube' : BatchUI.defaultPlatform.value.trim()
@@ -140,7 +142,7 @@ function addItem(details) {
 
   if (!item) return;
 
-  if (ItemModel.isDuplicate(item, ItemModel.keySet(batch.items))) {
+  if (batch.items.some(other => Title.key(other) === Title.key(item))) {
     addLog(`Skipped duplicate: ${item.title}`, 'warning');
     return;
   }
@@ -223,8 +225,8 @@ function renderResults() {
           <div class="result-meta">
             ${typeDisplay}
             ${isYoutube && item.duration && ` • ⏱ ${item.duration}`}
-            ${!isYoutube && item.rating && ` • ⭐ ${item.rating}`}
-            ${item.genre && ` • ${isYoutube ? item.genre : item.genre.split(',')[0]}`}
+            ${!isYoutube && item.imdbRating && ` • ⭐ ${Title.formatRating(item.imdbRating)}`}
+            ${item.genres.length > 0 && ` • ${isYoutube ? item.genres.join(', ') : item.genres[0]}`}
           </div>
           <div class="result-meta">
             Priority: ${CONFIG.PRIORITY_LABELS[item.priority] || item.priority}
@@ -249,13 +251,9 @@ function removeItem(index) {
     : `${batch.items.length} item${batch.items.length === 1 ? '' : 's'} in your watchlist`;
 }
 
-// Same shape as the main app's export, so Import accepts it
+// The same file format both pages export, so either page's Import accepts it
 function exportPayload() {
-  return JSON.stringify({
-    unwatched: batch.items,
-    watched: [],
-    exportDate: new Date().toISOString()
-  }, null, 2);
+  return Library.fileText(batch.items, 'batch-upload');
 }
 
 function exportJSON() {
@@ -268,7 +266,7 @@ function exportJSON() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `watchlist-batch-${Exchange.fileStamp()}.json`;
+  a.download = Library.fileName('watchlist-batch');
   a.click();
   URL.revokeObjectURL(url);
 

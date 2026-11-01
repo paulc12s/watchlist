@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Version Check
 //
@@ -11,11 +12,30 @@
 // ============================================================================
 
 const VersionCheck = {
-  RELOAD_KEY: 'watchlist_reloaded_for',
+  // Hooks for the page: shown after an update reload
+  onUpdated() {},
+
+  // One key per page, so each page reloads at most once per version
+  reloadKey() {
+    return `reloaded_for:${location.pathname}`;
+  },
 
   isStamped() {
     // Unstamped when served locally or straight from the branch
     return !CONFIG.APP_VERSION.startsWith('__');
+  },
+
+  // Checks now and whenever the page comes back to the foreground; saves
+  // anything pending when the page is hidden or closed (iOS may suspend the
+  // page before a batched save runs)
+  start() {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') Store.flush();
+      else this.run();
+    });
+    window.addEventListener('pagehide', () => Store.flush());
+    if (this.isStamped() && new URLSearchParams(location.search).get('v') === CONFIG.APP_VERSION) this.onUpdated();
+    this.run();
   },
 
   async run() {
@@ -34,24 +54,16 @@ const VersionCheck = {
 
     // Reload at most once per version so a stubborn cache can't cause a loop
     try {
-      if (sessionStorage.getItem(this.RELOAD_KEY) === latest) return;
-      sessionStorage.setItem(this.RELOAD_KEY, latest);
+      if (sessionStorage.getItem(this.reloadKey()) === latest) return;
+      sessionStorage.setItem(this.reloadKey(), latest);
     } catch (error) {
       return;
     }
 
-    await ItemManager.flush();
+    await Store.flush();
 
     // A new query string bypasses any cached copy of the page; the page's
     // versioned script and style URLs then pull fresh assets
     location.replace(`${location.pathname}?v=${encodeURIComponent(latest)}`);
-  },
-
-  // After an update reload, say so briefly
-  announceUpdate() {
-    if (this.isStamped() && new URLSearchParams(location.search).get('v') === CONFIG.APP_VERSION) {
-      UI.setStatus('updated to latest version', true);
-      setTimeout(() => UI.setStatus('saved', true), 3000);
-    }
   }
 };

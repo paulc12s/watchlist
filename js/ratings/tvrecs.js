@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // TV recommendations
 // There's no public "people who liked X also liked Y" data for TV, so the

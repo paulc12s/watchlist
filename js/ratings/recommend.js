@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Recommender
 // Scores titles you haven't rated from a similarity graph and your own

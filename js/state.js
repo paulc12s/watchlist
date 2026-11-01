@@ -1,9 +1,9 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // State Management
 // ============================================================================
 
 const state = {
-  items: [],
   filter: 'all',
   // Which titles to list: 'queue' (to watch), 'watched', or by thumb, 'up' / 'down'
   list: 'queue',
@@ -16,6 +16,5 @@ const state = {
   reviewingId: null,
   quickSearch: '',
   compactView: false,
-  db: null,
   undoStack: []
 };

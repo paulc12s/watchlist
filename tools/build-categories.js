@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // Builds data/categories.json, the movie lists the ratings page deals cards from.
 //
 //   node tools/build-categories.js path/to/ml-32m

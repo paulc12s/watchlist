@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Taste profile
 // For each genre, theme (MovieLens tag), decade and director: how often you

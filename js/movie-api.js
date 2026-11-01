@@ -1,49 +1,13 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// Movie Search API
+// Movie search for the watchlist and batch upload
+// Turns what you type into OMDb queries and ranks the results; the requests
+// and parsing are in js/omdb.js.
 // ============================================================================
 
 const MovieAPI = {
-  // Identical requests share one response, so retyping a query or prefetching
-  // details for a result doesn't spend the daily OMDb quota twice
-  responseCache: new Map(),
+  // Full details for titles already looked up, so results can show them at once
   detailsCache: new Map(),
-
-  request(params) {
-    const key = JSON.stringify(Object.entries(params).filter(([, value]) => value));
-    if (!this.responseCache.has(key)) {
-      const pending = this.fetchJSON(params).catch(error => {
-        this.responseCache.delete(key);
-        throw error;
-      });
-      this.responseCache.set(key, pending);
-    }
-    return this.responseCache.get(key);
-  },
-
-  async fetchJSON(params) {
-    // Add timeout to prevent hanging requests
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    let data;
-
-    try {
-      data = await OMDb.fetch(params, { signal: controller.signal });
-    } catch (error) {
-      console.error('OMDb request error:', error);
-      throw new Error(error.name === 'AbortError'
-        ? 'Search timed out. Please try again.'
-        : 'Search failed. Check your internet connection.');
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    // Quota and key problems break every request, so report them instead of "no results"
-    if (data.Response === 'False' && /limit|api key/i.test(data.Error || '')) {
-      throw new Error(`OMDb: ${data.Error}`);
-    }
-
-    return data;
-  },
 
   // Splits a query into the parts OMDb can filter on:
   //   "tt31450459" or an IMDb URL -> direct lookup
@@ -113,35 +77,12 @@ const MovieAPI = {
     };
   },
 
-  async searchPage(query, year, type, page) {
-    const data = await this.request({ s: query, y: year, type, page: String(page) });
-
-    if (data.Response !== 'True' || !Array.isArray(data.Search)) {
-      return { items: [], total: 0, tooMany: data.Error === 'Too many results.' };
-    }
-
-    return {
-      items: data.Search
-        .filter(item => item && this.isImdbID(item.imdbID) && item.Type !== 'game')
-        .map(item => ({
-          imdbID: item.imdbID,
-          title: this.clean(item.Title, 500) || 'Unknown',
-          year: this.clean(item.Year, 20),
-          type: this.normalizeType(item.Type),
-          poster: this.cleanUrl(item.Poster)
-        })),
-      total: parseInt(data.totalResults, 10) || 0,
-      tooMany: false
-    };
+  searchPage(query, year, type, page) {
+    return OMDb.search({ s: query, y: year, type, page: String(page) });
   },
 
   async lookupTitle(title, year, type) {
-    const data = await this.request({ t: title, y: year, type });
-    if (data.Response !== 'True' || data.Type === 'game') {
-      return null;
-    }
-
-    const details = this.toDetails(data);
+    const details = await OMDb.details({ t: title, y: year, type });
     if (details) this.detailsCache.set(details.imdbID, details);
     return details;
   },
@@ -200,66 +141,15 @@ const MovieAPI = {
       .trim();
   },
 
-  normalizeType(omdbType) {
-    // OMDb returns: "movie", "series", "episode", "game"
-    const type = (omdbType || '').toLowerCase();
-
-    if (type === 'series' || type === 'episode') {
-      return 'series';
-    }
-
-    // Default to movie for "movie" or unknown types
-    return 'movie';
-  },
-
-  // OMDb's responses are untrusted: keep strings only, capped, and drop "N/A"
-  clean(value, max = 2000) {
-    return typeof value === 'string' && value !== 'N/A' ? value.substring(0, max) : '';
-  },
-
-  cleanUrl(value) {
-    const url = this.clean(value);
-    return Security.isSafeUrl(url) ? url : '';
-  },
-
-  isImdbID(value) {
-    return typeof value === 'string' && /^tt\d{7,10}$/.test(value);
-  },
-
-  toDetails(data) {
-    if (!this.isImdbID(data.imdbID)) return null;
-    return {
-      imdbID: data.imdbID,
-      title: this.clean(data.Title, 500) || 'Unknown',
-      type: this.normalizeType(data.Type),
-      year: this.clean(data.Year, 20),
-      genre: this.clean(data.Genre, 200),
-      rating: this.clean(data.imdbRating, 10),
-      plot: this.clean(data.Plot),
-      poster: this.cleanUrl(data.Poster),
-      director: this.clean(data.Director, 500),
-      writer: this.clean(data.Writer, 500),
-      actors: this.clean(data.Actors, 500)
-    };
-  },
-
   async getDetails(imdbID) {
     if (!imdbID) {
       throw new Error('Invalid IMDB ID');
     }
-
-    if (this.detailsCache.has(imdbID)) {
-      return this.detailsCache.get(imdbID);
+    if (!this.detailsCache.has(imdbID)) {
+      const details = await OMDb.details({ i: imdbID });
+      if (!details) return null;
+      this.detailsCache.set(imdbID, details);
     }
-
-    const data = await this.request({ i: imdbID, plot: 'short' });
-    if (data.Response !== 'True') {
-      if (data.Error) console.warn('API error:', data.Error);
-      return null;
-    }
-
-    const details = this.toDetails(data);
-    this.detailsCache.set(imdbID, details);
-    return details;
+    return this.detailsCache.get(imdbID);
   }
 };

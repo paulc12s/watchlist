@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // For you, guesses and learn-fastest order
 // The For you sheet lists picks in lanes: films (great, fun) from the

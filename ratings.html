@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE. -->
 <!--
   MOVIE RATINGS
 
@@ -126,22 +127,15 @@
       <p class="hint">Learn fastest deals widely seen films the recommender knows least about yet, so each swipe teaches it the most. Film lists only; TV lists keep their order.</p>
     </section>
     <section class="setting">
-      <h3>Backup</h3>
+      <h3>Backup and sharing</h3>
       <div class="button-row">
-        <button type="button" class="button" id="exportBackup">Export ratings</button>
+        <button type="button" class="button" id="exportBackup">Export</button>
         <button type="button" class="button" id="importButton">Import…</button>
-      </div>
-      <p class="hint">Import takes a ratings backup or a watchlist export. The watchlist’s Import takes either export from here. Imports merge: nothing is removed, and nothing you’ve set here is overwritten. Watchlist titles bring their thumbs, stars, notes, rewatch flag, tag, platform and priority (without a thumb, 4–5 stars count as a like and 1–2 as a dislike, and anything else watched as a like); unwatched ones become “want to watch”.</p>
-      <p class="import-error" id="importError" role="alert" hidden></p>
-      <input type="file" id="importFile" accept="application/json,.json" hidden>
-    </section>
-    <section class="setting">
-      <h3>Share</h3>
-      <div class="button-row">
-        <button type="button" class="button" id="exportWant">Export for Watchlist</button>
         <button type="button" class="button" id="exportAI">Taste profile for AI</button>
       </div>
-      <p class="hint">Export for Watchlist saves a file the watchlist’s Import accepts: want-to-watch titles as unwatched, and everything you’ve seen and rated as watched, with thumbs, stars, notes and rewatch. The watchlist merges it into titles it already has. Taste profile for AI copies a summary you can paste into Claude to ask for recommendations.</p>
+      <p class="hint">Export saves every title here in the same file format the watchlist uses, so either page imports it. Import takes an export from either page, or a file from an earlier version. Imports merge: nothing is removed, a title reviewed or changed more recently in the file takes the file’s version, and anything else only fills in what’s blank here. Taste profile for AI copies a summary you can paste into Claude to ask for recommendations.</p>
+      <p class="import-error" id="importError" role="alert" hidden></p>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
     <section class="setting">
       <h3>TV</h3>
@@ -166,12 +160,14 @@
 
 <script src="js/config.js?v=__APP_VERSION__"></script>
 <script src="js/security.js?v=__APP_VERSION__"></script>
+<script src="js/title.js?v=__APP_VERSION__"></script>
+<script src="js/store.js?v=__APP_VERSION__"></script>
+<script src="js/library.js?v=__APP_VERSION__"></script>
+<script src="js/omdb.js?v=__APP_VERSION__"></script>
+<script src="js/version-check.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/config.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/db.js?v=__APP_VERSION__"></script>
-<script src="js/exchange.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/store.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/tmdb.js?v=__APP_VERSION__"></script>
-<script src="js/omdb.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/catalog.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/taste.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/feed.js?v=__APP_VERSION__"></script>

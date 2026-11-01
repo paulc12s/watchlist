@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Application Initialization
 // ============================================================================
@@ -50,25 +51,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load data
     await ItemManager.load();
 
-    VersionCheck.announceUpdate();
-    VersionCheck.run();
+    // Saves before the page is hidden, and reloads when a new version is out
+    VersionCheck.onUpdated = () => {
+      UI.setStatus('updated to latest version', true);
+      setTimeout(() => UI.setStatus('saved', true), 3000);
+    };
+    VersionCheck.start();
 
   } catch (error) {
     console.error('Application initialization failed:', error);
     alert('Failed to start the application. Please refresh the page.\n\nError: ' + error.message);
   }
 });
-
-// Save immediately when the app is backgrounded or closed (iOS may suspend the
-// page before the debounced save runs), and look for updates when it returns
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') {
-    ItemManager.flush();
-  } else {
-    VersionCheck.run();
-  }
-});
-window.addEventListener('pagehide', () => ItemManager.flush());
 
 // Global error handler
 window.addEventListener('error', (event) => {

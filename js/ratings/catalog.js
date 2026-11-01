@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Catalog
 // The film lists from data/categories.json (built from MovieLens by
@@ -59,6 +60,7 @@ const MovieInfo = {
     return this.pending.get(key);
   },
 
+  // Shows come from TMDB, films from OMDb (js/omdb.js)
   async request(key) {
     if (TMDB.isShowKey(key)) return TMDB.details(key);
     let params;
@@ -68,47 +70,7 @@ const MovieInfo = {
       const { title, year } = Catalog.basics(key);
       params = { t: title, y: year, type: 'movie' };
     }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    let data;
-    try {
-      data = await OMDb.fetch(params, { signal: controller.signal });
-    } catch (error) {
-      throw new Error(error.name === 'AbortError' ? 'OMDb timed out' : 'Could not reach OMDb');
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (data.Response === 'False') {
-      if (/limit|api key/i.test(data.Error || '')) throw new Error(`OMDb: ${data.Error}`);
-      return { missing: true };
-    }
-    return this.parse(data);
-  },
-
-  // OMDb's response is untrusted: strings only, capped, and an ID that looks
-  // like an IMDb ID, or the film counts as missing
-  parse(data) {
-    const value = (field, max = 1000) => (typeof data[field] === 'string' && data[field] !== 'N/A'
-      ? data[field].substring(0, max) : '');
-    const imdbID = value('imdbID', 20);
-    if (!/^tt\d{7,10}$/.test(imdbID)) return { missing: true };
-    const year = parseInt(value('Year', 20), 10);
-    const rating = Number(value('imdbRating', 10));
-    return {
-      imdbID,
-      title: value('Title', 500),
-      year: Number.isInteger(year) ? year : null,
-      type: value('Type', 20),
-      genres: value('Genre', 200).split(',').map(g => g.trim()).filter(Boolean),
-      director: value('Director', 200),
-      actors: value('Actors', 300),
-      plot: value('Plot'),
-      runtime: value('Runtime', 20),
-      imdbRating: rating > 0 && rating <= 10 ? value('imdbRating', 10) : '',
-      poster: Security.isSafeUrl(value('Poster')) ? value('Poster') : ''
-    };
+    return (await OMDb.details(params)) || { missing: true };
   },
 
   load(entries) {

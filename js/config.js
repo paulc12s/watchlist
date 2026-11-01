@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Constants & Configuration
 // ============================================================================
@@ -6,10 +7,15 @@ const CONFIG = {
   // Replaced with the commit hash at deploy time; see js/version-check.js
   APP_VERSION: '__APP_VERSION__',
   STORAGE: {
-    KEY: 'watchlist_v1',
-    DB_NAME: 'WatchlistDB',
-    DB_VERSION: 1,
-    STORE_NAME: 'items'
+    // Each page has its own database. Titles live under TITLES_KEY in the
+    // shared record shape (js/title.js); legacyKey holds what earlier versions
+    // wrote, read once if TITLES_KEY is empty and never written again, so an
+    // out-of-date copy of the app still finds its own data intact
+    WATCHLIST: { name: 'WatchlistDB', storeName: 'items', legacyKey: 'watchlist_v1' },
+    RATINGS: { name: 'RatingsDB', storeName: 'kv', legacyKey: 'ratings_v1' },
+    TITLES_KEY: 'titles_v2',
+    SAVE_DELAY_MS: 300,
+    RETRY_DELAY_MS: 2000
   },
   API: {
     // API OPTIONS FOR MOVIE DATA:
@@ -52,7 +58,8 @@ const CONFIG = {
     MAX_TAG_LENGTH: 100,
     MAX_PLATFORM_LENGTH: 100,
     MAX_REVIEW_LENGTH: 1000,
-    MAX_FILE_SIZE: 10 * 1024 * 1024
+    MAX_FILE_SIZE: 20 * 1024 * 1024,
+    MAX_IMPORT: 20000
   },
   // Display order; 'watching' sits above the real priorities as its own group
   PRIORITIES: ['watching', 'high', 'medium', 'low'],
@@ -63,7 +70,6 @@ const CONFIG = {
     low: 'Low'
   },
   VIEW_STORAGE_KEY: 'watchlist_compact_view',
-  TYPES: ['movie', 'series', 'youtube'],
   PLATFORMS: [
     'Netflix',
     'Amazon Prime',

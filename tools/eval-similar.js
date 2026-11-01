@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // Tests the recommender two ways.
 //
 //   node tools/eval-similar.js movielens path/to/ml-32m holdout.json

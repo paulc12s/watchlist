@@ -15,7 +15,7 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 - **Reviews** — rate titles out of 5 stars, jot a few thoughts, and flag them as worth a rewatch; give a thumb up or down in the review or Edit dialog. Each title keeps the date you last reviewed it (thumb, stars, notes or rewatch), or the date you first marked it watched if you didn't review it
 - **Rewatch filter** — find flagged titles in either the active or watched list
 - **Inline editing** — click any badge (priority, tag, platform) to edit in place
-- **Import/Export** — JSON-based backup and restore; importing merges titles you already have field by field (see below)
+- **Import/Export** — JSON backup and restore, in the same file format as the ratings page, so either page's export imports into the other (see below)
 - **Undo** — revert deletes, edits, and thumbs
 - **Batch upload** — add many titles at once via `batch-upload.html`
 - **Dark mode** — follows system preference
@@ -34,10 +34,10 @@ A client-side movie, TV, and YouTube watchlist app. All data stays in your brows
 ## Tests
 
 ```
-node --test tests/watchlist.test.js tests/ratings.test.js
+node --test tests/*.test.js
 ```
 
-`tests/fixtures/` holds a sample of every file format the apps have exported, written by that version's own code. The tests import each one and fail if any field is dropped or changed. If you rename a field, keep reading the old name and add it to `RENAMED` in `tests/ratings.test.js`. If you change an export format, add a new fixture.
+`tests/library.test.js` covers the shared record, merging, imports and exports; `tests/watchlist.test.js` and `tests/ratings.test.js` each page; `tests/project.test.js` checks every source file carries the copyright notice. `tests/fixtures/` holds a sample of every file format the apps have exported, written by that version's own code; the tests import each one into both pages and fail if any field is dropped or changed. If you rename a field, keep reading the old name in `Title.sanitize` (and `Title.suppliedFields`) and add it to `FIELD_NOW` in `tests/library.test.js`. If you change the export format, add a new fixture.
 
 ## Deploying
 
@@ -54,11 +54,22 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 - **Review** — click the pencil icon next to the thumbs to set stars, notes and the rewatch flag; tap the current star again to clear the rating. Tap the lit thumb on a watched title (say, one flagged for rewatch) to put it back in the queue. A title on your list can carry a review from the ratings page and stay on the list; it shows its thumb as a badge
 - **Edit** — click a badge to edit inline, or click Edit for the full modal
 - **Poster click** — opens a Google search for the title
-- **Export/Import** — back up your list as JSON and restore on any browser. Import merges: a title already in the list keeps its priority, watched status and anything already set, and only gains what it's missing (thumb, stars, notes, rewatch, tag, platform, genre, rating, plot, poster). Either export from the ratings page imports here: *Export for Watchlist*, or the *Export ratings* backup (converted the same way). Rated titles count as watched, but a title already on your to-watch list stays there and just gains its review. A failed import shows an error that stays until you dismiss it. Export gives every watched title its thumb (👍 unless rated otherwise). Export files are named with the local date and time (`watchlist-2026-10-31-1432.json`), so same-day exports don't overwrite each other
+- **Export/Import** — see *Moving titles between pages, browsers and devices* below. A failed import shows an error that stays until you dismiss it
+
+## Moving titles between pages, browsers and devices
+
+Both pages store titles in the same shape (`js/title.js`) through the same code (`js/library.js`), each in its own database, so they never change each other's data. Files carry titles between them, and between browsers or devices:
+
+- **Export** (either page) saves every title on that page as `{ "app": "titles", "version": 2, "titles": [...] }`, named with the local date and time (`watchlist-2026-10-31-1432.json`, `ratings-…`). Either page imports it
+- **Import** (either page) also reads every file earlier versions wrote: watchlist exports, ratings backups, *Export for Watchlist* and want-to-watch files, and batch uploads
+- **Merging:** a title is matched by IMDb ID, YouTube ID, or its own ID for manual entries. Your review (thumb, stars, notes, rewatch) comes from whichever copy was reviewed more recently; everything else from whichever changed more recently. A copy with no dates (files from before dates were kept) never wins: it only fills in what's blank. Merging isn't an edit, so it doesn't make a title newer
+- **Seen and rated are the same thing:** a title you've watched, or given stars or notes, has a thumb (from its stars, otherwise 👍). A title on your list to watch can carry a review and stays on the list
+- **Deletes are local:** removing a title on one page leaves the other page's copy, and importing from it brings the title back
+- **Each browser and address keeps its own data.** `localhost` and the published site, Safari and Chrome, and different devices don't share; export and import to move between them
 
 ## Ratings (`ratings.html`)
 
-A separate swipe feed for rating films and TV shows and building a taste profile. It has its own storage (`RatingsDB`) and never changes the watchlist's data; the two exchange JSON files.
+A separate swipe feed for rating films and TV shows and building a taste profile. It keeps its own copy of your titles (`RatingsDB`) and never changes the watchlist's; the two pages exchange files (see below).
 
 - **Swipe right / left** — thumbs up / down. **Swipe up** — skip (not seen, or can't remember); skipped films don't come back unless you choose “Show skipped films again” in settings. **Swipe down** — back to the previous film. Arrow keys do the same on a computer
 - **On the card** — stars (1–5 keys), 🔖 want to watch (W), 🔁 would rewatch (R), ✏️ notes (N). Stars, notes or rewatch mean you've seen it, so the film needs a thumb rather than a skip
@@ -66,11 +77,7 @@ A separate swipe feed for rating films and TV shows and building a taste profile
 - **Lists** — tap the list name to choose (most watched, love-it-or-hate-it, Oscar Best Picture nominees, decades, genres, hidden gems, a mix); ⏭ moves to the next list, and a finished list rolls on to the next automatically. Best-first or shuffled order is in settings
 - **Tags & the crowd** — cards show MovieLens viewers' tags (“twist ending”, “atmospheric”). After you give a thumb, you see what share of MovieLens viewers liked the film; it's hidden until then so it can't sway you
 - **📊 My taste** — genres, themes & style (tags), decades and directors you lean toward or away from; how often you agree with the crowd and where you don't; plus your liked / disliked / want / skipped films
-- **⚙ Settings** — export/import a backup; copy a taste profile to paste into an AI assistant for recommendations; and exchange files with the watchlist:
-  - *Import* a watchlist export: titles bring their thumbs, stars, notes, rewatch flag, tag, platform and priority. Without a thumb, 4–5★ count as 👍 and 1–2★ as 👎, and anything else watched counts as 👍, unless you've given a thumb here. Unwatched titles become “want to watch”
-  - *Export for Watchlist*: want-to-watch titles as unwatched, and everything you've seen and rated as watched, with thumbs, stars, notes and rewatch, plus any tag, platform and priority that came from the watchlist. Skips stay behind. The watchlist also accepts the *Export ratings* backup and converts it the same way
-  - Review dates travel both ways. A date comes over with the review it belongs to; importing never counts as reviewing, so titles reviewed before dates were kept stay undated
-  - Both directions merge: nothing is removed and nothing already set is overwritten, so files can go back and forth. The one thing a round trip adds is the watchlist's default “medium” priority on titles that didn't have one
+- **⚙ Settings** — export and import (see below); copy a taste profile to paste into an AI assistant for recommendations
 
 The lists in `data/categories.json` are built from [MovieLens 32M](https://grouplens.org/datasets/movielens/) (ratings up to October 2023; non-commercial licence) plus hand-curated Oscar nominees in `tools/oscars.json`. Each film carries its top MovieLens tags (cleaned: opinions, awards and genre repeats dropped, synonyms folded) and the share of its raters who gave 4+ stars. To rebuild, unzip `ml-32m.zip` and run `node tools/build-categories.js path/to/ml-32m`. Posters and details come from OMDb when a card is shown and are cached, so each film costs one request.
 
@@ -100,24 +107,37 @@ batch-upload.html    Bulk title importer (+ batch-upload.css)
 version.json         Deployed version, stamped by the Pages workflow
 watchlist.css        Styles (light/dark, responsive)
 js/
-  config.js          API keys, limits, constants
-  state.js           App state
-  security.js        Input sanitization, escaping, html`` templates
-  item-model.js      Item creation, duplicate keys, display priority
-  database.js        IndexedDB wrapper
-  movie-api.js       OMDb search & detail fetch
-  youtube-api.js     YouTube URL parsing
-  item-manager.js    CRUD, filtering, import/export
-  undo-manager.js    Undo stack
+  Shared by every page:
+  config.js          API keys, limits, each page's database
+  security.js        Escaping, URL checks, html`` templates
+  title.js           The one record shape: sanitizing (incl. old field names), merging
+  store.js           IndexedDB key-value storage with batched saves
+  library.js         A page's titles: every change, import and export goes through here
+  omdb.js            OMDb requests (key fallback, cache) and parsing
   version-check.js   Reload installed copies when a new version is deployed
-  batch-upload.js    Batch upload tool (uses the shared modules above)
+  Watchlist and batch upload:
+  state.js           Page state (filters, lists, dialogs)
+  movie-api.js       Search: query parsing and ranking
+  youtube-api.js     YouTube URL parsing
+  item-manager.js    Watchlist actions: add, rate, delete, lists, import/export status
+  undo-manager.js    Undo stack
   ui.js              Rendering & event handling
   app.js             Initialization
-  ratings/           Ratings page: config, db, store, tmdb, catalog, taste, feed,
-                     recommend, tvrecs, foryou, ui, app
+  batch-upload.js    Batch upload tool
+  ratings/           Ratings page: config, store (feed rules over the Library), tmdb,
+                     catalog, taste, feed, recommend, tvrecs, foryou, ui, app
 ratings.html         Ratings swipe feed (+ ratings.css)
 data/categories.json Film lists for the ratings page
 data/similar.json    Similar-films data for recommendations
 tools/               build-categories.js (MovieLens → lists), oscars.json,
                      build-similar.js + eval-similar.js (recommender data and tests)
 ```
+
+## Licence
+
+The code is released under the [MIT License](LICENSE), copyright (c) 2026 Paul Constantinides. Anyone may use, copy, modify and distribute it, commercially or not, as long as the copyright and licence notice stay with it.
+
+Third-party data and services keep their own terms, which the MIT License doesn't cover:
+- **MovieLens** data in `data/` (built from MovieLens 32M by GroupLens Research) is under GroupLens's licence, which allows non-commercial use only.
+- **TMDB:** this product uses the TMDB API but is not endorsed or certified by TMDB.
+- **OMDb:** film details and posters come from the OMDb API under its terms of use.

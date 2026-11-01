@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // UI Rendering & Interaction
 // ============================================================================
@@ -404,7 +405,7 @@ const UI = {
   resultDetailsHTML(result) {
     const details = MovieAPI.detailsCache.get(result.imdbID) || result;
     const meta = [details.year, details.type === 'series' ? 'TV Series' : 'Movie'];
-    if (details.rating) meta.push(`⭐ ${details.rating}`);
+    if (details.imdbRating) meta.push(`⭐ ${Title.formatRating(details.imdbRating)}`);
     const credits = this.creditsText(details);
 
     return html`
@@ -491,8 +492,8 @@ const UI = {
         ${this.posterHTML(details, 'result-poster')}
         <div class="result-info">
           <div class="result-title">${details.title} (${details.year})</div>
-          <div class="result-meta">${details.type === 'series' ? 'TV Series' : 'Movie'} ${details.genre && `• ${details.genre}`}</div>
-          ${details.rating && html`<div class="result-meta">⭐ ${details.rating}/10</div>`}
+          <div class="result-meta">${details.type === 'series' ? 'TV Series' : 'Movie'} ${details.genres.length > 0 && `• ${details.genres.join(', ')}`}</div>
+          ${details.imdbRating && html`<div class="result-meta">⭐ ${Title.formatRating(details.imdbRating)}/10</div>`}
           ${credits && html`<div class="result-credits">${credits}</div>`}
           ${details.plot && html`<div class="result-plot">${details.plot}</div>`}
         </div>
@@ -536,8 +537,8 @@ const UI = {
 
     if (state.selectedSearchResult) {
       // Adding from search result — type dropdown is seeded from API but user can override
-      const { title, genre, rating, plot, poster, imdbID } = state.selectedSearchResult;
-      fields = { title, genre, rating, plot, poster, imdbID, ...choices };
+      const { title, year, genres, director, actors, imdbRating, plot, poster, imdbID } = state.selectedSearchResult;
+      fields = { title, year, genres, director, actors, imdbRating, plot, poster, imdbID, ...choices };
     } else {
       // Manual entry
       const title = this.elements.manualTitle.value.trim();
@@ -545,8 +546,8 @@ const UI = {
 
       fields = {
         title,
-        genre: this.elements.manualGenre.value.trim(),
-        rating: this.elements.manualRating.value.trim(),
+        genres: this.elements.manualGenre.value.trim(),
+        imdbRating: this.elements.manualRating.value.trim(),
         ...choices
       };
     }
@@ -592,7 +593,7 @@ const UI = {
       if (!itemEl) return;
 
       const itemId = itemEl.dataset.id;
-      const item = state.items.find(i => i.id === itemId);
+      const item = Library.get(itemId);
       if (!item) return;
 
       // Build search query: title + type + platform
@@ -658,10 +659,10 @@ const UI = {
 
     const field = badge.dataset.field;
     const itemId = badge.dataset.itemId;
-    const item = state.items.find(i => i.id === itemId);
+    const item = Library.get(itemId);
     if (!item) return;
 
-    const currentValue = field === 'priority' ? ItemModel.displayPriority(item) : item[field] || '';
+    const currentValue = field === 'priority' ? Title.displayPriority(item) : item[field] || '';
 
     let input;
     const blurHandler = () => {
@@ -770,30 +771,30 @@ const UI = {
   },
 
   openEditModal(itemId) {
-    const item = state.items.find(i => i.id === itemId);
+    const item = Library.get(itemId);
     if (!item) return;
 
     state.editingId = itemId;
 
     this.elements.editTitle.value = item.title;
     this.elements.editType.value = item.type;
-    this.elements.editPriority.value = ItemModel.displayPriority(item);
+    this.elements.editPriority.value = Title.displayPriority(item);
     this.elements.editTag.value = item.tag || '';
     this.elements.editPlatform.value = item.platform || '';
-    this.elements.editGenre.value = item.genre || '';
-    this.elements.editRating.value = item.rating || '';
+    this.elements.editGenre.value = item.genres.join(', ');
+    this.elements.editRating.value = Title.formatRating(item.imdbRating);
     this.elements.editPlot.value = item.plot || '';
-    this.setThumb(this.elements.editThumb, Exchange.thumbFor(item));
+    this.setThumb(this.elements.editThumb, Title.thumb(item));
 
     this.elements.editModal.classList.add('visible');
   },
 
-  // The thumb to save from a dialog. Leaving the default 👍 of a watched title
-  // as it was keeps it a default, so nothing changes or gets redated
+  // The thumb to save from a dialog. A watched title always has one (seen
+  // and rated are the same thing), so clearing it there keeps the current one
   chosenThumb(group, itemId) {
     const chosen = this.thumbs.get(group) || '';
-    const item = state.items.find(i => i.id === itemId);
-    return item && !item.thumb && chosen === Exchange.thumbFor(item) ? '' : chosen;
+    const item = Library.get(itemId);
+    return chosen || (item && !item.want ? Title.thumb(item) : '');
   },
 
   // Current thumb per dialog's toggle group
@@ -820,10 +821,10 @@ const UI = {
       priority: this.elements.editPriority.value,
       tag: this.elements.editTag.value.trim(),
       platform: this.elements.editPlatform.value.trim(),
-      genre: this.elements.editGenre.value.trim(),
-      rating: this.elements.editRating.value.trim(),
+      genres: this.elements.editGenre.value.trim(),
+      imdbRating: this.elements.editRating.value.trim(),
       plot: this.elements.editPlot.value.trim(),
-      thumb: this.chosenThumb(this.elements.editThumb, state.editingId)
+      verdict: this.chosenThumb(this.elements.editThumb, state.editingId)
     });
 
     if (success) {
@@ -833,7 +834,7 @@ const UI = {
   },
 
   openReviewModal(itemId) {
-    const item = state.items.find(i => i.id === itemId);
+    const item = Library.get(itemId);
     if (!item) return;
 
     state.reviewingId = itemId;
@@ -842,7 +843,7 @@ const UI = {
     this.elements.reviewDate.textContent = item.reviewDate
       ? `Reviewed ${new Date(item.reviewDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
       : '';
-    this.setThumb(this.elements.reviewThumb, Exchange.thumbFor(item));
+    this.setThumb(this.elements.reviewThumb, Title.thumb(item));
     this.setReviewStars(item.stars);
     this.elements.reviewText.value = item.review;
     this.elements.reviewRewatch.setAttribute('aria-pressed', String(item.rewatch));
@@ -871,7 +872,7 @@ const UI = {
       stars: this.reviewStars,
       review: this.elements.reviewText.value.trim(),
       rewatch: this.elements.reviewRewatch.getAttribute('aria-pressed') === 'true',
-      thumb: this.chosenThumb(this.elements.reviewThumb, state.reviewingId)
+      verdict: this.chosenThumb(this.elements.reviewThumb, state.reviewingId)
     });
 
     if (success) {
@@ -906,7 +907,7 @@ const UI = {
   },
 
   renderStats() {
-    const unwatched = state.items.filter(i => !i.watched);
+    const unwatched = Library.all().filter(i => i.want);
     const high = unwatched.filter(i => i.priority === 'high').length;
     const movies = unwatched.filter(i => i.type === 'movie').length;
 
@@ -920,9 +921,10 @@ const UI = {
   },
 
   renderFilters() {
-    const tags = [...new Set(state.items.map(i => i.tag).filter(Boolean))];
-    const platforms = [...new Set(state.items.map(i => i.platform).filter(Boolean))];
-    const hasRewatch = state.filter === 'rewatch' || state.items.some(i => i.rewatch);
+    const shown = ItemManager.shown();
+    const tags = [...new Set(shown.map(i => i.tag).filter(Boolean))];
+    const platforms = [...new Set(shown.map(i => i.platform).filter(Boolean))];
+    const hasRewatch = state.filter === 'rewatch' || shown.some(i => i.rewatch);
 
     // Update tag datalist
     this.elements.tagList.innerHTML = html`${tags.map(t => html`<option value="${t}">`)}`;
@@ -972,7 +974,7 @@ const UI = {
     // Group by priority; CONFIG.PRIORITIES fixes the group order
     const byPriority = {};
     filtered.forEach(item => {
-      const priority = ItemModel.displayPriority(item);
+      const priority = Title.displayPriority(item);
       (byPriority[priority] = byPriority[priority] || []).push(item);
     });
 
@@ -985,16 +987,16 @@ const UI = {
   },
 
   itemHTML(item) {
-    const priority = ItemModel.displayPriority(item);
+    const priority = Title.displayPriority(item);
     const isYoutube = item.type === 'youtube';
-    const hasReview = item.stars > 0 || item.review || item.rewatch || item.thumb;
-    // Watched titles always show a thumb: the one given, or the default 👍
-    const shown = Exchange.thumbFor(item);
+    const hasReview = item.stars > 0 || item.review || item.rewatch || Title.isSeen(item);
+    const watched = !item.want;
+    const shown = Title.thumb(item);
     const editable = (field, label) =>
       html`data-field="${field}" data-item-id="${item.id}" title="Click to ${label}"`;
 
     return html`
-      <div class="item ${item.watched && 'watched'}" data-id="${item.id}">
+      <div class="item ${watched && 'watched'}" data-id="${item.id}">
         ${this.posterHTML(item, 'item-poster')}
         <div class="item-body">
           <div class="item-header">
@@ -1002,10 +1004,10 @@ const UI = {
             <button type="button" class="review-btn ${hasReview && 'has-review'}" title="${hasReview ? 'Edit review' : 'Write a review'}" aria-label="${hasReview ? 'Edit review' : 'Write a review'}">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </button>
-            <div class="card-thumbs" role="group" aria-label="${item.watched ? 'Your verdict' : 'Watched it? Rate it'}">
+            <div class="card-thumbs" role="group" aria-label="${watched ? 'Your verdict' : 'Watched it? Rate it'}">
               ${['up', 'down'].map(thumb => html`<button type="button" class="card-thumb" data-thumb="${thumb}"
-                aria-pressed="${String(item.watched && shown === thumb)}"
-                title="${item.watched && shown === thumb ? 'Put back on the list to watch' : thumb === 'up' ? 'Watched: liked it' : 'Watched: not for me'}"
+                aria-pressed="${String(watched && shown === thumb)}"
+                title="${watched && shown === thumb ? 'Put back on the list to watch' : thumb === 'up' ? 'Watched: liked it' : 'Watched: not for me'}"
                 aria-label="${thumb === 'up' ? 'Thumbs up' : 'Thumbs down'}">${thumb === 'up' ? '👍' : '👎'}</button>`)}
             </div>
           </div>
@@ -1017,12 +1019,12 @@ const UI = {
             <span class="badge priority-${priority} editable" ${editable('priority', 'edit priority')}>${CONFIG.PRIORITY_LABELS[priority]}</span>
             ${!isYoutube && item.platform && html`<span class="badge platform editable" ${editable('platform', 'edit platform')}>📺 ${item.platform}</span>`}
             ${isYoutube && item.duration && html`<span class="badge rating">⏱ ${item.duration}</span>`}
-            ${item.rating && html`<span class="badge rating">⭐ ${item.rating}</span>`}
-            ${item.genre && html`<span class="badge genre">${isYoutube ? item.genre : item.genre.split(',')[0]}</span>`}
+            ${item.imdbRating && html`<span class="badge rating">⭐ ${Title.formatRating(item.imdbRating)}</span>`}
+            ${item.genres.length > 0 && html`<span class="badge genre">${isYoutube ? item.genres.join(', ') : item.genres[0]}</span>`}
             ${item.tag
               ? html`<span class="badge tag editable" ${editable('tag', 'edit tag')}>${item.tag}</span>`
               : html`<span class="badge tag editable empty" ${editable('tag', 'add tag')}>+ tag</span>`}
-            ${!item.watched && item.thumb && html`<span class="badge thumb" title="Rated ${item.thumb === 'up' ? '👍' : '👎'} and still on the list">${item.thumb === 'up' ? '👍' : '👎'}</span>`}
+            ${!watched && shown && html`<span class="badge thumb" title="Rated ${shown === 'up' ? '👍' : '👎'} and still on the list">${shown === 'up' ? '👍' : '👎'}</span>`}
             ${item.stars > 0 && html`<span class="badge stars" title="Your rating: ${item.stars}/5">${'★'.repeat(item.stars)}${'☆'.repeat(5 - item.stars)}</span>`}
             ${item.rewatch && html`<span class="badge rewatch">🔁 Rewatch</span>`}
           </div>

@@ -1,15 +1,13 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Ratings page settings
-// Shares CONFIG (OMDb key, app version, limits) from js/config.js; its own
-// storage is separate so the watchlist and ratings never touch each other's data.
+// Shares CONFIG (OMDb key, app version, limits, its database) from
+// js/config.js. Titles are kept by js/library.js; these are the page's other
+// stored keys, in the same database.
 // ============================================================================
 
 const RATINGS = {
   STORAGE: {
-    DB_NAME: 'RatingsDB',
-    DB_VERSION: 1,
-    STORE_NAME: 'kv',
-    RATINGS_KEY: 'ratings_v1',
     INFO_KEY: 'movie_info_v1',
     PREFS_KEY: 'prefs_v1',
     TV_LISTS_KEY: 'tv_lists_v1',
@@ -27,16 +25,12 @@ const RATINGS = {
   GUESS_LABELS: [[0.95, 'a top pick for you'], [0.8, 'a good match'], [0.5, 'a maybe'], [0, 'not your usual']],
   GUESS_TOP: 0.8,
   MIN_GUESSES: 10,
-  VERDICTS: ['up', 'down', 'skip'],
   // Pixels, or a quick flick, to count a drag as a swipe
   SWIPE_DISTANCE: 90,
   SWIPE_VELOCITY: 0.5,
   PREFETCH: 2,
-  SAVE_DELAY_MS: 300,
   // Profile rows need at least this many rated films behind them
-  MIN_PROFILE_FILMS: 3,
-  MAX_IMPORT: 20000,
-  RELOAD_KEY: 'ratings_reloaded_for'
+  MIN_PROFILE_FILMS: 3
 };
 
 // ============================================================================

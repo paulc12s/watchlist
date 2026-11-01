@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Undo Manager
 // ============================================================================
@@ -36,24 +37,16 @@ const UndoManager = {
     const operation = state.undoStack.pop();
     const { type, data } = operation;
 
-    if (type === 'rate') {
-      const item = state.items.find(i => i.id === data.id);
+    if (type === 'edit') {
+      const item = Library.get(data.id);
       if (item) {
-        item.watched = data.watched;
-        item.thumb = data.thumb;
-        item.reviewDate = data.reviewDate || '';
-      }
-    } else if (type === 'edit') {
-      const item = state.items.find(i => i.id === data.id);
-      if (item) {
-        Object.assign(item, data.previousItem);
+        Object.assign(item, data.previous);
+        Library.changed();
       }
     } else if (type === 'delete') {
-      const insertIndex = Math.min(data.index, state.items.length);
-      state.items.splice(insertIndex, 0, data.item);
+      Library.restore(data.item, data.index);
     }
 
-    ItemManager.scheduleSave();
     UI.render();
     this.updateUI();
   }

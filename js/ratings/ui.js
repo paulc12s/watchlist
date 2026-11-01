@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // Ratings UI
 // The card, its gestures and buttons, and the sheets (lists, notes, taste,
@@ -24,7 +25,7 @@ const RatingsUI = {
     const ids = ['card', 'stage', 'categoryButton', 'categoryName', 'categoryProgress', 'nextCategory',
       'tasteButton', 'settingsButton', 'toast', 'categorySheet', 'categoryList', 'noteSheet', 'noteFilm',
       'noteText', 'noteSave', 'tasteSheet', 'tasteBody', 'settingsSheet', 'exportBackup', 'importButton',
-      'importFile', 'importError', 'exportWant', 'exportAI', 'clearSkips', 'tmdbKey', 'tmdbSave',
+      'importFile', 'importError', 'exportAI', 'clearSkips', 'tmdbKey', 'tmdbSave',
       'forYouButton', 'forYouSheet', 'forYouBody'];
     ids.forEach(id => { this.els[id] = document.getElementById(id); });
 
@@ -651,12 +652,7 @@ const RatingsUI = {
     });
 
     this.els.exportBackup.addEventListener('click', () => {
-      this.download(`ratings-${Exchange.fileStamp()}.json`, JSON.stringify(Ratings.backup(), null, 2));
-    });
-    this.els.exportWant.addEventListener('click', () => {
-      const items = Ratings.watchlistItems();
-      if (!items.length) return this.toast('Nothing rated or wanted yet');
-      this.download(`for-watchlist-${Exchange.fileStamp()}.json`, JSON.stringify(items, null, 2));
+      this.download(Library.fileName('ratings'), Library.exportText('ratings'));
     });
     this.els.exportAI.addEventListener('click', async () => {
       const text = Ratings.aiProfile(this.computeTaste());
@@ -664,7 +660,7 @@ const RatingsUI = {
         await navigator.clipboard.writeText(text);
         this.toast('Copied. Paste it into Claude.', 'check');
       } catch (error) {
-        this.download(`taste-profile-${Exchange.fileStamp()}.md`, text, 'text/markdown');
+        this.download(Library.fileName('taste-profile', 'md'), text, 'text/markdown');
       }
     });
 
@@ -676,7 +672,7 @@ const RatingsUI = {
       this.els.importError.hidden = true;
       try {
         if (file.size > CONFIG.LIMITS.MAX_FILE_SIZE) throw new Error('File is too large');
-        const { added, updated } = Ratings.import(JSON.parse(await file.text()));
+        const { added, updated } = Library.import(JSON.parse(await file.text()));
         this.toast(added || updated ? `Imported: ${added} new, ${updated} updated` : 'Nothing new to import');
         this.els.settingsSheet.close();
         this.updateHeader();

@@ -1,3 +1,4 @@
+// Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
 // TMDB client, for TV
 // Browses TV lists and fetches show details from themoviedb.org with the key
@@ -70,7 +71,7 @@ const TMDB = {
     return data ? this.parse(data) : { missing: true };
   },
 
-  // Into the same shape OMDb details take for films (see MovieInfo.parse)
+  // Into the same shape OMDb details take for films (see OMDb.parseDetails)
   parse(data) {
     // TMDB's response is untrusted: strings only, capped
     const text = (value, max) => (typeof value === 'string' ? value.substring(0, max) : '');
