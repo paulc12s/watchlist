@@ -33,6 +33,9 @@
   --accent-deep: #1aa7e6;
   --accent-soft: rgba(92, 210, 255, 0.14);
   --accent-edge: rgba(92, 210, 255, 0.45);
+  --love: #ff6b8b;
+  --love-soft: rgba(255, 107, 139, 0.16);
+  --love-edge: rgba(255, 107, 139, 0.5);
   --accent-glow: rgba(92, 210, 255, 0.35);
 
   --radius-sm: 10px;
@@ -599,6 +602,19 @@ button:focus-visible {
   border-color: var(--accent-edge);
   background: radial-gradient(circle at 50% 25%, rgba(92, 210, 255, 0.32), rgba(92, 210, 255, 0.06) 70%);
   box-shadow: var(--highlight), 0 0 0 0 var(--accent-glow), 0 8px 24px -6px var(--accent-glow);
+}
+
+.action.love {
+  width: 52px;
+  height: 52px;
+  color: var(--love);
+  border-color: var(--love-edge);
+  background: radial-gradient(circle at 50% 25%, var(--love-soft), transparent 75%);
+}
+
+.action.love .icon {
+  width: 23px;
+  height: 23px;
 }
 
 .action.minor {

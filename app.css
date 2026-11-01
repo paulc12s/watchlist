@@ -35,6 +35,9 @@
     --accent-deep: #0569a3;
     --accent-soft: rgba(10, 132, 198, 0.12);
     --accent-edge: rgba(10, 132, 198, 0.45);
+    --love: #e0335a;
+    --love-soft: rgba(224, 51, 90, 0.12);
+    --love-edge: rgba(224, 51, 90, 0.45);
     --accent-glow: rgba(10, 132, 198, 0.3);
   }
 
@@ -331,10 +334,18 @@
   color: var(--ink-2);
 }
 
+/* ❤️ beside the 👍 / 👎 pair, so a row stays as short as its poster */
 .row-thumbs {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-auto-flow: column;
+  grid-template-rows: auto auto;
+  align-items: center;
   gap: 6px;
+}
+
+.thumb.love {
+  grid-row: 1 / span 2;
 }
 
 .thumb {
@@ -363,6 +374,16 @@
   border-color: var(--accent-edge);
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.thumb.love[aria-pressed="true"] {
+  border-color: var(--love-edge);
+  background: var(--love-soft);
+  color: var(--love);
+}
+
+.thumb.love[aria-pressed="true"] .icon {
+  fill: currentColor;
 }
 
 .thumb.down[aria-pressed="true"] {

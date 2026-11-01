@@ -48,6 +48,12 @@ const Title = {
     return Boolean(this.thumb(t));
   },
 
+  // ❤️ is shorthand for five stars: seen, and loved
+  LOVED_STARS: 5,
+  isLoved(t) {
+    return Boolean(t) && t.stars === this.LOVED_STARS;
+  },
+
   // The thumb a review implies when none was given: what the stars say
   // (4-5 up, 1-2 down), otherwise a thumbs up
   impliedThumb(stars) {

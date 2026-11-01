@@ -84,11 +84,12 @@ const UI = {
     const shown = ItemManager.shown();
     const count = list => shown.filter(ItemManager.LISTS[list]).length;
     const tabs = [
-      ['queue', 'To watch', ''], ['watched', 'Watched', ''], ['up', '', 'thumb-up'], ['down', '', 'thumb-down']
+      ['queue', 'To watch', ''], ['watched', 'Watched', ''], ['loved', '', 'heart'], ['up', '', 'thumb-up'], ['down', '', 'thumb-down']
     ];
+    const names = { loved: 'Loved', up: 'Liked', down: 'Not for me' };
     this.elements.listTabs.innerHTML = html`${tabs.map(([list, label, iconName]) => html`
       <button type="button" role="tab" data-list="${list}" aria-selected="${String(state.list === list)}"
-        aria-label="${label || (list === 'up' ? 'Liked' : 'Not for me')}">
+        aria-label="${label || names[list]}">
         ${iconName && icon(iconName)}${label}<span class="count">${count(list)}</span>
       </button>`)}`;
   },
@@ -155,13 +156,15 @@ const UI = {
           <span class="row-tags">
             ${t.platform && html`<span class="tag">${t.platform}</span>`}
             ${t.tag && html`<span class="tag">#${t.tag}</span>`}
-            ${t.stars > 0 && html`<span class="tag tag-stars" aria-label="${t.stars} stars">${'★'.repeat(t.stars)}</span>`}
+            ${t.stars > 0 && !Title.isLoved(t) && html`<span class="tag tag-stars" aria-label="${t.stars} stars">${'★'.repeat(t.stars)}</span>`}
             ${t.rewatch && html`<span class="tag">${icon('rewatch', 'tiny')}Rewatch</span>`}
             ${!watched && thumb && html`<span class="tag">${icon(`thumb-${thumb}`, 'tiny')}Rated, still to watch</span>`}
           </span>
           ${t.review && html`<span class="row-review">${t.review}</span>`}
         </button>
         <div class="row-thumbs" role="group" aria-label="${watched ? 'Your verdict' : 'Watched it? Rate it'}">
+          <button type="button" class="thumb love" data-action="love" aria-pressed="${String(Title.isLoved(t))}"
+            title="${Title.isLoved(t) ? 'Loved: tap for just 👍' : 'Watched: loved it'}" aria-label="Loved it">${icon('heart')}</button>
           ${['up', 'down'].map(dir => html`<button type="button" class="thumb ${dir}" data-action="rate" data-thumb="${dir}"
             aria-pressed="${String(watched && thumb === dir)}"
             title="${watched && thumb === dir ? 'Put back on the list to watch' : dir === 'up' ? 'Watched: liked it' : 'Watched: not for me'}"
@@ -181,6 +184,7 @@ const UI = {
     const t = row && Library.get(row.dataset.id);
     if (!t) return;
     if (button.dataset.action === 'rate') ItemManager.rate(t.id, button.dataset.thumb);
+    else if (button.dataset.action === 'love') ItemManager.love(t.id);
     else if (button.dataset.action === 'open') this.openTitle(t);
     else if (button.dataset.action === 'web') this.openWeb(t);
   },
@@ -409,7 +413,17 @@ const UI = {
       const button = event.target.closest('[data-thumb]');
       if (!button) return;
       const draft = this.editing.draft;
-      draft.verdict = draft.verdict === button.dataset.thumb ? '' : button.dataset.thumb;
+      const choice = button.dataset.thumb;
+      const loved = draft.verdict === 'up' && draft.stars === Title.LOVED_STARS;
+      const current = loved ? 'love' : draft.verdict;
+      // Loved is 👍 with five stars; leaving it drops the five stars
+      if (loved && choice !== 'love') draft.stars = 0;
+      if (choice === current) {
+        draft.verdict = '';
+      } else {
+        draft.verdict = choice === 'love' ? 'up' : choice;
+        if (choice === 'love') draft.stars = Title.LOVED_STARS;
+      }
       // A thumb means you've seen it; clearing it puts it back on the list
       draft.want = draft.verdict ? false : true;
       this.renderDraft();
@@ -462,7 +476,8 @@ const UI = {
   renderDraft() {
     const els = this.elements;
     const draft = this.editing.draft;
-    setChecked(els.titleThumbs, 'thumb', draft.verdict);
+    setChecked(els.titleThumbs, 'thumb',
+      draft.verdict === 'up' && draft.stars === Title.LOVED_STARS ? 'love' : draft.verdict);
     els.titleWant.setAttribute('aria-pressed', String(draft.want));
     els.titleRewatch.setAttribute('aria-pressed', String(draft.rewatch));
     els.titleStars.querySelectorAll('[data-stars]').forEach(button => {

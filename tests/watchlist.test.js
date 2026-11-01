@@ -227,6 +227,27 @@ test('card thumbs: a thumb marks watched; tapping the shown thumb puts it back o
   assert.deepEqual(plain([a.want, a.verdict]), [false, 'up']);
 });
 
+test('❤️ means watched, 👍 and five stars; tapping it again leaves just the 👍', () => {
+  const app = withTitles([{ id: 'a', title: 'A', want: true, stars: 3 }, { id: 'b', title: 'B', want: false, verdict: 'up' }]);
+  const { ItemManager, UndoManager, Library, state } = app;
+  const a = Library.get('a');
+
+  ItemManager.love('a');
+  assert.deepEqual(plain([a.want, a.verdict, a.stars]), [false, 'up', 5]);
+  assert.ok(a.reviewDate, 'loving it dates the review');
+  state.list = 'loved';
+  assert.deepEqual(titles(app), ['A']);
+
+  ItemManager.love('a');
+  assert.deepEqual(plain([a.want, a.verdict, a.stars]), [false, 'up', 0]);
+  assert.deepEqual(titles(app), []);
+  UndoManager.undo();
+  assert.deepEqual(plain([a.want, a.verdict, a.stars]), [false, 'up', 5]);
+  // Five stars given any other way count as loved too
+  ItemManager.update('b', { stars: 5 });
+  assert.deepEqual(titles(app), ['A', 'B']);
+});
+
 test('a title rated elsewhere and still on the list keeps its review date when you mark it watched', () => {
   const app = withTitles([{ id: 'a', title: 'A', want: true, verdict: 'up', reviewDate: '2026-01-01T00:00:00.000Z' }]);
   app.ItemManager.rate('a', 'up');

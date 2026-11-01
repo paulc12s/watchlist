@@ -340,6 +340,14 @@ const RatingsUI = {
       }
         await this.fly(action);
         return this.advance();
+      case 'love':
+      {
+        const guess = this.firstVerdict(info) ? Guesses.forCard(key, info) : null;
+        Ratings.update(info, { verdict: 'up', stars: Title.LOVED_STARS, ...(guess !== null ? { guessPct: guess } : {}) });
+        this.reveal(key, 'up', guess);
+      }
+        await this.fly('up');
+        return this.advance();
       case 'skip':
         if (Ratings.hasOpinion(info.imdbID) && !(entry && entry.verdict && entry.verdict !== 'skip')) {
           this.nudge();
@@ -481,7 +489,7 @@ const RatingsUI = {
       if (this.paused || document.querySelector('dialog[open]') || event.metaKey || event.ctrlKey || event.altKey) return;
       const keys = {
         ArrowRight: 'up', ArrowLeft: 'down', ArrowUp: 'skip', ArrowDown: 'back',
-        w: 'want', r: 'rewatch', n: 'note'
+        w: 'want', r: 'rewatch', n: 'note', l: 'love'
       };
       if (keys[event.key]) {
         event.preventDefault();

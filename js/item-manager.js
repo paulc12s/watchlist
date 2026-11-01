@@ -74,6 +74,18 @@ const ItemManager = {
       { type: 'edit', data: { id, previous } });
   },
 
+  // The ❤️ button: loved means watched, 👍 and five stars. Tapping it again
+  // takes the stars away and leaves the 👍.
+  love(id) {
+    const item = Library.get(id);
+    if (!item) return;
+    const previous = { ...item };
+    const unlove = Title.isLoved(item);
+    Library.change(item, unlove ? { stars: 0 } : { verdict: 'up', want: false, stars: Title.LOVED_STARS });
+    UI.render();
+    UndoManager.push(unlove ? 'Watched: 👍' : 'Watched: ❤️', { type: 'edit', data: { id, previous } });
+  },
+
   delete(id) {
     const item = Library.get(id);
     if (!item) return;
@@ -88,7 +100,8 @@ const ItemManager = {
     watched: t => !t.want && Title.isSeen(t),
     // Every title with that thumb, watched or still on the list
     up: t => Title.thumb(t) === 'up',
-    down: t => Title.thumb(t) === 'down'
+    down: t => Title.thumb(t) === 'down',
+    loved: t => Title.isLoved(t)
   },
 
   getFiltered() {
