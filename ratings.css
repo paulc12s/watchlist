@@ -1468,15 +1468,46 @@ textarea:focus {
   outline: none;
 }
 
-/* Choose a list: the title search above the lists */
+/* Choose a list: the title search above the lists. The search box stays at
+   the top; while searching, the results fill the rest of the sheet and
+   scroll on their own */
 .sheet-search {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   padding: 0 18px 4px;
 }
 
+.sheet-search:has(.film-list:not([hidden])) {
+  flex: 1;
+}
+
+.sheet-search .search-field {
+  flex: none;
+}
+
 .sheet-search .film-list {
-  max-height: 62dvh;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   margin-top: 8px;
+  padding-bottom: calc(var(--safe-bottom) + 16px);
+}
+
+/* Keyboard up (js/viewport.js): an open sheet fills exactly the part of the
+   screen you can see, so its search box can't slide off the top */
+:root[data-keyboard] .sheet[open] {
+  position: fixed;
+  inset: var(--vv-top, 0px) 0 auto 0;
+  height: var(--vv-height, 100dvh);
+  max-height: var(--vv-height, 100dvh);
+  margin: 0 auto;
+  border-radius: 0;
+}
+
+:root[data-keyboard] .sheet[open]::before {
+  display: none;
 }
 
 .sheet-search .hint {

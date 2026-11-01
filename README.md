@@ -146,6 +146,7 @@ js/
   store.js           IndexedDB key-value storage: batched saves, retries, one saving tab
   save-banner.js     The banner that stays while changes can't be saved
   palette.js         Colour theme choice, applied in <head> before the page draws
+  viewport.js        Keeps sheets in the visible area while the on-screen keyboard is up
   library.js         A page's titles: every change, import and export goes through here
   omdb.js            OMDb requests (key fallback, cache) and parsing
   version-check.js   Reload installed copies when a new version is deployed
