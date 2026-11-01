@@ -49,6 +49,12 @@ const Title = {
     return Boolean(this.thumb(t));
   },
 
+  // Tags and platforms: no leading #, single spaces. Library.labelName then
+  // gives each label one spelling on every save
+  cleanLabel(value) {
+    return String(value || '').trim().replace(/^#+/, '').replace(/\s+/g, ' ').trim();
+  },
+
   // Watched, but never rated: the 👍 is only the default a watched title
   // gets (see sanitize). A rating of your own always carries a review date.
   isUnrated(t) {
@@ -124,8 +130,8 @@ const Title = {
       // Keep priorities this version doesn't know (written by a newer version)
       // so an out-of-date copy of the app can't silently downgrade them
       priority: typeof raw.priority === 'string' && /^[a-z-]{1,20}$/.test(raw.priority) ? raw.priority : '',
-      tag: text(raw.tag, CONFIG.LIMITS.MAX_TAG_LENGTH),
-      platform: text(raw.platform, CONFIG.LIMITS.MAX_PLATFORM_LENGTH),
+      tag: this.cleanLabel(text(raw.tag, CONFIG.LIMITS.MAX_TAG_LENGTH)),
+      platform: this.cleanLabel(text(raw.platform, CONFIG.LIMITS.MAX_PLATFORM_LENGTH)),
       want,
       verdict,
       stars,

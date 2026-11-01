@@ -164,7 +164,9 @@ const ItemManager = {
     const byVerdict = list === 'rated' && ['loved', 'up', 'down'].includes(view.verdict) ? this.LISTS[view.verdict] : null;
     const matchesVerdict = (i) => !byVerdict || byVerdict(i);
 
+    const chip = this.chipTest(filter);
     const matchesSecondaryFilter = (i) => {
+      if (chip) return chip(i);
       if (filter === 'all') return true;
       if (filter === 'rewatch') return i.rewatch;
       if (filter === 'movie' || filter === 'series' || filter === 'youtube') return i.type === filter;
@@ -173,6 +175,46 @@ const ItemManager = {
     };
 
     return Library.all().filter(i => inList(i) && matchesVerdict(i) && matchesSecondaryFilter(i) && matchesSearch(i));
+  },
+
+  // ---- Chips ---------------------------------------------------------------------
+  // Tags and platforms are stored in one spelling each (Library.labelName);
+  // a type, platform or tag with the same name (YouTube the type, YouTube
+  // the platform) is one chip.
+
+  TYPE_LABELS: { movie: 'Films', series: 'TV', youtube: 'YouTube' },
+
+  // The filter a chip key stands for, or null for keys older pages use
+  chipTest(key) {
+    if (key === 'all') return () => true;
+    if (key === 'rewatch') return t => t.rewatch;
+    if (key.startsWith('priority:')) return t => Title.displayPriority(t) === key.slice(9);
+    if (key.startsWith('label:')) {
+      const name = key.slice(6);
+      const lower = value => Title.cleanLabel(value).toLowerCase();
+      return t => (this.TYPE_LABELS[t.type] || '').toLowerCase() === name || lower(t.platform) === name || lower(t.tag) === name;
+    }
+    return null;
+  },
+
+  // Chips for a list of titles: [{ key, label, count }], each label once
+  chips(titles, { priorities = false } = {}) {
+    const chips = [{ key: 'all', label: 'All', count: titles.length }];
+    const add = (key, label) => {
+      if (chips.some(chip => chip.key === key)) return;
+      const count = titles.filter(this.chipTest(key)).length;
+      if (count) chips.push({ key, label, count });
+    };
+    if (priorities) {
+      for (const p of CONFIG.PRIORITIES) add(`priority:${p}`, p === 'watching' ? 'Watching now' : CONFIG.PRIORITY_LABELS[p]);
+    }
+    for (const label of Object.values(this.TYPE_LABELS)) add(`label:${label.toLowerCase()}`, label);
+    add('rewatch', 'Rewatch');
+    const byName = (a, b) => a[1].label.localeCompare(b[1].label, undefined, { sensitivity: 'base' });
+    for (const field of ['platform', 'tag']) {
+      for (const [key, { label }] of [...Library.labels(field, titles)].sort(byName)) add(`label:${key}`, label);
+    }
+    return chips;
   },
 
   // Titles this page shows in any list

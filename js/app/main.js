@@ -48,6 +48,8 @@ const Main = {
       setChecked(iconChoice, 'icon', button.dataset.icon);
     });
 
+    document.getElementById('runCleanup').addEventListener('click', () => this.runCleanup());
+
     // A change in either mode (or an import) shows in watchlist mode; it
     // re-renders once per frame however many titles changed
     let pending = false;
@@ -72,6 +74,55 @@ const Main = {
     }
     this.setMode(this.MODES.includes(saved) ? saved : 'watchlist');
     VersionCheck.start();
+  },
+
+  // Settings → Run cleanup: tidy and repair (Library.cleanup), save, then
+  // read back what's stored and check it against what's on screen
+  async runCleanup() {
+    const out = document.getElementById('cleanupReport');
+    const button = document.getElementById('runCleanup');
+    const show = (lines, ok) => {
+      out.hidden = false;
+      out.classList.toggle('problem', !ok);
+      out.innerHTML = html`<ul>${lines.map(line => html`<li>${line}</li>`)}</ul>`;
+    };
+    if (Store.blocked) return show([`Nothing was changed: ${Store.blocked}`], false);
+
+    button.disabled = true;
+    try {
+      const report = Library.cleanup();
+      await Store.flush();
+      const stored = await Store.load(CONFIG.STORAGE.TITLES_KEY);
+      const matches = JSON.stringify(stored || []) === JSON.stringify(Library.all());
+      const titles = Library.all();
+      const hidden = titles.filter(t => !t.want && !t.verdict).length;
+      const odd = titles.filter(t => t.verdict === 'down' && t.stars >= 4).length;
+      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+      const lines = [`Checked ${plural(report.titles, 'title')}.`];
+      for (const { field, change, count } of report.renamed) lines.push(`${field === 'tag' ? 'Tag' : 'Platform'} ${change} (${plural(count, 'title')})`);
+      if (report.repaired) lines.push(`Repaired ${plural(report.repaired, 'title')} with values an older version left behind.`);
+      if (report.merged) lines.push(`Merged ${plural(report.merged, 'duplicate')}.`);
+      if (report.renumbered) lines.push(`Gave ${plural(report.renumbered, 'title')} a new ID (two shared one).`);
+      if (!report.changed) lines.push('Nothing needed tidying.');
+      if (odd) lines.push(`${plural(odd, 'title')} rated 👎 with 4 or 5 stars; check them in Rated.`);
+      if (hidden) lines.push(`${plural(hidden, 'title')} kept for review history only (not on a list, no verdict).`);
+      lines.push(matches
+        ? `Saved on this device: ${plural((stored || []).length, 'title')}, matching what you see.`
+        : 'What’s saved on this device doesn’t match what you see. Export a backup, then reload.');
+      if (navigator.storage && navigator.storage.estimate) {
+        const { usage, quota } = await navigator.storage.estimate();
+        const persisted = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+        lines.push(`Storage: ${(usage / 1e6).toFixed(1)} MB used of ${(quota / 1e9).toFixed(1)} GB${persisted ? ', kept by the browser' : ''}.`);
+      }
+      show(lines, matches);
+      RatingsUI.toast(report.changed ? 'Cleanup done' : 'Everything was already tidy', 'check');
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+      show([`Cleanup couldn’t finish: ${error.message}. Nothing was lost; export a backup to be safe.`], false);
+    } finally {
+      button.disabled = false;
+    }
   },
 
   setMode(mode) {

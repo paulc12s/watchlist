@@ -130,30 +130,27 @@ const ListView = {
         </label>`}`;
   },
 
-  // Chips for what's in the current list: priorities only on the list to watch
+  // Chips for what's in the current list (and verdict), each with its count;
+  // priorities only on the list to watch
   renderChips() {
     const s = this.state;
-    const shown = ItemManager.shown().filter(ItemManager.LISTS[s.list] || ItemManager.LISTS.queue);
-    const has = test => shown.some(test);
-    const chips = [
-      ['all', 'All'],
-      ...CONFIG.PRIORITIES.filter(p => s.list === 'queue' && has(t => t.want && Title.displayPriority(t) === p))
-        .map(p => [p, p === 'watching' ? 'Watching now' : CONFIG.PRIORITY_LABELS[p]]),
-      ...[['movie', 'Films'], ['series', 'TV'], ['youtube', 'YouTube']].filter(([type]) => has(t => t.type === type)),
-      ...(has(t => t.rewatch) ? [['rewatch', 'Rewatch']] : []),
-      ...[...new Set(shown.map(t => t.platform).filter(Boolean))].sort().map(p => [p, p]),
-      ...[...new Set(shown.map(t => t.tag).filter(Boolean))].sort().map(t => [t, `#${t}`])
-    ];
+    const titles = ItemManager.getFiltered({ ...s, filter: 'all', quickSearch: '' });
+    const chips = ItemManager.chips(titles, { priorities: s.list === 'queue' });
     // A filter whose titles have all gone falls back to All
-    if (!chips.some(([key]) => key === s.filter)) s.filter = 'all';
-    this.els.chips.innerHTML = html`${chips.map(([key, label]) =>
-      html`<button type="button" class="chip" data-filter="${key}" aria-pressed="${String(s.filter === key)}">${label}</button>`)}`;
+    if (!chips.some(chip => chip.key === s.filter)) s.filter = 'all';
+    // Re-drawing keeps the row where it was scrolled, so a chip far along stays in view
+    const scrolled = this.els.chips.scrollLeft;
+    this.els.chips.innerHTML = html`${chips.map(({ key, label, count }) =>
+      html`<button type="button" class="chip" data-filter="${key}" aria-pressed="${String(s.filter === key)}">${label}<span class="count">${count}</span></button>`)}`;
+    this.els.chips.scrollLeft = scrolled;
   },
 
   renderList() {
     const s = this.state;
     const titles = ItemManager.getFiltered(s);
     const list = this.els.list;
+    // Tags and platforms as their chips show them
+    const names = { tag: Library.labels('tag'), platform: Library.labels('platform') };
     if (!titles.length) {
       const query = s.quickSearch;
       const empty = {
@@ -173,14 +170,15 @@ const ListView = {
       const groups = CONFIG.PRIORITIES.map(p => [p, titles.filter(t => Title.displayPriority(t) === p)]).filter(([, g]) => g.length);
       list.innerHTML = html`${groups.map(([p, group]) => html`
         <h2 class="group-label">${p === 'watching' ? 'Watching now' : `${CONFIG.PRIORITY_LABELS[p]} priority`}</h2>
-        ${group.map(t => this.rowHTML(t))}`)}`;
+        ${group.map(t => this.rowHTML(t, names))}`)}`;
     } else {
-      const row = this.compact ? t => this.compactRowHTML(t) : t => this.rowHTML(t);
+      const row = this.compact ? t => this.compactRowHTML(t) : t => this.rowHTML(t, names);
       list.innerHTML = html`${ItemManager.sorted(titles, s.sort).map(row)}`;
     }
   },
 
-  rowHTML(t) {
+  rowHTML(t, names) {
+    const name = (field, value) => (names[field].get(Title.cleanLabel(value).toLowerCase()) || { label: value }).label;
     const thumb = Title.thumb(t);
     const watched = !t.want;
     const typeIcon = { movie: 'film', series: 'tv', youtube: 'play' }[t.type];
@@ -194,8 +192,8 @@ const ListView = {
           <span class="row-title">${t.title}</span>
           <span class="row-meta">${icon(typeIcon, 'tiny')}${meta.join(' · ')}</span>
           <span class="row-tags">
-            ${t.platform && html`<span class="tag">${t.platform}</span>`}
-            ${t.tag && html`<span class="tag">#${t.tag}</span>`}
+            ${t.platform && t.type !== 'youtube' && html`<span class="tag">${name('platform', t.platform)}</span>`}
+            ${t.tag && html`<span class="tag">${name('tag', t.tag)}</span>`}
             ${t.stars > 0 && !Title.isLoved(t) && html`<span class="tag tag-stars" aria-label="${t.stars} stars">${'★'.repeat(t.stars)}</span>`}
             ${t.rewatch && html`<span class="tag">${icon('rewatch', 'tiny')}Rewatch</span>`}
             ${!watched && thumb && html`<span class="tag">${icon(`thumb-${thumb}`, 'tiny')}Rated, still to watch</span>`}

@@ -895,3 +895,33 @@
   width: 16px;
   height: 16px;
 }
+
+/* How many titles each chip stands for */
+.chip .count {
+  margin-left: 5px;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+/* ---- Maintenance (Settings → Run cleanup) ---- */
+.cleanup-report {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--well);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.cleanup-report.problem {
+  border-color: var(--danger-edge);
+  color: var(--ink);
+}
+
+.cleanup-report ul {
+  margin: 0;
+  padding-left: 18px;
+}

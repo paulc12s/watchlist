@@ -70,6 +70,7 @@ const Library = {
   add(fields) {
     const now = new Date().toISOString();
     const title = Title.sanitize({ ...fields, id: Title.newId() });
+    if (title) this.nameLabels(title);
     if (!title) return {};
     const duplicate = this.find(title);
     if (duplicate) return { duplicate };
@@ -85,6 +86,7 @@ const Library = {
   change(t, changes) {
     const next = Title.changed(t, changes);
     if (!next) return null;
+    this.nameLabels(next, t);
     const undated = r => JSON.stringify({ ...r, updatedDate: '', reviewDate: '' });
     if (undated(next) === undated(t)) return t;
     this.unindex(t);
@@ -143,6 +145,112 @@ const Library = {
     Store.scheduleSave(CONFIG.STORAGE.TITLES_KEY, () => this.titles);
   },
 
+  // ---- Tags and platforms ------------------------------------------------------
+  // Each tag and platform is stored in one spelling, whatever was typed or
+  // imported: "art", "#Art " and "ART" are all stored as the spelling already
+  // in use, so the same tag is never kept in several forms. A new label is
+  // stored as typed, cleaned (no #, single spaces); a new platform also
+  // matches the known list (CONFIG.PLATFORMS).
+
+  // lower-case label -> { label, count } for 'tag' or 'platform', leaving out
+  // one title if given (the one being edited, so it can rename a label only
+  // it uses). Where older data holds several spellings, one with capitals
+  // wins ("Art" over "art"), then the most used.
+  labels(field, titles = this.titles, except = null) {
+    const spellings = new Map();
+    for (const t of titles) {
+      const value = Title.cleanLabel(t[field]);
+      if (!value || t === except) continue;
+      const key = value.toLowerCase();
+      if (!spellings.has(key)) spellings.set(key, new Map());
+      const forms = spellings.get(key);
+      forms.set(value, (forms.get(value) || 0) + 1);
+    }
+    const result = new Map();
+    for (const [key, forms] of spellings) {
+      const capitals = form => Number(form !== form.toLowerCase());
+      const [best] = [...forms].sort((a, b) => capitals(b[0]) - capitals(a[0]) || b[1] - a[1]);
+      result.set(key, { label: best[0], count: [...forms.values()].reduce((sum, n) => sum + n, 0) });
+    }
+    return result;
+  },
+
+  // The spelling to store for a typed or imported label ('' for none)
+  labelName(field, value, known = this.labels(field)) {
+    const clean = Title.cleanLabel(value);
+    if (!clean) return '';
+    const key = clean.toLowerCase();
+    if (known.has(key)) return known.get(key).label;
+    const platform = field === 'platform' && CONFIG.PLATFORMS.find(p => p.toLowerCase() === key);
+    return platform || clean;
+  },
+
+  // Gives a record's tag and platform their stored spellings, in place.
+  // except: the title being edited; known: label maps to use and extend
+  nameLabels(t, except = null, known = null) {
+    for (const field of ['tag', 'platform']) {
+      if (!t[field]) continue;
+      const labels = known ? known[field] : this.labels(field, this.titles, except);
+      t[field] = this.labelName(field, t[field], labels);
+      if (known) labels.set(t[field].toLowerCase(), { label: t[field], count: 1 });
+    }
+  },
+
+  // ---- Cleanup (Settings → Run cleanup) ----------------------------------------
+  // Repairs what's held in memory and saves once if anything changed:
+  // - every title re-checked against the record rules (Title.sanitize), so a
+  //   value an older version or a hand-edited file left behind is corrected
+  // - two copies of one title merged, as an import would merge them
+  // - IDs made unique
+  // - each tag and platform rewritten in its one spelling (labels)
+  // Dates stay as they are: tidying isn't an edit, so it can't make a title
+  // win a merge it wouldn't otherwise. Returns what it did.
+  cleanup() {
+    const report = { titles: this.titles.length, repaired: 0, merged: 0, renumbered: 0, renamed: [] };
+
+    // Record rules
+    for (const t of this.titles) {
+      const clean = Title.sanitize(t);
+      if (clean && JSON.stringify(clean) !== JSON.stringify(t)) {
+        Object.assign(t, clean);
+        report.repaired++;
+      }
+    }
+
+    // Duplicates and IDs: rebuild the list as loading does, merging copies
+    const before = this.titles;
+    this.load(JSON.parse(JSON.stringify(before)));
+    report.merged = before.length - this.titles.length;
+    const ids = new Set();
+    for (const t of this.titles) {
+      if (ids.has(t.id)) {
+        t.id = Title.newId();
+        report.renumbered++;
+      }
+      ids.add(t.id);
+    }
+    this.index();
+
+    // One spelling per tag and platform
+    for (const field of ['tag', 'platform']) {
+      const labels = this.labels(field);
+      const renamed = new Map();
+      for (const t of this.titles) {
+        if (!t[field]) continue;
+        const label = labels.get(Title.cleanLabel(t[field]).toLowerCase()).label;
+        if (t[field] === label) continue;
+        const change = `${t[field]} → ${label}`;
+        renamed.set(change, (renamed.get(change) || 0) + 1);
+        t[field] = label;
+      }
+      for (const [change, count] of renamed) report.renamed.push({ field, change, count });
+    }
+
+    report.changed = Boolean(report.repaired || report.merged || report.renumbered || report.renamed.length);
+    if (report.changed) this.changed();
+    return report;
+  },
+
   // ---- Files -----------------------------------------------------------------
 
   // Merges a file into this page's titles (see Title.merge for the rules).
@@ -153,9 +261,13 @@ const Library = {
     if (raws.length > CONFIG.LIMITS.MAX_IMPORT) throw new Error(`Too many titles (max ${CONFIG.LIMITS.MAX_IMPORT.toLocaleString()})`);
     let updated = 0, unchanged = 0;
     const added = [];
+    // Labels so far, so a file's spellings join the ones already here (and
+    // each other) as it's read, without a search per title
+    const known = { tag: this.labels('tag'), platform: this.labels('platform') };
     for (const raw of raws) {
       const incoming = Title.sanitize(raw);
       if (!incoming) continue;
+      this.nameLabels(incoming, null, known);
       const local = this.find(incoming);
       if (!local) {
         // Keep the file's ID so a re-import finds it, unless it's taken

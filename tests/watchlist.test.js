@@ -270,6 +270,85 @@ test('Not rated: watched titles with only the default 👍; rating one moves it 
   assert.equal(w.verdict, 'down');
 });
 
+test('tags: one label however typed, a chip per name with its count', () => {
+  const app = withTitles([
+    { id: 'a', title: 'A', want: true, tag: 'art' },
+    { id: 'b', title: 'B', want: true, tag: 'Art' },
+    { id: 'c', title: 'C', want: true, tag: '#art' },
+    { id: 'd', title: 'D', want: true, tag: 'britbox' },
+    { id: 'e', title: 'E', want: true, type: 'youtube', platform: 'YouTube' },
+    { id: 'f', title: 'F', want: true, type: 'youtube', tag: 'youtube' },
+    { id: 'g', title: 'G', want: true, platform: 'netflix' }
+  ]);
+  const { ItemManager, Library, Title } = app;
+  assert.equal(Library.get('c').tag, 'art', 'a leading # is dropped when stored');
+  assert.equal(Title.cleanLabel('  #Sci   fi '), 'Sci fi');
+
+  const chips = plain(ItemManager.chips(ItemManager.shown()).map(c => `${c.label} ${c.count}`));
+  assert.deepEqual(chips, ['All 7', 'Films 5', 'YouTube 2', 'netflix 1', 'Art 3', 'britbox 1'],
+    'YouTube once (type, platform and tag together); art in its capitalised spelling');
+  const only = key => plain(ItemManager.getFiltered({ list: 'queue', filter: key, quickSearch: '' }).map(t => t.id));
+  assert.deepEqual(only('label:art'), ['a', 'b', 'c']);
+  assert.deepEqual(only('label:youtube'), ['e', 'f']);
+
+  assert.equal(Library.labelName('tag', '#ART '), 'Art', 'typed tags take the spelling in use');
+  assert.equal(Library.labelName('tag', 'new one'), 'new one', 'a new tag is kept as typed');
+  assert.equal(Library.labelName('tag', 'BBC Four'), 'BBC Four', 'other capitals are kept');
+  assert.equal(Library.labelName('platform', 'NETFLIX'), 'netflix');
+  assert.equal(Library.labelName('platform', 'disney+'), 'Disney+', 'or the known platform');
+});
+
+test('tags are stored in one spelling on every add, edit and import', () => {
+  const app = withTitles([
+    { id: 'a', title: 'A', want: true, tag: 'Art' },
+    { id: 'b', title: 'B', want: true, tag: 'art' },
+    { id: 'c', title: 'C', want: true, tag: 'Britbox' }
+  ]);
+  const { ItemManager, Library } = app;
+  ItemManager.add({ title: 'New', tag: '#ART' });
+  assert.equal(Library.all()[0].tag, 'Art', 'add');
+  ItemManager.update('b', { priority: 'high' });
+  assert.equal(Library.get('b').tag, 'Art', 'editing anything tidies an old spelling');
+  ItemManager.update('a', { tag: 'BRITBOX' });
+  assert.equal(Library.get('a').tag, 'Britbox', 'edit: a tag others use keeps their spelling');
+  ItemManager.update('c', { tag: 'BritBox' });
+  assert.equal(Library.get('c').tag, 'Britbox', 'still used by A, so it stays');
+
+  Library.import({ app: 'titles', version: 2, titles: [
+    { title: 'D', tag: 'art', want: true }, { title: 'E', tag: 'family', want: true }, { title: 'F', tag: 'FAMILY', want: true },
+    { title: 'G', platform: 'netflix', want: true }
+  ] });
+  const tag = name => Library.all().find(t => t.title === name);
+  assert.deepEqual(plain(['D', 'E', 'F'].map(n => tag(n).tag)), ['Art', 'family', 'family'], 'import, within the file too');
+  assert.equal(tag('G').platform, 'Netflix', 'a new platform matches the known list');
+  const spellings = new Set(Library.all().map(t => t.tag).filter(Boolean));
+  assert.deepEqual([...spellings].sort(), ['Art', 'Britbox', 'family']);
+});
+
+test('cleanup: one spelling per tag, repaired records, merged copies, unique IDs; dates kept', () => {
+  const app = withTitles([
+    { id: 'a', title: 'A', want: true, tag: 'art', updatedDate: '2026-01-01T00:00:00.000Z' },
+    { id: 'b', title: 'B', want: true, tag: 'art' },
+    { id: 'c', title: 'C', want: true, tag: 'Art' },
+    { id: 'd', title: 'D', want: true, platform: 'netflix' },
+    { id: 'e', title: 'E', want: true, platform: 'Netflix' }
+  ]);
+  const { Library, Store } = app;
+  // What an older version or a hand-edited file could leave in memory
+  Library.titles.push({ ...Library.get('a'), id: 'a', imdbID: 'tt0000099', title: 'A again', tag: '#ART' });
+  Library.titles.push({ ...Library.get('c'), imdbRating: 99 });
+  const report = plain(Library.cleanup());
+  assert.equal(report.titles, 7);
+  assert.equal(report.repaired, 2, 'the # and the impossible rating');
+  assert.equal(report.merged, 1, 'the second copy of C');
+  assert.equal(report.renumbered, 1, 'the second title with ID a');
+  assert.deepEqual(report.renamed.map(r => `${r.change} (${r.count})`), ['art → Art (2)', 'ART → Art (1)', 'netflix → Netflix (1)']);
+  assert.deepEqual(plain([...new Set(Library.all().map(t => t.tag).filter(Boolean))]), ['Art']);
+  assert.equal(Library.get('a').updatedDate, '2026-01-01T00:00:00.000Z', 'tidying is not an edit');
+  assert.equal(Store.saved.get('titles_v2').length, 6, 'saved once');
+  assert.equal(Library.cleanup().changed, false, 'a second run finds nothing');
+});
+
 // ---- Thumbs and edits -------------------------------------------------------------
 
 test('card thumbs: a thumb marks watched; tapping the shown thumb puts it back on the list', () => {

@@ -78,9 +78,11 @@ const UI = {
 
   // Suggestions for the tag and platform fields
   renderOptions() {
-    const shown = ItemManager.shown();
-    const tags = [...new Set(shown.map(t => t.tag).filter(Boolean))].sort();
-    const platforms = [...new Set([...CONFIG.PLATFORMS, ...shown.map(t => t.platform).filter(Boolean)])];
+    // One suggestion per label, in its usual spelling, so entries match
+    const names = field => [...Library.labels(field).values()].map(({ label }) => label);
+    const tags = names('tag').sort((a, b) => a.localeCompare(b));
+    const used = new Set(names('platform').map(p => p.toLowerCase()));
+    const platforms = [...names('platform'), ...CONFIG.PLATFORMS.filter(p => !used.has(p.toLowerCase()))];
     this.elements.tagOptions.innerHTML = html`${tags.map(t => html`<option value="${t}">`)}`;
     this.elements.platformOptions.innerHTML = html`${platforms.map(p => html`<option value="${p}">`)}`;
   },
@@ -342,8 +344,9 @@ const UI = {
     els.titleName.textContent = t.title;
     els.titleDetails.innerHTML = this.chosenHTML(t);
     els.titleNotes.value = t.review;
-    els.titleTag.value = t.tag;
-    els.titlePlatform.value = t.platform;
+    // In their usual spelling, so saving tidies an odd one
+    els.titleTag.value = Library.labelName('tag', t.tag);
+    els.titlePlatform.value = Library.labelName('platform', t.platform);
     this.renderDraft();
     els.titleSheet.showModal();
   },
@@ -377,8 +380,8 @@ const UI = {
       stars: draft.stars,
       review: els.titleNotes.value.trim(),
       priority: draft.priority,
-      tag: els.titleTag.value.trim(),
-      platform: els.titlePlatform.value.trim()
+      tag: els.titleTag.value,
+      platform: els.titlePlatform.value
     });
     els.titleSheet.close();
     this.render();
