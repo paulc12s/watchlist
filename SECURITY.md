@@ -22,7 +22,7 @@ The app is static pages on GitHub Pages. There is no server and no account, and 
 |---|---|---|
 | GitHub Actions | `.github/workflows/pages.yml` | Pinned to commit SHAs, and the repository requires it (Settings → Actions → Require actions to be pinned to a full-length commit SHA), so an unpinned action fails the run. Dependabot alerts are on. Dependabot (`.github/dependabot.yml`) opens a weekly PR when one has a new version. Check the release notes, then merge. To patch by hand, resolve the new tag with `gh api repos/<owner>/<action>/commits/<tag> --jq .sha`, then update the SHA and the `# vX.Y.Z` comment. |
 | OMDb API | `js/omdb.js` (all requests and parsing, for every page); keys in `js/config.js` | Data only, treated as untrusted. If OMDb rejects the app's key or its quota runs out, `js/omdb.js` switches to the shared demo key (`trilogy`) for the rest of the visit. If the key is abused or revoked, replace `CONFIG.API.OMDB_KEY` and push. |
-| TMDB API | `js/ratings/tmdb.js` | Each user's own key, stored on their device only. If TMDB changes its API, update `TMDB_CONFIG` in `js/ratings/config.js`. |
+| TMDB API | `js/review/tmdb.js` | Each user's own key, stored on their device only. If TMDB changes its API, update `TMDB_CONFIG` in `js/review/config.js`. |
 | Image hosts | `m.media-amazon.com`, `image.tmdb.org`, `i.ytimg.com` | Allowed only in each page's CSP `img-src`. Remove a host there if it becomes untrustworthy. |
 | MovieLens data | `tools/build-*.js` → `data/*.json` | Build-time data. Rebuild with the tools and check the diff. |
 | Node | CI tests and `tools/` | Built-in modules only, so nothing to patch beyond the runner image. |

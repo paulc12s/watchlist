@@ -45,7 +45,7 @@ const TitleSearch = {
     }
     this.refreshRecent();
     try {
-      const response = await fetch(RATINGS.CATEGORIES_URL);
+      const response = await fetch(REVIEW.CATEGORIES_URL);
       if (response.ok) this.lists = (await response.json()).movies || {};
       this.index = null;
     } catch (error) {
@@ -207,6 +207,45 @@ const TitleSearch = {
         const { words, popularity, ...rest } = entry;
         return { ...rest, near: score < 2.4 };
       });
+  },
+
+  // ---- Searching as you type -----------------------------------------------------
+  // One routine for both searches (review's Choose a list, and the add sheet):
+  // suggestions at once, then OMDb's results once typing pauses (from
+  // WILDCARD_MIN letters, or an IMDb link), without the ones already
+  // suggested. update({ query, suggestions, results, state, tooMany }) is
+  // called whenever there's more to show; state is '' (nothing typed),
+  // 'short' (keep typing), 'searching', 'done', or an error message. A newer
+  // search, or cancel(), drops what an older one would have shown.
+  searcher(update) {
+    let seq = 0;
+    let timer = null;
+    return {
+      cancel() {
+        seq++;
+        clearTimeout(timer);
+      },
+      search: (raw, { type = '', delay = CONFIG.SEARCH.DELAY_MS } = {}) => {
+        const query = raw.trim();
+        const mine = ++seq;
+        clearTimeout(timer);
+        if (!query) return update({ query, suggestions: [], results: [], state: '' });
+        const suggestions = this.suggest(query, { type });
+        const enough = MovieAPI.parseQuery(query).imdbID || query.replace(/\s/g, '').length >= CONFIG.SEARCH.WILDCARD_MIN;
+        update({ query, suggestions, results: [], state: enough ? 'searching' : 'short' });
+        if (!enough) return;
+        timer = setTimeout(async () => {
+          try {
+            const { results, tooMany } = await MovieAPI.search(query, type);
+            if (mine !== seq) return;
+            const shown = new Set(suggestions.map(r => r.imdbID).filter(Boolean));
+            update({ query, suggestions, results: results.filter(r => r.imdbID && !shown.has(r.imdbID)), state: 'done', tooMany });
+          } catch (error) {
+            if (mine === seq) update({ query, suggestions, results: [], state: error.message });
+          }
+        }, delay);
+      }
+    };
   },
 
   // The IMDb ID for a suggestion, looking it up if the suggestion came

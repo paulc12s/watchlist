@@ -38,7 +38,7 @@ const Taste = {
       }
       // Two imaginary films at your overall rate pull small samples toward it
       return [...rows.values()]
-        .filter(r => r.up + r.down >= RATINGS.MIN_PROFILE_FILMS)
+        .filter(r => r.up + r.down >= REVIEW.MIN_PROFILE_FILMS)
         .map(r => {
           const rate = (r.wUp + 2 * overall) / (r.wUp + r.wDown + 2);
           return { name: r.name, up: r.up, down: r.down, rate, lift: rate - overall };

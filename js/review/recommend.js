@@ -6,7 +6,7 @@
 //
 // Films use data/similar.json (each film's most similar films, built from
 // MovieLens by tools/build-similar.js). TV uses TMDB's recommended shows for
-// each show you've rated (js/ratings/tvrecs.js). Both go through the same
+// each show you've rated (js/review/tvrecs.js). Both go through the same
 // scoring, so a 5-star show counts like a 5-star film.
 //
 // Your ratings count by strength, not just direction:
@@ -245,12 +245,6 @@ const Recommender = {
       evidence: results[at].evidence
     };
   },
-
-  // Where a title lands among everything unrated: 1 = top pick. For testing.
-  rankOf(id, entries, lane, graph = this.filmGraph) {
-    const { results } = this.score(entries, lane, graph);
-    return results.findIndex(r => r.film.id === id) + 1;
-  }
 };
 
 if (typeof module !== 'undefined') module.exports = { Recommender, REC, makeGraph };

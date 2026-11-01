@@ -6,7 +6,7 @@
 // stored keys, in the same database.
 // ============================================================================
 
-const RATINGS = {
+const REVIEW = {
   STORAGE: {
     INFO_KEY: 'movie_info_v1',
     PREFS_KEY: 'prefs_v1',
@@ -45,7 +45,6 @@ const RATINGS = {
 const TMDB_CONFIG = {
   API_URL: 'https://api.themoviedb.org/3',
   IMAGE_URL: 'https://image.tmdb.org/t/p/w780',
-  KEY_HELP_URL: 'https://www.themoviedb.org/settings/api',
   // Pages of 20 shows fetched per list
   PAGES: 5,
   // Lists are fetched again after this long

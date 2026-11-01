@@ -6,21 +6,14 @@
 // an imported file can't inject markup.
 // ============================================================================
 
-const VERDICT_LABELS = {
-  up: ['thumb-up', 'Liked'], down: ['thumb-down', 'Disliked'], skip: ['skip', 'Skipped'], pass: ['pass', 'Not interested']
-};
+// The icon beside each verdict on the card (the words are Title.statusLabel's)
+const VERDICT_ICONS = { up: 'thumb-up', down: 'thumb-down', skip: 'skip', pass: 'pass' };
 
-// An icon from the sprite at the top of ratings.html
-function icon(name, className = '') {
-  return html`<svg class="icon ${className}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
-}
 
-const RatingsUI = {
+const ReviewUI = {
   els: {},
   // The combined page pauses the feed's keyboard shortcuts outside review mode
   paused: false,
-  // Export file names start with this
-  exportPrefix: 'ratings',
   renderSeq: 0,
   busy: false,
   toastTimer: null,
@@ -96,7 +89,7 @@ const RatingsUI = {
     if (category.media === 'tv') {
       if (!TMDB.hasKey()) {
         Feed.start(id);
-        RatingsApp.savePrefs();
+        ReviewApp.savePrefs();
         return this.renderMessage('Add a TMDB key to rate TV',
           'TV lists come from TMDB, which needs a free key. Get one at themoviedb.org, then add it in Settings.', true);
       }
@@ -120,7 +113,7 @@ const RatingsUI = {
       if (seq !== this.renderSeq) return;
     }
     Feed.start(id);
-    RatingsApp.savePrefs();
+    ReviewApp.savePrefs();
     // A list you pick yourself and have rated all of says so, rather than
     // quietly moving on to another list
     if (announce && Catalog.remaining(id) === 0) return this.renderFinished(category);
@@ -194,18 +187,24 @@ const RatingsUI = {
 
   // ---- Finding one title (Choose a list → search) ---------------------------
   // Type a title (with a year, or an IMDb link) to rate one film or show
-  // straight away. Suggestions (js/ratings/title-search.js: your titles,
+  // straight away. Suggestions (js/review/title-search.js: your titles,
   // recent and well-known ones, typos forgiven) show as you type; OMDb's
   // results follow once you pause. Enter or a tap deals the card next, and
   // the feed carries on from there.
 
-  titleSearch: { seq: 0, timer: null, rows: [] },
+  titleSearch: { searcher: null, rows: [] },
 
   bindTitleSearch() {
     const input = document.getElementById('titleSearch');
     const list = document.getElementById('titleSearchResults');
     if (!input || !list) return;
-    input.addEventListener('input', () => this.searchTitles(input.value));
+    this.titleSearch.searcher = TitleSearch.searcher(({ query, suggestions, results, state }) => {
+      this.showTitleResults(query.length > 0);
+      // Review rates films and shows; OMDb's other kinds stay out
+      const kept = results.filter(r => r.type === 'movie' || r.type === 'series').slice(0, 12);
+      if (query) this.renderTitleResults(query, suggestions, kept, state);
+    });
+    input.addEventListener('input', () => this.titleSearch.searcher.search(input.value));
     input.addEventListener('keydown', event => {
       if (event.key !== 'Enter') return;
       event.preventDefault();
@@ -221,8 +220,7 @@ const RatingsUI = {
     const input = document.getElementById('titleSearch');
     if (!input) return;
     input.value = '';
-    clearTimeout(this.titleSearch.timer);
-    this.titleSearch.seq++;
+    this.titleSearch.searcher.cancel();
     this.showTitleResults(false);
   },
 
@@ -232,37 +230,12 @@ const RatingsUI = {
     this.els.categoryList.hidden = searching;
   },
 
-  searchTitles(raw) {
-    const query = raw.trim();
-    const seq = ++this.titleSearch.seq;
-    clearTimeout(this.titleSearch.timer);
-    this.showTitleResults(query.length > 0);
-    if (!query) return;
-    const suggestions = TitleSearch.suggest(query);
-    const enough = MovieAPI.parseQuery(query).imdbID || query.replace(/\s/g, '').length >= CONFIG.SEARCH.WILDCARD_MIN;
-    this.renderTitleResults(query, suggestions, [], enough ? 'searching' : 'short');
-    if (!enough) return;
-    this.titleSearch.timer = setTimeout(async () => {
-      try {
-        const { results } = await MovieAPI.search(query);
-        if (seq !== this.titleSearch.seq) return;
-        const shown = new Set(suggestions.map(r => r.imdbID).filter(Boolean));
-        const more = results.filter(r => r.imdbID && !shown.has(r.imdbID) && (r.type === 'movie' || r.type === 'series'));
-        this.renderTitleResults(query, suggestions, more.slice(0, 12), 'done');
-      } catch (error) {
-        if (seq === this.titleSearch.seq) this.renderTitleResults(query, suggestions, [], error.message);
-      }
-    }, CONFIG.SEARCH.DELAY_MS);
-  },
-
   // state: 'short' (keep typing), 'searching', 'done', or an error message
   renderTitleResults(query, suggestions, results, state) {
     this.titleSearch.rows = [...suggestions, ...results];
     const status = imdbID => {
       const entry = imdbID && Library.byImdb(imdbID);
-      if (!entry) return '';
-      if (Title.isLoved(entry)) return 'Loved';
-      return { up: 'Liked', down: 'Not for me', skip: 'Skipped', pass: 'Not interested' }[entry.verdict] || (entry.want ? 'On your list' : '');
+      return entry ? Title.statusLabel(entry) : '';
     };
     const row = (r, i) => {
       const mark = status(r.imdbID);
@@ -271,7 +244,7 @@ const RatingsUI = {
           ${r.poster ? html`<img src="${r.poster}" alt="" loading="lazy">` : html`<span class="thumb"></span>`}
           <span class="film-text">
             <span class="film-title">${r.title}${r.year && ` (${r.year})`}</span>
-            <span class="film-why">${r.type === 'series' ? 'TV' : 'Film'}${mark && ` · ${mark}`}</span>
+            <span class="film-why">${Title.TYPE_NAMES[r.type] || 'Film'}${mark && ` · ${mark}`}</span>
           </span>
         </button></li>`;
     };
@@ -366,7 +339,7 @@ const RatingsUI = {
   },
 
   prefetch() {
-    for (const key of Feed.upcoming(RATINGS.PREFETCH)) {
+    for (const key of Feed.upcoming(REVIEW.PREFETCH)) {
       MovieInfo.fetch(key)
         .then(info => { if (info.poster) new Image().src = info.poster; })
         .catch(() => {});
@@ -387,7 +360,8 @@ const RatingsUI = {
     const crowd = !judged ? ''
       : basics.likeRate !== null ? `${Math.round(basics.likeRate * 100)}% of viewers liked it`
         : info && info.tmdbRating ? `TMDB ${info.tmdbRating}/10` : '';
-    const [statusIcon, statusText] = !entry ? [] : entry.verdict ? VERDICT_LABELS[entry.verdict] : entry.want ? ['want', 'Want to watch'] : [];
+    const statusText = entry ? Title.statusLabel(entry) : '';
+    const statusIcon = entry && (Title.isLoved(entry) ? 'heart' : VERDICT_ICONS[entry.verdict] || 'want');
 
     this.els.card.className = `card${info ? '' : ' loading'}`;
     this.els.card.innerHTML = html`
@@ -640,7 +614,7 @@ const RatingsUI = {
         card.classList.add('dragging');
       }
       const amount = drag.axis === 'x' ? dx : dy;
-      const strength = Math.min(1, Math.abs(amount) / RATINGS.SWIPE_DISTANCE);
+      const strength = Math.min(1, Math.abs(amount) / REVIEW.SWIPE_DISTANCE);
       card.style.transform = drag.axis === 'x'
         ? `translateX(${dx}px) rotate(${dx / 25}deg)`
         : `translateY(${dy}px)`;
@@ -663,7 +637,7 @@ const RatingsUI = {
         return;
       }
       const amount = axis === 'x' ? dx : dy;
-      const swiped = Math.abs(amount) > RATINGS.SWIPE_DISTANCE || Math.abs(amount) / elapsed > RATINGS.SWIPE_VELOCITY;
+      const swiped = Math.abs(amount) > REVIEW.SWIPE_DISTANCE || Math.abs(amount) / elapsed > REVIEW.SWIPE_VELOCITY;
       if (!swiped) {
         card.style.transform = '';
         return;
@@ -726,7 +700,7 @@ const RatingsUI = {
   // How the recommender's guesses have held up against your verdicts
   guessSection() {
     const record = Guesses.record(Ratings.all());
-    if (record.total < RATINGS.MIN_GUESSES) return '';
+    if (record.total < REVIEW.MIN_GUESSES) return '';
     const pct = x => `${Math.round(x * 100)}%`;
     const top = Math.round(REC.STRONG_SHARE * 100);
     const detail = group => `Seen ${pct(group.seen)} · liked ${pct(group.liked)} of those seen · not interested ${pct(group.passed)}`;
@@ -745,7 +719,7 @@ const RatingsUI = {
   },
 
   crowdSection(crowd) {
-    if (crowd.compared < RATINGS.MIN_PROFILE_FILMS) return '';
+    if (crowd.compared < REVIEW.MIN_PROFILE_FILMS) return '';
     const film = ({ entry, rate }) => html`
       <li class="lean-row">
         <span class="lean-name">${entry.title}${entry.year && ` (${entry.year})`}</span>
@@ -797,7 +771,7 @@ const RatingsUI = {
       .filter(filters[tab])
       .sort((a, b) => (b.updatedDate || '').localeCompare(a.updatedDate || ''))
       .slice(0, 300);
-    const tabs = [['up', 'thumb-up', counts.up, 'Liked'], ['down', 'thumb-down', counts.down, 'Disliked'],
+    const tabs = [['up', 'thumb-up', counts.up, 'Liked'], ['down', 'thumb-down', counts.down, 'Not for me'],
       ['want', 'want', counts.want, 'Want to watch'], ['pass', 'pass', counts.pass, 'Not interested'], ['skip', 'skip', counts.skip, 'Skipped']];
 
     this.els.tasteBody.innerHTML = html`
@@ -849,7 +823,7 @@ const RatingsUI = {
       button.addEventListener('click', () => {
         Feed.order = button.dataset.order;
         this.openSettings();
-        RatingsApp.savePrefs();
+        ReviewApp.savePrefs();
         if (!this.feedStarted()) return;
         Feed.start(Feed.categoryId);
         this.advance();
@@ -858,7 +832,7 @@ const RatingsUI = {
 
     this.els.tmdbSave.addEventListener('click', () => {
       TMDB.key = this.els.tmdbKey.value.trim();
-      RatingsApp.savePrefs();
+      ReviewApp.savePrefs();
       TitleSearch.refreshRecent();
       this.els.settingsSheet.close();
       this.toast(TMDB.key ? 'TMDB key saved on this device' : 'TMDB key removed', 'check');
@@ -866,7 +840,7 @@ const RatingsUI = {
     });
 
     this.els.exportBackup.addEventListener('click', () => {
-      this.download(Library.fileName(this.exportPrefix), Library.exportText(this.exportPrefix));
+      this.download(Library.fileName('titles'), Library.exportText('titles'));
     });
     this.els.exportAI.addEventListener('click', async () => {
       const text = Ratings.aiProfile(this.computeTaste());

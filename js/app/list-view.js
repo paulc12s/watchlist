@@ -181,7 +181,7 @@ const ListView = {
     const name = (field, value) => (names[field].get(Title.cleanLabel(value).toLowerCase()) || { label: value }).label;
     const thumb = Title.thumb(t);
     const watched = !t.want;
-    const typeIcon = { movie: 'film', series: 'tv', youtube: 'play' }[t.type];
+    const typeIcon = Title.TYPE_ICONS[t.type];
     const meta = [t.year, t.genres[0], t.imdbRating && `★ ${Title.formatRating(t.imdbRating)}`, t.type === 'youtube' && t.duration].filter(Boolean);
     return html`
       <article class="title-row" data-id="${t.id}">
@@ -215,9 +215,9 @@ const ListView = {
   compactRowHTML(t) {
     const thumb = Title.thumb(t);
     const loved = Title.isLoved(t);
-    const typeIcon = { movie: 'film', series: 'tv', youtube: 'play' }[t.type];
+    const typeIcon = Title.TYPE_ICONS[t.type];
     const meta = [t.year, t.genres[0], t.imdbRating && `IMDb ${Title.formatRating(t.imdbRating)}`].filter(Boolean);
-    const verdict = loved ? 'Loved' : thumb === 'up' ? 'Liked' : 'Not for me';
+    const verdict = Title.statusLabel(t);
     const unrated = Title.isUnrated(t);
     return html`
       <article class="title-row rated-row" data-id="${t.id}">

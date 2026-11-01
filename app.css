@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE. */
 /* ============================================================================
    COMBINED PAGE (app.html)
-   Builds on ratings.css, which supplies the design system (tokens, glass,
+   Builds on base.css, which supplies the design system (tokens, glass,
    icons, buttons, segmented controls, sheets, toast) and review mode. This
    adds a light theme, the page shell with the mode switch, watchlist mode,
    and the add and title sheets.
@@ -71,7 +71,7 @@
   box-shadow: var(--highlight), 0 1px 4px rgba(13, 18, 24, 0.12);
 }
 
-/* Themed surfaces, light: the same tokens as ratings.css sets for dark */
+/* Themed surfaces, light: the same tokens as base.css sets for dark */
 :root[data-scheme="light"][data-palette] {
   --bg: var(--p-bg-light);
   --surface: color-mix(in srgb, var(--accent) 5%, #ffffff);

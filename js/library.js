@@ -20,18 +20,15 @@ const Library = {
   // Called after every change, import and removal
   onChange() {},
 
-  // Opens the page's database and loads its titles, migrating what an
-  // earlier version stored if this version hasn't saved yet
+  // Opens the app's database and loads its titles
   async open(database) {
     await Store.open(database);
-    const stored = await Store.load(CONFIG.STORAGE.TITLES_KEY);
-    this.load(stored !== undefined || !database.legacyKey ? stored : await Store.load(database.legacyKey));
+    this.load(await Store.load(CONFIG.STORAGE.TITLES_KEY));
   },
 
-  // Accepts an array of records in any version's shape, or the JSON string
-  // the watchlist used to store. Throws if the data can't be read at all.
-  load(data) {
-    const list = typeof data === 'string' ? JSON.parse(data) : data;
+  // Accepts an array of records in any version's shape (or nothing stored
+  // yet). Throws if the data isn't a list at all.
+  load(list) {
     if (list !== undefined && list !== null && !Array.isArray(list)) throw new Error('Stored titles are not a list');
     this.titles = [];
     this.index();

@@ -1,9 +1,10 @@
 /* Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE. */
 /* ============================================================================
-   RATINGS STYLES
+   BASE STYLES: the design system (tokens, glass, icons, buttons, segmented
+   controls, sheets, toast) and review mode
    Monochrome on near-black with one cool accent. Controls are frosted glass:
    a translucent fill, a hairline edge, a soft top highlight and a spring on
-   press. Icons come from the SVG sprite in ratings.html and take currentColor.
+   press. Icons come from the SVG sprite in app.html and take currentColor.
    Colours are tokens on :root, so app.css can add a light theme.
 
    Palettes (Settings → Theme, js/palette.js) set data-palette on
@@ -234,6 +235,10 @@ button {
   font: inherit;
   color: inherit;
   cursor: pointer;
+  /* A long press on a button is a press, not a text selection or a callout */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 button:focus-visible {
@@ -270,7 +275,6 @@ button:focus-visible {
 }
 
 /* Shared frosted-glass surface */
-.glass,
 .category-button,
 .icon-button,
 .actions,

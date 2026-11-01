@@ -32,9 +32,7 @@ const Store = {
   tabId: Math.random().toString(36).slice(2),
   // Waits between retries of a failed save, then the last one repeats
   RETRY_DELAYS_MS: [2000, 5000, 15000, 30000, 60000],
-  // Pages hook these to show what's happening
-  onSaving() {},
-  onSaved() {},
+  // The app hooks these to show problems
   onError(error) { console.error('Save failed:', error); },
   // A message for a banner that stays until the problem is gone, or null
   onProblem() {},
@@ -120,12 +118,10 @@ const Store = {
     if (!this.isWriting()) return this.displaced();
     this.writers.delete(key);
     const change = this.changes.get(key);
-    this.onSaving();
     try {
       await this.run('readwrite', store => store.put(write(), key));
       this.attempts.delete(key);
       if (!this.attempts.size) this.onProblem(null);
-      if (!this.writers.size) this.onSaved();
     } catch (error) {
       this.onError(error);
       await this.reopen();

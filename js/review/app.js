@@ -1,39 +1,16 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// Ratings app start-up (see js/ratings/boot.js for ratings.html)
+// Review mode's start-up: preferences, the lists and the recommender.
+// js/app/main.js loads the preferences at once and starts the feed the
+// first time review mode opens.
 // ============================================================================
 
-const RatingsApp = {
-  // ratings.html: the page on its own database (js/ratings/boot.js calls this)
-  async init() {
-    RatingsUI.init();
-    Store.onError = error => {
-      console.error('Save failed:', error);
-      RatingsUI.toast('Could not save. Export a backup to be safe.');
-    };
-    try {
-      // Titles are kept by the shared Library (js/library.js) in this page's database
-      await Library.open(CONFIG.STORAGE.RATINGS);
-    } catch (error) {
-      console.error('Load failed:', error);
-      Library.loadFailed();
-    }
-    try {
-      await this.start();
-    } catch (error) {
-      console.error('Start-up failed:', error);
-      RatingsUI.toast(`Could not start: ${error.message}`);
-    }
-    // After start, which loads the TMDB key that recent titles need
-    TitleSearch.init();
-    VersionCheck.start();
-  },
-
+const ReviewApp = {
   // The feed, once the Library is open: loads the catalog, cached details,
   // preferences and TV lists from the same database, then deals the first card.
   // The combined page calls this the first time you switch to review mode.
   async start() {
-    const { INFO_KEY, TV_LISTS_KEY, TV_RECS_KEY } = RATINGS.STORAGE;
+    const { INFO_KEY, TV_LISTS_KEY, TV_RECS_KEY } = REVIEW.STORAGE;
     const [info, tvLists, tvRecs] = await Promise.all([
       Store.load(INFO_KEY), Store.load(TV_LISTS_KEY), Store.load(TV_RECS_KEY), Catalog.load(), this.loadPrefs()
     ]);
@@ -46,7 +23,7 @@ const RatingsApp = {
     TvRecs.onChange = () => Store.scheduleSave(TV_RECS_KEY, () => TvRecs.cache);
     this.loadRecommender();
 
-    RatingsUI.switchCategory(this.savedCategoryId || 'popular', { announce: false });
+    ReviewUI.switchCategory(this.savedCategoryId || 'popular', { announce: false });
   },
 
   // Order, TMDB key and last list. Loaded before anything can save them, so
@@ -54,8 +31,8 @@ const RatingsApp = {
   savedCategoryId: '',
   prefsLoaded: null,
   loadPrefs() {
-    this.prefsLoaded = this.prefsLoaded || Store.load(RATINGS.STORAGE.PREFS_KEY).then(prefs => {
-      Feed.order = prefs && RATINGS.ORDERS.includes(prefs.order) ? prefs.order : 'ranked';
+    this.prefsLoaded = this.prefsLoaded || Store.load(REVIEW.STORAGE.PREFS_KEY).then(prefs => {
+      Feed.order = prefs && REVIEW.ORDERS.includes(prefs.order) ? prefs.order : 'ranked';
       TMDB.key = prefs && typeof prefs.tmdbKey === 'string' ? prefs.tmdbKey : '';
       this.savedCategoryId = prefs && typeof prefs.categoryId === 'string' ? prefs.categoryId : '';
     });
@@ -66,19 +43,19 @@ const RatingsApp = {
   // rather than before it; guesses and For you's film picks start once it's in
   async loadRecommender() {
     try {
-      const response = await fetch(RATINGS.SIMILAR_URL);
+      const response = await fetch(REVIEW.SIMILAR_URL);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       Recommender.use(await response.json());
       Catalog.learnScore = () => Guesses.learnScore();
       if (Feed.order === 'learn') Feed.start(Feed.categoryId);
-      if (RatingsUI.els.forYouSheet.open) ForYou.render();
+      if (ReviewUI.els.forYouSheet.open) ForYou.render();
     } catch (error) {
       console.error('Could not load recommendations:', error);
     }
   },
 
   savePrefs() {
-    Store.scheduleSave(RATINGS.STORAGE.PREFS_KEY, () => ({
+    Store.scheduleSave(REVIEW.STORAGE.PREFS_KEY, () => ({
       categoryId: Feed.categoryId || this.savedCategoryId, order: Feed.order, tmdbKey: TMDB.key
     }));
   }

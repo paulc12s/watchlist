@@ -44,9 +44,6 @@ const Ratings = {
     return Library.upsert(info, seenNow ? { ...changes, want: false } : changes);
   },
 
-  setVerdict(info, verdict) {
-    return this.update(info, { verdict });
-  },
 
   // Tapping the current star again clears it, like the watchlist's reviews
   setStars(info, stars) {

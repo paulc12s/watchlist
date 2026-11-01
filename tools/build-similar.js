@@ -2,7 +2,7 @@
 // Builds data/similar.json: for each of the most-rated MovieLens films (plus
 // every film in data/categories.json), its most similar films, judged by how
 // the same people rated both. The ratings page scores unseen films from these
-// lists and your own ratings (js/ratings/recommend.js).
+// lists and your own ratings (js/review/recommend.js).
 //
 //   node tools/build-similar.js path/to/ml-32m
 //   node tools/build-similar.js path/to/ml-32m --holdout out.json

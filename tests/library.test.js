@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // Tests for the shared record model (js/title.js) and library (js/library.js):
-// the one code path both pages use to store, merge, import and export titles.
+// the one code path for storing, merging, importing and exporting titles.
+// Some tests load two copies of it, standing in for two browsers or the
+// retired pages, whose files and databases the app still reads.
 // Run with: node --test tests/*.test.js
 'use strict';
 
@@ -8,7 +10,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { read, loadWatchlist, loadRatings, film, plain } = require('./helpers');
+const { read, loadLists, loadReview, film, plain } = require('./helpers');
 
 const OLD = '2026-01-01T00:00:00.000Z';
 const MID = '2026-06-01T00:00:00.000Z';
@@ -17,7 +19,7 @@ const NEW = '2026-09-01T00:00:00.000Z';
 // ---- The record ---------------------------------------------------------------
 
 test('sanitize reads the watchlist’s old field names', () => {
-  const { Title } = loadWatchlist();
+  const { Title } = loadLists();
   const t = Title.sanitize({
     id: 'a', title: 'Dune', imdbID: 'tt1160419', watched: true, thumb: 'down', genre: 'Action, Sci-Fi', rating: '8.0',
     priority: 'high', tag: 'family', platform: 'Max', stars: 2, review: 'Long', rewatch: true, reviewDate: OLD
@@ -30,14 +32,14 @@ test('sanitize reads the watchlist’s old field names', () => {
   assert.equal(Title.formatRating(t.imdbRating), '8.0');
 });
 
-test('sanitize reads the ratings page’s old field names', () => {
-  const { Title } = loadWatchlist();
+test('sanitize reads the retired ratings page’s old field names', () => {
+  const { Title } = loadLists();
   const t = Title.sanitize({ ...film(1), verdict: 'skip', want: false, ratedAt: OLD, updatedAt: MID });
   assert.deepEqual(plain([t.verdict, t.reviewDate, t.updatedDate]), ['skip', OLD, MID]);
 });
 
 test('seen means rated: a watched title or a review without a thumb gets one', () => {
-  const { Title } = loadWatchlist();
+  const { Title } = loadLists();
   const verdict = fields => Title.sanitize({ title: 'A', ...fields }).verdict;
   assert.equal(verdict({ watched: true }), 'up');
   assert.equal(verdict({ watched: true, stars: 2 }), 'down');
@@ -51,7 +53,7 @@ test('seen means rated: a watched title or a review without a thumb gets one', (
 });
 
 test('sanitize rejects bad values and keeps what newer versions might write', () => {
-  const { Title } = loadWatchlist();
+  const { Title } = loadLists();
   assert.equal(Title.sanitize({ title: '' }), null);
   assert.equal(Title.sanitize(null), null);
   const t = Title.sanitize({
@@ -65,7 +67,7 @@ test('sanitize rejects bad values and keeps what newer versions might write', ()
 });
 
 test('titles match by IMDb ID, then YouTube ID, then their own ID', () => {
-  const { Title } = loadWatchlist();
+  const { Title } = loadLists();
   assert.equal(Title.key({ id: 'x', imdbID: 'tt1234567', youtubeID: 'y' }), 'imdb:tt1234567');
   assert.equal(Title.key({ id: 'x', youtubeID: 'y' }), 'yt:y');
   assert.equal(Title.key({ id: 'x' }), 'id:x');
@@ -74,7 +76,7 @@ test('titles match by IMDb ID, then YouTube ID, then their own ID', () => {
 // ---- Changing ---------------------------------------------------------------------
 
 test('add refuses duplicates and dates new titles', () => {
-  const { Library } = loadWatchlist();
+  const { Library } = loadLists();
   const { title } = Library.add({ title: 'Dune', imdbID: 'tt1160419', want: true });
   assert.ok(title.updatedDate);
   assert.equal(title.reviewDate, '', 'adding to the list is not a review');
@@ -86,7 +88,7 @@ test('add refuses duplicates and dates new titles', () => {
 });
 
 test('change dates every change, and the review date only when the review changes', () => {
-  const { Library } = loadWatchlist();
+  const { Library } = loadLists();
   const { title } = Library.add({ title: 'A' });
   title.updatedDate = OLD;
   Library.change(title, { tag: 'x' });
@@ -105,7 +107,7 @@ test('change dates every change, and the review date only when the review change
 // ---- Merging ----------------------------------------------------------------------
 
 function merged(local, incoming) {
-  const { Title } = loadWatchlist();
+  const { Title } = loadLists();
   const a = Title.sanitize(local);
   const b = Title.sanitize(incoming);
   return plain(Title.merge(a, b, incoming) || a);
@@ -200,7 +202,7 @@ test('merge: a review date comes with the review it belongs to', () => {
 // ---- Importing and exporting ------------------------------------------------------
 
 test('import reads every format and reports what changed', () => {
-  const { Library } = loadWatchlist();
+  const { Library } = loadLists();
   const formats = [
     { app: 'titles', version: 2, titles: [{ title: 'A', imdbID: 'tt0000001' }] },
     { app: 'ratings', version: 1, ratings: [{ ...film(2), verdict: 'up', want: false, updatedAt: MID }] },
@@ -217,7 +219,7 @@ test('import reads every format and reports what changed', () => {
 });
 
 test('import keeps a file’s IDs, so re-importing a manual entry doesn’t duplicate it', () => {
-  const { Library } = loadWatchlist();
+  const { Library } = loadLists();
   const file = { app: 'titles', version: 2, titles: [{ id: 'm1', title: 'Home movie' }] };
   Library.import(file);
   assert.deepEqual(plain(Library.import(file)), { added: 0, updated: 0, unchanged: 1 });
@@ -225,19 +227,19 @@ test('import keeps a file’s IDs, so re-importing a manual entry doesn’t dupl
 });
 
 test('export writes every title, and the file imports back unchanged', () => {
-  const { Library } = loadWatchlist();
+  const { Library } = loadLists();
   Library.add({ title: 'A', imdbID: 'tt0000001', want: true, tag: 'x' });
   Library.add({ title: 'B', imdbID: 'tt0000002', verdict: 'skip' });
   const file = JSON.parse(Library.exportText('watchlist'));
   assert.deepEqual([file.app, file.version, file.from, file.titles.length], ['titles', 2, 'watchlist', 2]);
-  const other = loadRatings().Library;
+  const other = loadReview().Library;
   other.import(file);
   assert.deepEqual(plain(other.all()), plain(Library.all()));
 });
 
 test('deletes stay on the page where you make them', () => {
-  const a = loadWatchlist().Library;
-  const b = loadRatings().Library;
+  const a = loadLists().Library;
+  const b = loadReview().Library;
   a.add({ title: 'A', imdbID: 'tt0000001', want: true });
   b.import(JSON.parse(a.exportText()));
   a.remove(a.byImdb('tt0000001'));
@@ -248,57 +250,41 @@ test('deletes stay on the page where you make them', () => {
 });
 
 test('a change on one page carries to the other through a file, in both directions', () => {
-  const watchlist = loadWatchlist();
-  const ratings = loadRatings();
+  const watchlist = loadLists();
+  const ratings = loadReview();
   watchlist.Library.add({ title: 'Film 1', imdbID: 'tt0000001', want: true, tag: 'family' });
   ratings.Library.import(JSON.parse(watchlist.Library.exportText()));
-  ratings.Ratings.setVerdict(film(1), 'up');
+  ratings.Ratings.update(film(1), { verdict: 'up' });
   // Make sure the rating is later than the watchlist's copy, even within one millisecond
   Object.assign(ratings.Ratings.get('tt0000001'), { updatedDate: '2999-01-01T00:00:00.000Z', reviewDate: '2999-01-01T00:00:00.000Z' });
   watchlist.Library.import(JSON.parse(ratings.Library.exportText()));
   const item = watchlist.Library.byImdb('tt0000001');
   assert.deepEqual([item.verdict, item.want, item.tag], ['up', false, 'family']);
 
-  ratings.Ratings.setVerdict(film(1), 'down');
+  ratings.Ratings.update(film(1), { verdict: 'down' });
   Object.assign(ratings.Ratings.get('tt0000001'), { updatedDate: '2999-02-01T00:00:00.000Z', reviewDate: '2999-02-01T00:00:00.000Z' });
   watchlist.Library.import(JSON.parse(ratings.Library.exportText()));
   assert.equal(item.verdict, 'down', 'changing your mind carries over too');
 });
 
 test('export file names carry the local date and time', () => {
-  const { Library } = loadWatchlist();
+  const { Library } = loadLists();
   assert.equal(Library.fileName('ratings', 'json', new Date(2026, 9, 31, 21, 5)), 'ratings-2026-10-31-2105.json');
 });
 
 // ---- Loading and migrating ----------------------------------------------------------
 
-test('open migrates what an earlier version stored, and never writes the old key', async () => {
-  const { Library, Store, CONFIG } = loadWatchlist();
-  const legacy = JSON.stringify([{ id: 'a', title: 'A', imdbID: 'tt0000001', watched: true, genre: 'Drama' }]);
-  Store.saved.set('watchlist_v1', legacy);
-  await Library.open(CONFIG.STORAGE.WATCHLIST);
-  assert.equal(Library.byImdb('tt0000001').verdict, 'up');
-  assert.equal(Store.saved.has('titles_v2'), false, 'loading is not saving');
-  Library.change(Library.byImdb('tt0000001'), { tag: 'x' });
-  assert.equal(Store.saved.get('titles_v2')[0].tag, 'x');
-  assert.equal(Store.saved.get('watchlist_v1'), legacy, 'an out-of-date copy of the app still finds its data');
-
-  const again = loadWatchlist();
-  again.Store.saved.set('watchlist_v1', legacy);
-  again.Store.saved.set('titles_v2', Store.saved.get('titles_v2'));
-  await again.Library.open(again.CONFIG.STORAGE.WATCHLIST);
-  assert.equal(again.Library.byImdb('tt0000001').tag, 'x', 'once saved, the new key is used');
+test('the retired pages\u2019 stored formats convert as they come in (watched, genre, ratedAt, updatedAt)', () => {
+  const { Library } = loadLists();
+  Library.import([{ id: 'a', title: 'A', imdbID: 'tt0000001', watched: true, genre: 'Drama' }]);
+  const a = Library.byImdb('tt0000001');
+  assert.deepEqual(plain([a.verdict, a.want, a.genres]), ['up', false, ['Drama']]);
+  Library.import([{ ...film(2), verdict: 'up', want: false, ratedAt: OLD, updatedAt: MID }]);
+  assert.deepEqual(plain([Library.byImdb('tt0000002').reviewDate, Library.byImdb('tt0000002').updatedDate]), [OLD, MID]);
 });
 
-test('the ratings page migrates its old store too', async () => {
-  const { Library, Store, CONFIG, Ratings } = loadRatings();
-  Store.saved.set('ratings_v1', [{ ...film(1), verdict: 'up', want: false, ratedAt: OLD, updatedAt: MID }]);
-  await Library.open(CONFIG.STORAGE.RATINGS);
-  assert.deepEqual(plain([Ratings.get('tt0000001').verdict, Ratings.get('tt0000001').reviewDate]), ['up', OLD]);
-});
-
-test('a database with no earlier version to migrate starts empty', async () => {
-  const { Library, CONFIG } = loadWatchlist();
+test('a new database starts empty', async () => {
+  const { Library, CONFIG } = loadLists();
   await Library.open(CONFIG.STORAGE.APP);
   assert.equal(Library.all().length, 0);
   Library.add({ title: 'A' });
@@ -306,7 +292,7 @@ test('a database with no earlier version to migrate starts empty', async () => {
 });
 
 test('two stored copies of one title are merged, not dropped', () => {
-  const { Library } = loadWatchlist();
+  const { Library } = loadLists();
   Library.load([{ title: 'A', imdbID: 'tt0000001', tag: 'x' }, { title: 'A', imdbID: 'tt0000001', platform: 'Max' }]);
   assert.equal(Library.all().length, 1);
   assert.deepEqual(plain([Library.all()[0].tag, Library.all()[0].platform]), ['x', 'Max']);
@@ -348,7 +334,7 @@ function recordsOf(file) {
 test('every old export imports into both pages with nothing lost', () => {
   assert.ok(fixtures.length >= 8);
   for (const name of fixtures) {
-    for (const page of [loadWatchlist(), loadRatings()]) {
+    for (const page of [loadLists(), loadReview()]) {
       const file = fixture(name);
       const result = page.Library.import(file);
       const records = recordsOf(file);
@@ -363,11 +349,65 @@ test('every old export imports into both pages with nothing lost', () => {
 
 test('every old stored list loads the same way its exports import', () => {
   for (const name of fixtures) {
-    const imported = loadWatchlist().Library;
+    const imported = loadLists().Library;
     imported.import(fixture(name));
-    const loaded = loadWatchlist().Library;
+    const loaded = loadLists().Library;
     loaded.load(recordsOf(fixture(name)));
     const shape = lib => JSON.stringify(plain(lib.all()).map(({ id, ...t }) => t).sort((a, b) => a.title.localeCompare(b.title)));
     assert.equal(shape(loaded), shape(imported), name);
   }
+});
+
+test('titles from the retired pages: read from their databases and merged in; a missing one is never created', async () => {
+  const vm = require('node:vm');
+  const databases = {
+    WatchlistDB: { items: { watchlist_v1: JSON.stringify([{ title: 'Old watchlist film', imdbID: 'tt0000001', watched: false }]) } },
+    RatingsDB: { kv: { titles_v2: [{ title: 'Rated film', imdbID: 'tt0000002', verdict: 'up', want: false }] } }
+  };
+  const created = [];
+  const indexedDB = {
+    open(name) {
+      const request = {};
+      setTimeout(() => {
+        const stores = databases[name];
+        if (!stores) {
+          let aborted = false;
+          request.transaction = { abort() { aborted = true; } };
+          request.onupgradeneeded();
+          if (!aborted) created.push(name);
+          request.result = { objectStoreNames: { contains: () => false }, close() {} };
+          return request.onsuccess();
+        }
+        request.result = {
+          objectStoreNames: { contains: store => store in stores },
+          close() {},
+          transaction([store]) {
+            const tx = {};
+            const objectStore = { transaction: tx, get(key) { const r = { result: stores[store][key] }; return r; } };
+            setTimeout(() => tx.oncomplete(), 0);
+            return { objectStore: () => objectStore };
+          }
+        };
+        request.onsuccess();
+      }, 0);
+      return request;
+    }
+  };
+  const context = vm.createContext({ console, crypto, setTimeout, clearTimeout, indexedDB });
+  const files = ['js/config.js', 'js/security.js', 'js/title.js', 'js/store.js', 'js/library.js', 'js/app/old-pages.js'];
+  vm.runInContext(`${files.map(read).join('\n')}\nthis.app = { Library, OldPages, Store };`, context);
+  const { Library, OldPages, Store } = context.app;
+  Store.scheduleSave = () => {};
+  Library.load([{ title: 'Already here', imdbID: 'tt0000003', want: true }]);
+
+  assert.equal(await OldPages.count(), 2, 'the old watchlist format and the newer one are both read');
+  const result = await OldPages.bringIn();
+  assert.deepEqual({ ...result }, { added: 2, updated: 0, unchanged: 0 });
+  assert.equal(Library.all().length, 3);
+  assert.equal((await OldPages.bringIn()).unchanged, 2, 'bringing them in again changes nothing');
+
+  databases.WatchlistDB = undefined;
+  delete databases.WatchlistDB;
+  assert.equal(await OldPages.count(), 1);
+  assert.deepEqual(created, [], 'reading a database that was never made does not make it');
 });

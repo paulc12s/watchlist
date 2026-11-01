@@ -5,13 +5,7 @@ item to **Done** (with the commit) when it ships.
 
 ## Up next
 
-### 1. Retire the classic pages
-`app.html` does what `watchlist.html` and `ratings.html` do. Once you're happy with it:
-- Point `watchlist.html` and `ratings.html` (and so existing home-screen icons) at `app.html`, after a last export from each.
-- Remove their page-only code: `js/ui.js`, `js/app.js`, `watchlist.css`, `js/ratings/boot.js`, and the markup in both pages.
-- Decide whether `app.html` should offer to copy the classic pages' data on first open (it starts empty today, by choice).
-
-### 2. Choose where a title's link opens
+### 1. Choose where a title's link opens
 Tapping a poster on the watchlist runs a Google search for the title. Make the destination a setting:
 - **Google** search (today's behaviour).
 - **Apple TV app** search, so iPhone and iPad open the title in the TV app with its streaming options.
@@ -22,13 +16,13 @@ Notes:
 - Check each app's link format on a real device before building: the URL schemes and universal links weren't verified. Fall back to the Google search if the app link doesn't open.
 - If the link loads anything into the page (not just a plain navigation), it needs adding to the CSP.
 
-### 3. Recommend recent films and fix gaps in the film data
+### 2. Recommend recent films and fix gaps in the film data
 20 of 189 films rated in the 2026-11-01 test export aren't in `data/similar.json`, so they can neither be picked nor explain a pick: 10 from 2023 on (MovieLens 32M ends in 2023), 9 without a year, and *The Empire Strikes Back*, which looks like a build bug (needs the MovieLens files to diagnose).
 - Link recent films into the graph at build time, from TMDB's similar-film lists or plot-text similarity, so the phone needs no extra key or file.
 - Check TMDB's terms on publishing cached data first.
 - Measure with `tools/eval-similar.js personal` before and after.
 
-### 4. Consider an iOS app around `app.html`
+### 3. Consider an iOS app around `app.html`
 A native app hosting this page in a web view, with native helpers. Decide after the recommendation prototypes show what's worth it. Compute isn't the bottleneck: scoring runs in milliseconds in Safari.
 - **What it would add:**
   - iCloud sync and backup in place of manual export and import.
@@ -51,6 +45,8 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Review pass after retiring the classic pages: one search routine for both searches (TitleSearch.searcher), shared icon()/setChecked() (js/dom.js), type and verdict words defined once (Title.TYPE_ICONS, TYPE_NAMES, statusLabel; 👎 reads "Not for me" everywhere), dead code removed (old-format loading in Library.open, routine save statuses, rankOf, setVerdict, exportPrefix, KEY_HELP_URL, .glass), and names matched to what things are (js/review/, ReviewUI, ReviewApp, REVIEW, js/app/sheets.js, tests/lists.test.js and review.test.js).
+- Retired the classic pages: watchlist.html, ratings.html and index.html forward to app.html; their code is removed (ratings.css is now base.css); Settings → Bring in titles from the old pages merges what they saved in this browser.
 - Skips come round again: a skipped title stays to rate (after unseen ones), lists show how many are left to rate, and a pass with only skipped titles left offers to go through them again. The settings button to show skipped titles again is gone.
 - Award lists: Best Picture (replacing the five yearly lists), Oscar acting, Oscar directing/writing/cinematography, International, Documentary, Animated, Golden Globe & Emmy TV, festival top prizes, Sight and Sound poll; built by tools/build-awards.js, fetched on demand.
 - Settings → Appearance: Auto, Light or Dark (data-scheme on <html>, set before the page draws); the browser bar colour follows the page. Themes checked readable in every combination.

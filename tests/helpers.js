@@ -10,7 +10,7 @@ const vm = require('node:vm');
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
-// The modules both pages share, in page order
+// The modules every part of the app shares, in page order
 const SHARED = ['js/config.js', 'js/security.js', 'js/title.js', 'js/store.js', 'js/library.js', 'js/omdb.js'];
 
 function load(files, expose, globals = {}) {
@@ -39,13 +39,12 @@ function memoryStore(Store) {
   return data;
 }
 
-// The watchlist page: everything but the DOM-bound UI, which is stubbed
-function loadWatchlist() {
+// Watchlist and Rated (and what they share): everything but the DOM-bound UI, which is stubbed
+function loadLists() {
   const errors = [];
   const statuses = [];
   const UI = {
     setStatus: text => statuses.push(text), render() {},
-    showImportError: message => errors.push(message), hideImportError: () => errors.push(null),
     elements: { undoBar: { classList: { toggle() {}, remove() {} } }, undoMessage: {} }
   };
   const app = load(
@@ -58,13 +57,13 @@ function loadWatchlist() {
   return app;
 }
 
-// The ratings page's logic, with a small catalog of films to deal
-function loadRatings() {
+// Review mode's logic, with a small catalog of films to deal
+function loadReview() {
   const app = load(
-    [...SHARED, 'js/movie-api.js', 'js/ratings/config.js', 'js/ratings/store.js', 'js/ratings/tmdb.js', 'js/ratings/catalog.js',
-      'js/ratings/taste.js', 'js/ratings/feed.js', 'js/ratings/recommend.js', 'js/ratings/tvrecs.js', 'js/ratings/foryou.js',
-      'js/ratings/title-search.js', 'js/ratings/app.js'],
-    'CONFIG, Title, Store, Library, OMDb, Ratings, Catalog, MovieInfo, Taste, Feed, TMDB, Recommender, TvRecs, Guesses, RatingsApp, TitleSearch'
+    [...SHARED, 'js/movie-api.js', 'js/review/config.js', 'js/review/store.js', 'js/review/tmdb.js', 'js/review/catalog.js',
+      'js/review/taste.js', 'js/review/feed.js', 'js/review/recommend.js', 'js/review/tvrecs.js', 'js/review/foryou.js',
+      'js/review/title-search.js', 'js/review/app.js'],
+    'CONFIG, Title, Store, Library, OMDb, MovieAPI, Ratings, Catalog, MovieInfo, Taste, Feed, TMDB, Recommender, TvRecs, Guesses, ReviewApp, TitleSearch'
   );
   app.Catalog.use({
     movies: {
@@ -88,4 +87,4 @@ function film(n, fields = {}) {
 // Values built inside a page's context fail deepStrictEqual against local ones
 const plain = value => JSON.parse(JSON.stringify(value));
 
-module.exports = { read, loadWatchlist, loadRatings, film, plain };
+module.exports = { read, loadLists, loadReview, film, plain };

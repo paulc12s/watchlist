@@ -11,7 +11,7 @@
 const UI = {
   elements: {},
   views: {},
-  add: { mode: 'search', type: '', chosen: null, results: [], suggestions: [], state: '', seq: 0, timer: null },
+  add: { mode: 'search', type: '', chosen: null, results: [], suggestions: [], state: '', searcher: null },
   editing: null,
 
   init() {
@@ -23,6 +23,7 @@ const UI = {
       'titleDelete', 'titleWeb', 'titleSave'];
     ids.forEach(id => { this.elements[id] = document.getElementById(id); });
     const els = this.elements;
+    this.add.searcher = TitleSearch.searcher(found => this.showFound(found));
 
     this.views = {
       watchlist: ListView.create({
@@ -54,16 +55,11 @@ const UI = {
     for (const [key, view] of Object.entries(this.views)) view.show(key === name);
   },
 
-  // Routine save messages stay quiet; anything else is worth a toast
+  // What ItemManager reports, as a toast
   setStatus(text) {
-    if (/^(saved|saving\.\.\.|exported)$/.test(text)) return;
     const friendly = { 'duplicate item': 'Already in your titles', 'save failed': 'Could not save. Export a backup to be safe.' };
-    RatingsUI.toast(friendly[text] || text);
+    ReviewUI.toast(friendly[text] || text);
   },
-
-  // Imports run from the settings sheet, which shows its own errors
-  showImportError() {},
-  hideImportError() {},
 
   // A video opens on YouTube; anything else, a web search for the title
   openWeb(t) {
@@ -153,43 +149,28 @@ const UI = {
     if (mode === 'search') this.renderResults();
   },
 
-  // Suggestions (js/ratings/title-search.js) show at once as you type, typos
-  // forgiven; OMDb is asked once you pause
+  // Search as you type (TitleSearch.searcher): suggestions at once, typos
+  // forgiven, then OMDb's results when typing pauses
   searchSoon(delay = CONFIG.SEARCH.DELAY_MS) {
-    clearTimeout(this.add.timer);
     this.add.chosen = null;
     this.elements.addOptions.hidden = true;
-    const query = this.elements.addSearch.value.trim();
-    const shown = new Set();
-    this.add.suggestions = TitleSearch.suggest(query, { type: this.add.type })
-      .filter(r => !r.imdbID || (!shown.has(r.imdbID) && shown.add(r.imdbID)));
-    const enough = MovieAPI.parseQuery(query).imdbID || query.replace(/\s/g, '').length >= CONFIG.SEARCH.WILDCARD_MIN;
-    this.add.results = [];
-    this.add.state = !query ? '' : enough ? 'searching' : 'short';
-    this.add.seq++;
-    this.renderResults();
-    if (enough) this.add.timer = setTimeout(() => this.search(), delay);
+    this.add.searcher.search(this.elements.addSearch.value, { type: this.add.type, delay });
   },
 
-  async search() {
-    const query = this.elements.addSearch.value.trim();
-    const seq = ++this.add.seq;
-    try {
-      const { results, tooMany } = await MovieAPI.search(query, this.add.type);
-      if (seq !== this.add.seq) return;
-      const suggested = new Set(this.add.suggestions.map(r => r.imdbID).filter(Boolean));
-      this.add.results = results.filter(r => !suggested.has(r.imdbID));
-      this.add.state = 'done';
-      this.renderResults(tooMany ? 'Too many matches. Keep typing, or add a year (e.g. "dune 1984").' : 'No matches. Check the spelling, add the year, or add it by hand.');
-      // Director and cast for the top results, to tell same-named titles apart
-      results.slice(0, CONFIG.SEARCH.DETAIL_PREFETCH).forEach(result => {
-        MovieAPI.getDetails(result.imdbID).then(() => { if (seq === this.add.seq && !this.add.chosen) this.renderResults(); }).catch(() => {});
-      });
-    } catch (error) {
-      if (seq !== this.add.seq) return;
-      this.add.state = 'done';
-      this.renderResults(error.message);
-    }
+  // What the searcher found so far
+  showFound({ suggestions, results, state, tooMany }) {
+    this.add.suggestions = suggestions;
+    this.add.results = results;
+    this.add.state = state;
+    const message = state !== 'done' && state !== 'searching' && state !== 'short' ? state
+      : tooMany ? 'Too many matches. Keep typing, or add a year (e.g. "dune 1984").'
+        : 'No matches. Check the spelling, add the year, or add it by hand.';
+    this.renderResults(message);
+    if (state !== 'done') return;
+    // Director and cast for the top results, to tell same-named titles apart
+    results.slice(0, CONFIG.SEARCH.DETAIL_PREFETCH).forEach(result => {
+      MovieAPI.getDetails(result.imdbID).then(() => { if (this.add.results === results && !this.add.chosen) this.renderResults(); }).catch(() => {});
+    });
   },
 
   // A suggestion may need its IMDb ID looked up before its details load
@@ -198,10 +179,10 @@ const UI = {
     if (found.imdbID) return this.choose(found);
     try {
       const imdbID = await TitleSearch.resolve(found);
-      if (!imdbID) return RatingsUI.toast(`Couldn’t find ${found.title} on IMDb`);
+      if (!imdbID) return ReviewUI.toast(`Couldn’t find ${found.title} on IMDb`);
       this.choose({ ...found, imdbID });
     } catch (error) {
-      RatingsUI.toast(error.message);
+      ReviewUI.toast(error.message);
     }
   },
 
@@ -218,7 +199,7 @@ const UI = {
     const didYouMean = state === 'done' && !results.length && suggestions.length;
     const footer = state === 'short' ? html`<p class="hint">Keep typing to search everything…</p>`
       : state === 'searching' ? html`<p class="hint">Searching OMDb…</p>`
-        : state === 'done' && !all.length && emptyMessage ? html`<p class="hint">${emptyMessage}</p>` : '';
+        : (state === 'done' ? !all.length : state) && emptyMessage ? html`<p class="hint">${emptyMessage}</p>` : '';
     const rows = list => list.map(result => this.resultHTML(result, all.indexOf(result)));
     els.addResults.innerHTML = html`
       ${suggestions.length > 0 && label(didYouMean ? 'Did you mean' : 'Suggestions')}
@@ -232,10 +213,10 @@ const UI = {
     const details = MovieAPI.detailsCache.get(result.imdbID) || result;
     const have = result.imdbID && Library.byImdb(result.imdbID);
     return html`<button type="button" class="result" data-result="${index}">
-      ${result.poster ? html`<img src="${result.poster}" alt="" loading="lazy">` : html`<span class="poster-blank">${icon(result.type === 'series' ? 'tv' : 'film')}</span>`}
+      ${result.poster ? html`<img src="${result.poster}" alt="" loading="lazy">` : html`<span class="poster-blank">${icon(Title.TYPE_ICONS[result.type] || 'film')}</span>`}
       <span class="result-text">
         <span class="row-title">${result.title}</span>
-        <span class="row-meta">${[result.year, result.type === 'series' ? 'TV' : 'Film', details.imdbRating && `★ ${Title.formatRating(details.imdbRating)}`].filter(Boolean).join(' · ')}</span>
+        <span class="row-meta">${[result.year, Title.TYPE_NAMES[result.type] || 'Film', details.imdbRating && `★ ${Title.formatRating(details.imdbRating)}`].filter(Boolean).join(' · ')}</span>
         ${this.credits(details) && html`<span class="row-meta">${this.credits(details)}</span>`}
         ${have && html`<span class="tag">Already in your titles</span>`}
       </span>
@@ -263,17 +244,17 @@ const UI = {
       });
       els.addOptions.hidden = false;
     } catch (error) {
-      RatingsUI.toast(error.message);
+      ReviewUI.toast(error.message);
     }
   },
 
   chosenHTML(t) {
     const genres = Array.isArray(t.genres) ? t.genres.join(', ') : '';
     return html`
-      ${t.poster ? html`<img src="${t.poster}" alt="">` : html`<span class="poster-blank">${icon(t.type === 'series' ? 'tv' : t.type === 'youtube' ? 'play' : 'film')}</span>`}
+      ${t.poster ? html`<img src="${t.poster}" alt="">` : html`<span class="poster-blank">${icon(Title.TYPE_ICONS[t.type])}</span>`}
       <div>
         <p class="row-title">${t.title}${t.year ? ` (${t.year})` : ''}</p>
-        <p class="row-meta">${[t.type === 'series' ? 'TV' : t.type === 'youtube' ? 'YouTube' : 'Film', genres, t.imdbRating && `★ ${Title.formatRating(t.imdbRating)}`].filter(Boolean).join(' · ')}</p>
+        <p class="row-meta">${[Title.TYPE_NAMES[t.type], genres, t.imdbRating && `★ ${Title.formatRating(t.imdbRating)}`].filter(Boolean).join(' · ')}</p>
         ${this.credits(t) && html`<p class="row-meta">${this.credits(t)}</p>`}
         ${t.plot && html`<p class="plot">${t.plot}</p>`}
       </div>`;
@@ -321,7 +302,7 @@ const UI = {
     state.filter = 'all';
     this.render();
     // Seen titles go to Rated, not the list to watch
-    RatingsUI.toast(verdict.verdict ? `Added ${fields.title} to Rated` : `Added ${fields.title}`, verdict.verdict ? `thumb-${verdict.verdict}` : 'check');
+    ReviewUI.toast(verdict.verdict ? `Added ${fields.title} to Rated` : `Added ${fields.title}`, verdict.verdict ? `thumb-${verdict.verdict}` : 'check');
   },
 
   // ---- A title's sheet: review and edit in one place -------------------------------
@@ -429,15 +410,3 @@ const UI = {
     this.render();
   }
 };
-
-// Radio-style segmented controls: mark the button whose data-<key> is value
-function setChecked(group, key, value) {
-  group.querySelectorAll(`[data-${key}]`).forEach(button => {
-    button.setAttribute('aria-checked', String(button.dataset[key] === value));
-  });
-}
-
-function checked(group, key) {
-  const button = group.querySelector('[aria-checked="true"]');
-  return button ? button.dataset[key] : '';
-}

@@ -17,7 +17,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { csvRows, loadMovies } = require('./build-categories.js');
 const { isHoldout } = require('./build-similar.js');
-const { Recommender, REC } = require('../js/ratings/recommend.js');
+const { Recommender, REC } = require('../js/review/recommend.js');
 
 // Damping for the baseline's film and person tendencies, as in the earlier measurement
 const BIAS_DAMPING = 10;

@@ -12,7 +12,7 @@
 // looked up as TMDB keywords, and well-known shows with those keywords are
 // ranked by how many of your themes they share.
 //
-// Everything fetched is cached (see RATINGS.STORAGE.TV_RECS_KEY) and refreshed
+// Everything fetched is cached (see REVIEW.STORAGE.TV_RECS_KEY) and refreshed
 // after TMDB_CONFIG.LIST_MAX_AGE_MS.
 // ============================================================================
 

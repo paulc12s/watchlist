@@ -13,7 +13,7 @@ const NOTICE = 'Copyright (c) 2026 Paul Constantinides. Licensed under the MIT L
 function sourceFiles(dir) {
   return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap(entry => {
     const rel = path.join(dir, entry.name);
-    if (entry.isDirectory()) return ['js', 'js/ratings'].includes(rel) ? sourceFiles(rel) : [];
+    if (entry.isDirectory()) return ['js', 'js/app', 'js/review'].includes(rel) ? sourceFiles(rel) : [];
     return /\.(js|css|html)$/.test(entry.name) ? [rel] : [];
   });
 }
@@ -35,18 +35,24 @@ test('every page’s local scripts, stylesheets and icons exist, and the deploy 
     const source = fs.readFileSync(path.join(root, page), 'utf8');
     const refs = [...source.matchAll(/(?:src|href)="([^"#:]+?\.(?:js|css|png))(?:\?[^"]*)?"/g)].map(m => m[1]);
     assert.ok(source.includes('href="icons/apple-touch-icon.png"'), `${page} lacks the home-screen icon`);
-    if (page !== 'index.html') assert.ok(source.includes('js/icon-choice.js'), `${page} doesn't apply the icon choice`);
+    const forwards = /http-equiv="refresh" content="0; url=app\.html"/.test(source);
+    if (!forwards) assert.ok(source.includes('js/icon-choice.js'), `${page} doesn't apply the icon choice`);
     for (const ref of refs) assert.ok(fs.existsSync(path.join(root, ref)), `${page} loads ${ref}, which doesn't exist`);
     if (source.includes('__APP_VERSION__')) assert.ok(workflow.includes(` ${page}`), `pages.yml doesn't stamp ${page}`);
   }
 });
 
-test('the combined page allows every host its two modes load from', () => {
-  const csp = page => fs.readFileSync(path.join(root, page), 'utf8').match(/Content-Security-Policy" content="([^"]+)"/)[1];
-  const hosts = page => new Set(csp(page).match(/https:\/\/[^ ;]+/g));
-  const combined = hosts('app.html');
-  for (const page of ['watchlist.html', 'ratings.html']) {
-    for (const host of hosts(page)) assert.ok(combined.has(host), `app.html's CSP lacks ${host}, which ${page} uses`);
+test('the retired pages and the front door forward to the app, so old bookmarks and home-screen icons work', () => {
+  const pages = fs.readdirSync(root).filter(f => f.endsWith('.html'));
+  assert.deepEqual(pages.sort(), ['app.html', 'batch-upload.html', 'index.html', 'ratings.html', 'watchlist.html']);
+  for (const page of ['index.html', 'watchlist.html', 'ratings.html']) {
+    const source = fs.readFileSync(path.join(root, page), 'utf8');
+    assert.match(source, /<meta http-equiv="refresh" content="0; url=app\.html">/, page);
+    assert.match(source, /<a href="app\.html">/, `${page} has a link too`);
+    assert.doesNotMatch(source, /<script/, `${page} runs nothing`);
+  }
+  for (const gone of ['js/ui.js', 'js/app.js', 'js/app/watchlist-view.js', 'js/ratings/boot.js', 'js/ratings', 'watchlist.css', 'index.css', 'ratings.css']) {
+    assert.ok(!fs.existsSync(path.join(root, gone)), `${gone} is retired`);
   }
 });
 
@@ -63,7 +69,7 @@ test('site icons are opaque PNGs at the sizes the pages declare', () => {
 
 test('every palette is complete: CSS sets each input, with a swatch and a Settings button', () => {
   const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-  const css = read('ratings.css');
+  const css = read('base.css');
   const appCss = read('app.css');
   const page = read('app.html');
   const choices = read('js/palette.js').match(/CHOICES: \[([^\]]+)\]/)[1].match(/'([a-z]+)'/g).map(s => s.slice(1, -1));
@@ -77,10 +83,8 @@ test('every palette is complete: CSS sets each input, with a swatch and a Settin
     assert.ok(block, `${choice}: CSS block`);
     for (const input of inputs) assert.ok(block.includes(`${input}:`), `${choice} sets ${input}`);
   }
-  for (const file of ['app.html', 'ratings.html']) {
-    const html = read(file);
-    assert.ok(html.indexOf('js/palette.js') < html.indexOf('</head>'), `${file} applies the palette before drawing`);
-  }
+  const html = read('app.html');
+  assert.ok(html.indexOf('js/palette.js') < html.indexOf('</head>'), 'app.html applies the palette before drawing');
 });
 
 test('palette.js runs on its own in <head>, setting the theme and appearance before the page draws', () => {

@@ -4,7 +4,7 @@
 // Browses TV lists and fetches show details from themoviedb.org with the key
 // you enter in Settings (kept on this device only). Shows are keyed
 // "tv:<TMDB id>" until their details give an IMDb ID, which is what ratings
-// are stored under, the same as films and the watchlist's TV items.
+// are stored under, the same as films and TV added in Watchlist mode.
 //
 // This product uses the TMDB API but is not endorsed or certified by TMDB.
 // ============================================================================

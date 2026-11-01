@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <!-- Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE. -->
 <!--
-  WATCHLIST
+  MOVIES
 
-  One page for your watchlist and for reviewing lists of films and shows.
-  Both modes work on the same titles, kept in this page's own database
-  (TitlesDB). Export and import use the same file format as watchlist.html
-  and ratings.html, so files move between all three.
+  The app: one page, three modes over the same titles, kept in this
+  page's database (TitlesDB) and exported as one file.
 
-  - Watchlist: what to watch next, what you've watched, and your thumbs
-  - Review: the swipe feed from ratings.html, for going through lists
+  - Watchlist: what to watch next
+  - Rated: everything you've rated, and what you've watched without rating
+  - Review: the swipe feed, for going through lists of films and shows
+
+  watchlist.html, ratings.html and index.html only forward here.
 -->
 <html lang="en">
 <head>
@@ -26,7 +27,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <title>Watchlist</title>
-<link rel="stylesheet" href="ratings.css?v=__APP_VERSION__">
+<link rel="stylesheet" href="base.css?v=__APP_VERSION__">
 <link rel="stylesheet" href="app.css?v=__APP_VERSION__">
 <script src="js/palette.js?v=__APP_VERSION__"></script>
 </head>
@@ -302,9 +303,14 @@
         <button type="button" class="button" id="importButton">Import…</button>
         <button type="button" class="button" id="exportAI">Taste profile for AI</button>
       </div>
-      <p class="hint">Watchlist and review mode share one set of titles on this page. Export saves them all in the file format the separate Watchlist and Ratings pages use, so any of the three imports it, as well as files from earlier versions. Imports merge: nothing is removed, a title reviewed or changed more recently in the file takes the file’s version, and anything else only fills in what’s blank here. This page starts empty: to bring titles over, export them from the other pages and import them here. Taste profile for AI copies a summary you can paste into Claude.</p>
+      <p class="hint">Export saves all your titles to a file: keep it as a backup, or import it in another browser or on another device. Import reads it back, along with files from earlier versions. Imports merge: nothing is removed, a title reviewed or changed more recently in the file takes the file’s version, and anything else only fills in what’s blank here. Taste profile for AI copies a summary you can paste into Claude.</p>
       <p class="import-error" id="importError" role="alert" hidden></p>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </section>
+    <section class="setting" id="oldPages" hidden>
+      <h3>Titles from the old pages</h3>
+      <button type="button" class="button" id="bringIn">Bring in titles from the old pages</button>
+      <p class="hint">The separate Watchlist and Ratings pages are retired, but their titles are still saved in this browser. This merges them in: nothing is removed, and the newer version of each title wins.</p>
     </section>
     <section class="setting">
       <h3>Theme</h3>
@@ -316,7 +322,7 @@
         <button type="button" role="radio" data-palette="desert"><span class="swatch swatch-desert"></span>Desert</button>
         <button type="button" role="radio" data-palette="aurora"><span class="swatch swatch-aurora"></span>Aurora</button>
       </div>
-      <p class="hint">Kept in this browser, for this page and the classic ratings page.</p>
+      <p class="hint">Kept in this browser.</p>
     </section>
     <section class="setting">
       <h3>Appearance</h3>
@@ -359,7 +365,7 @@
       <div class="cleanup-report" id="cleanupReport" role="status" hidden></div>
     </section>
     <p class="credits">
-      <a href="batch-upload.html">Batch upload</a> · <a href="watchlist.html">Classic watchlist</a> · <a href="ratings.html">Classic ratings</a> ·
+      <a href="batch-upload.html">Batch upload</a> ·
       Film lists built from <a href="https://grouplens.org/datasets/movielens/" rel="noopener" target="_blank">MovieLens</a> (GroupLens Research) ·
       Film details from <a href="https://www.omdbapi.com/" rel="noopener" target="_blank">OMDb</a> ·
       TV lists and details from <a href="https://www.themoviedb.org/" rel="noopener" target="_blank">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.
@@ -371,6 +377,7 @@
 <script src="js/config.js?v=__APP_VERSION__"></script>
 <script src="js/icon-choice.js?v=__APP_VERSION__"></script>
 <script src="js/security.js?v=__APP_VERSION__"></script>
+<script src="js/dom.js?v=__APP_VERSION__"></script>
 <script src="js/title.js?v=__APP_VERSION__"></script>
 <script src="js/store.js?v=__APP_VERSION__"></script>
 <script src="js/save-banner.js?v=__APP_VERSION__"></script>
@@ -382,20 +389,21 @@
 <script src="js/youtube-api.js?v=__APP_VERSION__"></script>
 <script src="js/item-manager.js?v=__APP_VERSION__"></script>
 <script src="js/undo-manager.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/config.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/store.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/tmdb.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/catalog.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/taste.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/feed.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/recommend.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/tvrecs.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/foryou.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/title-search.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/ui.js?v=__APP_VERSION__"></script>
-<script src="js/ratings/app.js?v=__APP_VERSION__"></script>
+<script src="js/review/config.js?v=__APP_VERSION__"></script>
+<script src="js/review/store.js?v=__APP_VERSION__"></script>
+<script src="js/review/tmdb.js?v=__APP_VERSION__"></script>
+<script src="js/review/catalog.js?v=__APP_VERSION__"></script>
+<script src="js/review/taste.js?v=__APP_VERSION__"></script>
+<script src="js/review/feed.js?v=__APP_VERSION__"></script>
+<script src="js/review/recommend.js?v=__APP_VERSION__"></script>
+<script src="js/review/tvrecs.js?v=__APP_VERSION__"></script>
+<script src="js/review/foryou.js?v=__APP_VERSION__"></script>
+<script src="js/review/title-search.js?v=__APP_VERSION__"></script>
+<script src="js/review/ui.js?v=__APP_VERSION__"></script>
+<script src="js/review/app.js?v=__APP_VERSION__"></script>
 <script src="js/app/list-view.js?v=__APP_VERSION__"></script>
-<script src="js/app/watchlist-view.js?v=__APP_VERSION__"></script>
+<script src="js/app/sheets.js?v=__APP_VERSION__"></script>
+<script src="js/app/old-pages.js?v=__APP_VERSION__"></script>
 <script src="js/app/main.js?v=__APP_VERSION__"></script>
 </body>
 </html>

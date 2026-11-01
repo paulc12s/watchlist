@@ -1,9 +1,9 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// Title: the one record shape both pages store, import and export
+// Title: the one record shape the app stores, imports and exports
 //
-// A title is a film, show, video or anything else you track. Both pages keep
-// the same fields, so files move between them without conversion:
+// A title is a film, show, video or anything else you track. Every mode, and
+// every file, uses these fields:
 //
 //   id, title, type ('movie' | 'series' | 'youtube'), year,
 //   imdbID, youtubeID, tmdbId, genres[], director, actors, plot, poster,
@@ -55,6 +55,17 @@ const Title = {
     return String(value || '').trim().replace(/^#+/, '').replace(/\s+/g, ' ').trim();
   },
 
+  // How each type shows: its icon in the sprite, and its name
+  TYPE_ICONS: { movie: 'film', series: 'tv', youtube: 'play' },
+  TYPE_NAMES: { movie: 'Film', series: 'TV', youtube: 'YouTube' },
+
+  // Where a title stands, in the words every mode uses: Loved, Liked, Not
+  // for me, Not interested, Skipped, On your list, or '' for none of those
+  statusLabel(t) {
+    if (this.isLoved(t)) return 'Loved';
+    return { up: 'Liked', down: 'Not for me', pass: 'Not interested', skip: 'Skipped' }[t.verdict] || (t.want ? 'On your list' : '');
+  },
+
   // Watched, but never rated: the 👍 is only the default a watched title
   // gets (see sanitize). A rating of your own always carries a review date.
   isUnrated(t) {
@@ -103,7 +114,7 @@ const Title = {
     // Older versions stored the YouTube URL in plot; the video ID already covers it
     if (youtubeID && plot.includes(youtubeID) && Security.isSafeUrl(plot)) plot = '';
 
-    // The watchlist used to say "watched" and "thumb"; the ratings page "want" and "verdict"
+    // The retired watchlist page said "watched" and "thumb"; the ratings page "want" and "verdict"
     const given = raw.verdict !== undefined ? raw.verdict : raw.thumb;
     let verdict = this.VERDICTS.includes(given) ? given : '';
     const legacyWatched = typeof raw.watched === 'boolean' ? raw.watched : null;

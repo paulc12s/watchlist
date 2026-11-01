@@ -7,7 +7,7 @@
 // Films are keyed by IMDb ID. Recent films MovieLens doesn't have are keyed
 // "title:Name (Year)" and matched on OMDb by title the first time they're dealt.
 //
-// TV lists come live from TMDB (js/ratings/tmdb.js), keyed "tv:<TMDB id>",
+// TV lists come live from TMDB (js/review/tmdb.js), keyed "tv:<TMDB id>",
 // and are fetched when first opened, then kept for a week.
 // ============================================================================
 
@@ -94,7 +94,7 @@ const Catalog = {
   onTvListsChange() {},
 
   async load() {
-    const response = await fetch(RATINGS.CATEGORIES_URL);
+    const response = await fetch(REVIEW.CATEGORIES_URL);
     if (!response.ok) throw new Error('Could not load the film lists');
     this.use(await response.json());
   },
@@ -119,7 +119,7 @@ const Catalog = {
   awardsData: null,
   loadAwards() {
     if (!this.awardsData) {
-      this.awardsData = fetch(RATINGS.AWARDS_URL)
+      this.awardsData = fetch(REVIEW.AWARDS_URL)
         .then(response => {
           if (!response.ok) throw new Error('Could not load the award lists');
           return response.json();

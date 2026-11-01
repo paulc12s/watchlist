@@ -1,29 +1,25 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// Item Management: the watchlist's actions on your titles
-// Storage, changes, imports and exports all go through the shared Library
-// (js/library.js); this adds what the watchlist page needs on top: status
-// messages, undo, and which titles each list shows.
+// Item Management: the app's actions on your titles in Watchlist and Rated
+// Changes go through the shared Library (js/library.js); this adds status
+// messages, undo, which titles each list shows, sorting and filter chips.
+// Imports and exports are in Settings (js/review/ui.js).
 //
-// The watchlist shows titles that are on your list to watch (want) or that
-// you've seen (a thumb). Titles only the ratings page cares about, such as
-// skips, are kept but not shown.
+// The lists show titles on your list to watch (want) or seen (a thumb).
+// Titles only review mode cares about, such as skips, are kept but not shown.
 // ============================================================================
 
 const ItemManager = {
-  async load(database = CONFIG.STORAGE.WATCHLIST) {
-    Store.onSaving = () => UI.setStatus('saving...', false);
-    Store.onSaved = () => UI.setStatus('saved', true);
+  async load(database = CONFIG.STORAGE.APP) {
     Store.onError = error => {
       console.error('Save error:', error);
       UI.setStatus('save failed', false);
     };
 
     try {
-      await Library.open(database);
       // What's shown is what's stored. No save here: rewriting storage on every
       // launch would let an out-of-date copy of the app clobber newer data
-      UI.setStatus('saved', true);
+      await Library.open(database);
     } catch (error) {
       console.error('Load error:', error);
       Library.loadFailed();
@@ -38,7 +34,6 @@ const ItemManager = {
     const { title, duplicate } = Library.add({ want: true, ...fields });
     if (duplicate) {
       UI.setStatus('duplicate item', false);
-      setTimeout(() => UI.setStatus('saved', true), 2000);
       return false;
     }
     if (!title) {
@@ -115,8 +110,7 @@ const ItemManager = {
   // Which list a title belongs to on this page
   LISTS: {
     queue: t => t.want,
-    watched: t => !t.want && Title.isSeen(t),
-    // Every title with that thumb, watched or still on the list
+    // Rated's verdict filter: every title with that thumb, watched or still on the list
     up: t => Title.thumb(t) === 'up',
     down: t => Title.thumb(t) === 'down',
     loved: t => Title.isLoved(t),
@@ -164,15 +158,7 @@ const ItemManager = {
     const byVerdict = list === 'rated' && ['loved', 'up', 'down'].includes(view.verdict) ? this.LISTS[view.verdict] : null;
     const matchesVerdict = (i) => !byVerdict || byVerdict(i);
 
-    const chip = this.chipTest(filter);
-    const matchesSecondaryFilter = (i) => {
-      if (chip) return chip(i);
-      if (filter === 'all') return true;
-      if (filter === 'rewatch') return i.rewatch;
-      if (filter === 'movie' || filter === 'series' || filter === 'youtube') return i.type === filter;
-      if (CONFIG.PRIORITIES.includes(filter)) return Title.displayPriority(i) === filter;
-      return i.platform === filter || i.tag === filter;
-    };
+    const matchesSecondaryFilter = this.chipTest(filter) || (() => true);
 
     return Library.all().filter(i => inList(i) && matchesVerdict(i) && matchesSecondaryFilter(i) && matchesSearch(i));
   },
@@ -184,7 +170,7 @@ const ItemManager = {
 
   TYPE_LABELS: { movie: 'Films', series: 'TV', youtube: 'YouTube' },
 
-  // The filter a chip key stands for, or null for keys older pages use
+  // The filter a chip key stands for, or null for an unknown key
   chipTest(key) {
     if (key === 'all') return () => true;
     if (key === 'rewatch') return t => t.rewatch;
@@ -220,59 +206,5 @@ const ItemManager = {
   // Titles this page shows in any list
   shown() {
     return Library.all().filter(t => t.want || Title.isSeen(t));
-  },
-
-  export() {
-    const blob = new Blob([Library.exportText('watchlist')], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = Library.fileName('watchlist');
-    a.click();
-    URL.revokeObjectURL(url);
-
-    UI.setStatus('exported', true);
-    setTimeout(() => UI.setStatus('saved', true), 2000);
-  },
-
-  import(fileData) {
-    try {
-      if (!fileData || fileData.length === 0) {
-        throw new Error('Empty file');
-      }
-      if (fileData.length > CONFIG.LIMITS.MAX_FILE_SIZE) {
-        throw new Error('File too large');
-      }
-
-      let data;
-      try {
-        data = JSON.parse(fileData);
-      } catch (parseError) {
-        throw new Error('Invalid JSON format');
-      }
-
-      const { added, updated, unchanged } = Library.import(data);
-      UI.hideImportError();
-      UI.render();
-
-      const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-      if (added > 0 || updated > 0) {
-        const parts = [
-          added > 0 && `added ${plural(added, 'item')}`,
-          updated > 0 && `updated ${updated}`,
-          unchanged > 0 && `${unchanged} already up to date`
-        ].filter(Boolean);
-        UI.setStatus(parts.join(', ').replace(/^./, c => c.toUpperCase()), true);
-      } else {
-        UI.setStatus('Nothing new to import (all up to date)', false);
-      }
-      setTimeout(() => UI.setStatus('saved', true), 3000);
-      return true;
-    } catch (error) {
-      console.error('Import error:', error);
-      // Stays on screen until dismissed, so a failed import can't go unnoticed
-      UI.showImportError(`Import failed: ${error.message || 'Invalid data'}`);
-      return false;
-    }
   }
 };

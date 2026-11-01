@@ -1,76 +1,18 @@
 <!DOCTYPE html>
 <!-- Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE. -->
-<!--
-  Landing page: points to the two apps in this project.
--->
+<!-- The site's front door: opens the app (app.html). -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self'; img-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests;">
-<meta name="referrer" content="no-referrer">
-<meta name="theme-color" content="#07090c">
-<meta name="description" content="A movie watchlist and a swipe feed for rating films and building a taste profile. Everything stays in your browser.">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="refresh" content="0; url=app.html">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Movies</title>
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<title>Movies</title>
-<link rel="stylesheet" href="index.css?v=__APP_VERSION__">
 </head>
 <body>
-<main class="page">
-  <header class="intro">
-    <h1>Movies</h1>
-    <p>Keeping track of films and shows. No account, no server: everything stays in your browser, and you can export a backup any time.</p>
-  </header>
-
-  <a class="app-card accent" href="app.html">
-    <span class="app-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><rect x="6.5" y="3.5" width="11" height="15" rx="2"/><path d="M4 7.5v11a2.5 2.5 0 0 0 2.5 2.5h9"/></svg>
-    </span>
-    <span class="app-text">
-      <span class="app-name">Watchlist &amp; Review</span>
-      <span class="app-description">Both in one place. Your watchlist, with a thumb up or down once you’ve seen a title, and a review mode for swiping through curated lists of films and shows. Starts empty: import an export from the classic pages below to bring your titles over.</span>
-    </span>
-    <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
-  </a>
-
-  <h2 class="section-label">Classic pages</h2>
-
-  <a class="app-card" href="watchlist.html">
-    <span class="app-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.6-6.5 4.6v-16a1 1 0 0 1 1-1Z"/></svg>
-    </span>
-    <span class="app-text">
-      <span class="app-name">Watchlist</span>
-      <span class="app-description">What to watch next. Search movies and TV, add YouTube videos, sort by priority, tag by mood or platform, mark titles watched and review them with stars, notes and a rewatch flag.</span>
-    </span>
-    <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
-  </a>
-
-  <a class="app-card" href="ratings.html">
-    <span class="app-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><rect x="2.5" y="10" width="4" height="11" rx="1.2"/><path d="M6.5 11.5 10.6 3.6c1.6.1 2.7 1.5 2.3 3.1L12.2 9.5h6.2a2.3 2.3 0 0 1 2.3 2.7l-1.3 6.9A2.3 2.3 0 0 1 17.1 21H6.5"/></svg>
-    </span>
-    <span class="app-text">
-      <span class="app-name">Ratings</span>
-      <span class="app-description">What you actually like. Swipe through curated lists of films (most watched, Oscar nominees, decades, genres) and TV shows with a thumb up or down, add stars and notes, and build a taste profile of the genres, themes and eras you lean toward.</span>
-    </span>
-    <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
-  </a>
-
-  <section class="together">
-    <h2>Working together</h2>
-    <p>All three pages keep their own data and use the same export file, so an export from any of them imports into the others. Imports merge: nothing is removed, and the more recently changed version of each title wins.</p>
-  </section>
-
-  <footer class="credits">
-    Film lists built from <a href="https://grouplens.org/datasets/movielens/" rel="noopener">MovieLens</a> (GroupLens Research) ·
-    Details and posters from <a href="https://www.omdbapi.com/" rel="noopener">OMDb</a> ·
-    TV from <a href="https://www.themoviedb.org/" rel="noopener">TMDB</a> (this product uses the TMDB API but is not endorsed or certified by TMDB) ·
-    App icon: <a href="https://www.flaticon.com/free-icons/movie" title="movie icons" rel="noopener">Movie icons created by monkik - Flaticon</a> ·
-    <a href="batch-upload.html">Batch add to Watchlist</a>
-  </footer>
-</main>
+<p><a href="app.html">Open Movies</a></p>
 </body>
 </html>

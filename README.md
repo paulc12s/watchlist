@@ -1,35 +1,17 @@
-# Watchlist
+# Movies (watchlist)
 
-A client-side movie, TV, and YouTube watchlist with a swipe feed for reviewing films and shows. `app.html` combines both; the classic `watchlist.html` and `ratings.html` remain. All data stays in your browser via IndexedDB — no server, no account required.
+A client-side app for films, TV and YouTube videos: a watchlist of what to watch next, a record of what you've rated, and a swipe feed for reviewing lists of films and shows, with recommendations from your own ratings. Everything stays in your browser (IndexedDB): no server, no account. Export a file any time as a backup, or to move your titles to another browser or device.
 
-## Features
-
-- **Search & add** movies/TV shows via the OMDb API with automatic metadata (poster, rating, genre, plot)
-- **YouTube videos** — paste a URL to add with auto-generated thumbnail
-- **Manual entry** for anything not in the database
-- **Priority levels** (watching now/high/medium/low) with grouped display
-- **Compact view** — collapse cards to title, poster and one line of tags (remembered per device)
-- **Tags & platforms** — organize by custom tags (family, airplane, art) and streaming platform (Netflix, etc.)
-- **Quick filter** — substring search across titles, combinable with filter buttons
-- **👍 / 👎 instead of a watched checkbox** — watched and rated are the same thing: a thumb marks a title watched, and tapping the thumb it shows puts it back on the list to watch. Watched titles with no thumb count as 👍 (or 👎 if you gave them 1–2★); the default isn't stored, so a real thumb from the ratings page still fills it in. The **Watched**, **👍 Liked** and **👎 Not for me** buttons list those titles instead of the queue (Liked and Not for me include titles still on your list that carry that thumb), each optionally narrowed by another filter. Cards in every list are shown at full strength
-- **Reviews** — rate titles out of 5 stars, jot a few thoughts, and flag them as worth a rewatch; give a thumb up or down in the review or Edit dialog. Each title keeps the date you last reviewed it (thumb, stars, notes or rewatch), or the date you first marked it watched if you didn't review it
-- **Rewatch filter** — find flagged titles in either the active or watched list
-- **Inline editing** — click any badge (priority, tag, platform) to edit in place
-- **Import/Export** — JSON backup and restore, in the same file format as the ratings page, so either page's export imports into the other (see below)
-- **Undo** — revert deletes, edits, and thumbs
-- **Batch upload** — add many titles at once via `batch-upload.html`
-- **Dark mode** — follows system preference
-- **Mobile-ready** — responsive layout with iOS PWA support
+The app is `app.html`. The addresses of the retired Watchlist and Ratings pages (`watchlist.html`, `ratings.html`) and the site's front page (`index.html`) forward to it, so old bookmarks and home-screen icons keep working.
 
 ## Setup
 
-1. Get a free API key from [OMDb](http://www.omdbapi.com/apikey.aspx)
-2. Set it in `js/config.js` → `CONFIG.API.OMDB_KEY`
-3. Serve the directory over HTTP:
+1. The OMDb key is set in `js/config.js` (`CONFIG.API.OMDB_KEY`, falling back to OMDb's demo key). Get your own free key from [OMDb](http://www.omdbapi.com/apikey.aspx) if you fork this
+2. Serve the directory over HTTP:
    ```
    python3 -m http.server 8000
    ```
-4. Open `http://localhost:8000/` (landing page) or `http://localhost:8000/watchlist.html`
+3. Open `http://localhost:8000/app.html`
 
 ## Tests
 
@@ -37,7 +19,7 @@ A client-side movie, TV, and YouTube watchlist with a swipe feed for reviewing f
 node --test tests/*.test.js
 ```
 
-`tests/library.test.js` covers the shared record, merging, imports and exports; `tests/watchlist.test.js` and `tests/ratings.test.js` each page; `tests/project.test.js` checks every source file carries the copyright notice. `tests/fixtures/` holds a sample of every file format the apps have exported, written by that version's own code; the tests import each one into both pages and fail if any field is dropped or changed. If you rename a field, keep reading the old name in `Title.sanitize` (and `Title.suppliedFields`) and add it to `FIELD_NOW` in `tests/library.test.js`. If you change the export format, add a new fixture.
+`tests/library.test.js` covers the shared record, merging, imports and exports, and bringing titles in from the retired pages; `tests/lists.test.js` the Watchlist and Rated lists; `tests/review.test.js` review mode, the recommender, search and award lists; `tests/store.test.js` storage safety; `tests/project.test.js` checks every source file carries the copyright notice, every page's assets exist, the forwarding pages, icons and themes. `tests/fixtures/` holds a sample of every file format the apps have exported, written by that version's own code; the tests import each one and fail if any field is dropped or changed. If you rename a field, keep reading the old name in `Title.sanitize` (and `Title.suppliedFields`) and add it to `FIELD_NOW` in `tests/library.test.js`. If you change the export format, add a new fixture.
 
 ## Deploying
 
@@ -45,20 +27,9 @@ node --test tests/*.test.js
 
 Installed copies (such as an iPhone home-screen icon) check `version.json` on launch and whenever they come back to the foreground, and reload when a newer version is deployed. Locally, or when served straight from the branch, the version is unstamped and the check is skipped.
 
-## Usage
+## The app (`app.html`)
 
-- **Add** — click `+ Add`, search for a title, select a result, set priority/tag/platform, and save
-- **Search tips** — add a year to narrow (`dune 1984`), use the All / Movies / TV toggle, or paste an IMDb link or `tt…` ID to jump straight to a title. Exact title matches and recent releases rank first; top results show director and cast to tell same-named titles apart
-- **Filter** — use the filter buttons (type, priority, tag, platform) and/or type in the quick search bar
-- **Watched** — tap 👍 or 👎 on a card to mark it watched; click Watched, 👍 Liked or 👎 Not for me to list those titles (click it again to go back to the queue); click another filter to narrow any of them
-- **Review** — click the pencil icon next to the thumbs to set stars, notes and the rewatch flag; tap the current star again to clear the rating. Tap the lit thumb on a watched title (say, one flagged for rewatch) to put it back in the queue. A title on your list can carry a review from the ratings page and stay on the list; it shows its thumb as a badge
-- **Edit** — click a badge to edit inline, or click Edit for the full modal
-- **Poster click** — opens a Google search for the title
-- **Export/Import** — see *Moving titles between pages, browsers and devices* below. A failed import shows an error that stays until you dismiss it
-
-## Watchlist & Review (`app.html`)
-
-One page with three modes, switched with **Watchlist | Rated | Review** at the top. All three work on the same titles, so a thumb given in one shows in the others straight away. The page keeps its own database (`TitlesDB`) and starts empty: export from the classic pages and import here to bring titles over. Its export is the same file format as theirs. Light and dark themes follow the device.
+Three modes, switched with **Watchlist | Rated | Review** at the top, all on the same titles, so a thumb given in one shows in the others straight away. Titles are kept in the app's database (`TitlesDB`).
 
 - **Watchlist mode** — just what you want to watch, grouped by priority, with a search box and filter chips (priority, type, rewatch, platform, tag), each showing how many titles it covers. Tap ❤️, 👍 or 👎 once you've watched a title and it moves to Rated
 - **Rated mode** — two lists, each sortable by recently rated, your rating, title, year or IMDb rating (remembered on the device):
@@ -69,41 +40,22 @@ One page with three modes, switched with **Watchlist | Rated | Review** at the t
 - **Tags and platforms** — each is stored in one spelling, on every add, edit and import (`Library.labelName`): "art", "ART" and "#art" are saved as the spelling already in use; a new one is saved as typed, without # or extra spaces. The fields suggest labels already in use. A type, platform or tag with the same name (YouTube) is a single chip
 - **Run cleanup** (Settings → Maintenance) — tidies data saved before that rule: every tag and platform rewritten in one spelling (one with capitals wins, so "Art" over "art"), titles re-checked and repaired, duplicates merged, IDs made unique. Then it reads back what's saved on the device and checks it matches what you see, and reports storage use. Dates stay as they are, and nothing is deleted
 - **Adding** — **+** opens a sheet: search OMDb (with year, type, or an IMDb link), add by hand, or add a YouTube video; then add it to watch, or as already seen with 👍 or 👎
-- **Review mode** — the ratings swipe feed (below), started the first time you open it, so its lists only load when you use them
-- **⚙ Settings** — export, import and the taste profile for both modes, plus review order, TMDB key and skipped titles; links to batch upload and the classic pages
-- **Theme** (Settings) — Basic (the default look), or Pastel, Metal, Pride, Desert or Aurora, which colour the whole app: a tinted background with a two-colour glow, tinted glass, borders and sheets, and selected tabs and chips filled with the theme's colours. Each has a light and a dark version. Kept per browser (`js/palette.js`). A theme sets a handful of `--p-*` values in `ratings.css`; every tint is mixed from those, and text is checked at 4.5:1 contrast or better on the tinted surfaces
+- **Theme** (Settings) — Basic (the default look), or Pastel, Metal, Pride, Desert or Aurora, which colour the whole app: a tinted background with a two-colour glow, tinted glass, borders and sheets, and selected tabs and chips filled with the theme's colours. Each has a light and a dark version. Kept per browser (`js/palette.js`). A theme sets a handful of `--p-*` values in `base.css`; every tint is mixed from those, and text is checked at 4.5:1 contrast or better on the tinted surfaces
 - **Appearance** (Settings) — Auto (follow the device, including when it switches at sunset), Light or Dark, kept per browser. The browser's bar colour follows the page
+- **⚙ Settings** — export, import, the taste profile for an AI assistant, theme, appearance, app icon, review order, TMDB key, maintenance, and (if the retired pages saved any titles in this browser) **Bring in titles from the old pages**, which merges them in by the usual import rules
 
-## Moving titles between pages, browsers and devices
+## Review mode
 
-Both pages store titles in the same shape (`js/title.js`) through the same code (`js/library.js`), each in its own database, so they never change each other's data. Files carry titles between them, and between browsers or devices:
-
-- **Export** (either page) saves every title on that page as `{ "app": "titles", "version": 2, "titles": [...] }`, named with the local date and time (`watchlist-2026-10-31-1432.json`, `ratings-…`). Either page imports it
-- **Import** (either page) also reads every file earlier versions wrote: watchlist exports, ratings backups, *Export for Watchlist* and want-to-watch files, and batch uploads
-- **Merging:** a title is matched by IMDb ID, YouTube ID, or its own ID for manual entries. Your review (thumb, stars, notes, rewatch) comes from whichever copy was reviewed more recently; everything else from whichever changed more recently. A copy with no dates (files from before dates were kept) never wins: it only fills in what's blank. Merging isn't an edit, so it doesn't make a title newer
-- **Seen and rated are the same thing:** a title you've watched, or given stars or notes, has a thumb (from its stars, otherwise 👍). A title on your list to watch can carry a review and stays on the list
-- **Deletes are local:** removing a title on one page leaves the other page's copy, and importing from it brings the title back
-- **Each browser and address keeps its own data.** `localhost` and the published site, Safari and Chrome, and different devices don't share; export and import to move between them
-
-### Keeping your data safe
-
-- **If your saved titles can't be loaded**, the page carries on empty but saves nothing for the rest of the visit, so the stored titles can't be overwritten. A red banner says so; reload to try again
-- **If a save fails**, it's kept and retried (after 2, 5, 15, 30 seconds, then every minute) on a fresh connection to the database, and a red banner stays until a save works. Export a backup if it doesn't go away
-- **One tab saves at a time.** Each save writes the whole list, so two tabs of the same page would undo each other's changes. The tab opened last saves; older tabs stop saving and show a banner with a Reload button
-
-## Ratings (`ratings.html`)
-
-A separate swipe feed for rating films and TV shows and building a taste profile. It keeps its own copy of your titles (`RatingsDB`) and never changes the watchlist's; the two pages exchange files (see below).
+A swipe feed for rating films and TV shows and building a taste profile, started the first time you open it, so its lists only load when you use them.
 
 - **Swipe right / left** — thumbs up / down. **❤️** (or L) — loved it: 👍 with five stars, the strongest signal the recommender gets. **Swipe up** — skip: not seen, or can't remember. A skip isn't a rating: the title stays in its list to rate, and comes round again after the titles you haven't seen. **Pass** on the card (or X) — not interested: not seen and don't want to, which counts against similar titles. **Swipe down** — back to the previous film. Arrow keys do the same on a computer
 - **On the card** — stars (1–5 keys), 🔖 want to watch (W), 🔁 would rewatch (R), ✏️ notes (N). Stars, notes or rewatch mean you've seen it, so the film needs a thumb rather than a skip
-- **TV** — add a free [TMDB](https://www.themoviedb.org/settings/api) key in settings (kept on that device only) to unlock live TV lists: most watched, top rated, trending, genres, networks and decades. Shows are rated like films and stored by IMDb ID, so they match the watchlist's TV items in both directions. TV ratings shape the taste profile but not recommendations, which use MovieLens films
+- **TV** — add a free [TMDB](https://www.themoviedb.org/settings/api) key in settings (kept on that device only) to unlock live TV lists: most watched, top rated, trending, genres, networks and decades. Shows are rated like films and stored by IMDb ID, so they match the watchlist's TV items. TV ratings shape the taste profile but not recommendations, which use MovieLens films
 - **Lists** — tap the list name to choose (most watched, love-it-or-hate-it, award lists, decades, genres, hidden gems, a mix); the header and the list sheet show how many titles are left to rate, skipped ones included. ⏭ moves to the next list. When a pass through a list leaves only titles you skipped, you can go through them again or move on; a list with everything rated, passed on or on your list is marked ✓ *All rated*. Best-first, shuffled or learn-fastest order is in settings
 - **Find a title** — the search at the top of *Choose a list* finds any film or show and deals its card next, to rate it straight away (Enter takes the top one). Suggestions appear as you type, forgiving a letter or two (“bagonia” → Bugonia), from your own titles, about 5,000 well-known films, and TMDB's trending and popular titles when the device has a TMDB key; OMDb's results follow once you pause, matching half-typed words (“bugo” → Bugonia). A year (“dune 1984”) or an IMDb link narrows it. The add sheet in Watchlist mode searches the same way
 - **Award lists** — *Best Picture nominees*, *Oscar acting nominees*, *Oscar directing, writing & cinematography*, *International feature nominees*, *Documentary feature nominees*, *Animated feature nominees* and *Golden Globe & Emmy TV nominees* (drama, comedy and limited series), each covering the last 10 ceremonies, newest first, winners first; plus *Festival top prizes* (Cannes, Venice and Berlin winners, last 25 years) and the *Sight and Sound critics' poll* (the 2022 top 100, in poll order). Built by `node tools/build-awards.js` from Wikidata (CC0), Wikipedia's nominee tables and the BFI's poll page into `data/awards.json` (38 KB, about 13 KB compressed), which is fetched only when one of them is opened. The build makes no OMDb requests. The TV list deals shows by IMDb ID, so it works without a TMDB key. Re-run the build after each awards season
 - **Tags & the crowd** — cards show MovieLens viewers' tags (“twist ending”, “atmospheric”). After you give a thumb, you see what share of MovieLens viewers liked the film; it's hidden until then so it can't sway you
 - **📊 My taste** — genres, themes & style (tags), decades and directors you lean toward or away from; how often you agree with the crowd and where you don't; plus your liked / disliked / want / skipped films
-- **⚙ Settings** — export and import (see below); copy a taste profile to paste into an AI assistant for recommendations
 
 The lists in `data/categories.json` are built from [MovieLens 32M](https://grouplens.org/datasets/movielens/) (ratings up to October 2023; non-commercial licence) plus hand-curated Best Picture nominees in `tools/oscars.json` (which the award build folds into *Best Picture nominees*). Each film carries its top MovieLens tags (cleaned: opinions, awards and genre repeats dropped, synonyms folded) and the share of its raters who gave 4+ stars. To rebuild, unzip `ml-32m.zip` and run `node tools/build-categories.js path/to/ml-32m`. Posters and details come from OMDb when a card is shown and are cached, so each film costs one request.
 
@@ -118,7 +70,7 @@ The lists in `data/categories.json` are built from [MovieLens 32M](https://group
 
 Ratings count by strength: 👎 −2 · 👍 +1 · 4★ +1.5 · 5★ or ❤️ +2.5 · rewatch +1 · not interested −1 · on your list to watch +0.5. Skips count for nothing (they mean “not seen”; counting them against ranked your own likes lower). Likes the crowd panned count extra in the *Fun* lanes.
 
-**Measuring it on your own ratings:** `node tools/eval-similar.js personal your-export.json` takes any export, hides each title you were dealt in turn, and reports where your likes and loved titles rank, how often strong picks turned out to be films you'd seen, how the saved guesses held up, and which rated films are missing from the film data. Your file stays on your computer (exports are git-ignored). Scoring lives in `js/ratings/recommend.js` (shared by films and TV), TV data in `js/ratings/tvrecs.js`, and the sheet, guesses and learn order in `js/ratings/foryou.js`.
+**Measuring it on your own ratings:** `node tools/eval-similar.js personal your-export.json` takes any export, hides each title you were dealt in turn, and reports where your likes and loved titles rank, how often strong picks turned out to be films you'd seen, how the saved guesses held up, and which rated films are missing from the film data. Your file stays on your computer (exports are git-ignored). Scoring lives in `js/review/recommend.js` (shared by films and TV), TV data in `js/review/tvrecs.js`, and the sheet, guesses and learn order in `js/review/foryou.js`.
 
 ```
 node tools/build-similar.js path/to/ml-32m                           # rebuild data/similar.json (~1 min)
@@ -127,50 +79,65 @@ node tools/eval-similar.js movielens path/to/ml-32m holdout.json     # accuracy 
 node tools/eval-similar.js personal ratings-export.json             # how well it finds your own favourites
 ```
 
+## Backups and moving titles
+
+All titles are stored in one shape (`js/title.js`) through one code path (`js/library.js`). Files carry them between browsers and devices:
+
+- **Export** saves every title as `{ "app": "titles", "version": 2, "titles": [...] }`, named with the local date and time (`titles-2026-10-31-1432.json`)
+- **Import** also reads every file earlier versions wrote: the retired pages' watchlist exports and ratings backups, *Export for Watchlist* and want-to-watch files, and batch uploads
+- **Merging:** a title is matched by IMDb ID, YouTube ID, or its own ID for manual entries. Your review (thumb, stars, notes, rewatch) comes from whichever copy was reviewed more recently; everything else from whichever changed more recently. A copy with no dates (files from before dates were kept) never wins: it only fills in what's blank. Merging isn't an edit, so it doesn't make a title newer. A file never removes a title
+- **Seen and rated are the same thing:** a title you've watched, or given stars or notes, has a thumb (from its stars, otherwise 👍). A title on your list to watch can carry a review and stays on the list
+- **Each browser and address keeps its own data.** `localhost` and the published site, Safari and Chrome, and different devices don't share; export and import to move between them
+- **Batch upload** (`batch-upload.html`) looks up a list of titles and writes a file to import
+
+### Keeping your data safe
+
+- **If your saved titles can't be loaded**, the page carries on empty but saves nothing for the rest of the visit, so the stored titles can't be overwritten. A red banner says so; reload to try again
+- **If a save fails**, it's kept and retried (after 2, 5, 15, 30 seconds, then every minute) on a fresh connection to the database, and a red banner stays until a save works. Export a backup if it doesn't go away
+- **One tab saves at a time.** Each save writes the whole list, so two tabs of the same page would undo each other's changes. The tab opened last saves; older tabs stop saving and show a banner with a Reload button
+
 ## Files
 
 ```
-index.html           Landing page (+ index.css)
-app.html             Watchlist & Review in one page (+ app.css, over ratings.css)
-watchlist.html       Classic watchlist
-batch-upload.html    Bulk title importer (+ batch-upload.css)
+app.html             The app (+ app.css, over base.css: the design system and review mode)
+index.html, watchlist.html, ratings.html
+                     Forward to app.html (the front page, and the retired pages' addresses)
+batch-upload.html    Bulk title lookup, writing a file to import (+ batch-upload.css)
 version.json         Deployed version, stamped by the Pages workflow
 movie.png, movie2.png  Icon artwork: black and colour clapperboards (transparent, 512px)
 icons/, icons/colour/  Site icons built from them by tools/build-icons.py (needs Pillow):
                      opaque white tiles, since iOS shows transparency as black.
                      Settings → App icon picks the set (js/icon-choice.js)
-watchlist.css        Styles (light/dark, responsive)
 js/
-  Shared by every page:
-  config.js          API keys, limits, each page's database
+  config.js          API keys, limits, the app's database (and the retired pages')
   security.js        Escaping, URL checks, html`` templates
   title.js           The one record shape: sanitizing (incl. old field names), merging
   store.js           IndexedDB key-value storage: batched saves, retries, one saving tab
   save-banner.js     The banner that stays while changes can't be saved
-  palette.js         Colour theme choice, applied in <head> before the page draws
-  library.js         A page's titles: every change, import and export goes through here
+  palette.js         Theme and appearance, applied in <head> before the page draws
+  icon-choice.js     App icon choice
+  library.js         The titles: every change, import, export and tag spelling goes through here
   omdb.js            OMDb requests (key fallback, cache) and parsing
-  version-check.js   Reload installed copies when a new version is deployed
-  Watchlist and batch upload:
-  state.js           Page state (filters, lists, dialogs)
-  movie-api.js       Search: query parsing and ranking
+  movie-api.js       Search: query parsing, OMDb prefix matching, ranking
   youtube-api.js     YouTube URL parsing
-  item-manager.js    Watchlist actions: add, rate, delete, lists, import/export status
+  version-check.js   Reload installed copies when a new version is deployed
+  state.js           What each list view shows; the undo stack
+  item-manager.js    Watchlist and Rated: lists, sorting, chips, thumbs, undo
   undo-manager.js    Undo stack
-  ui.js              Rendering & event handling
-  app.js             Initialization
   batch-upload.js    Batch upload tool
-  ratings/           Ratings feed: config, store (feed rules over the Library), tmdb,
-                     catalog, taste, feed, recommend, tvrecs, foryou, ui, app, and
-                     boot (starts ratings.html; app.html starts the feed itself)
-  app/               Combined page: list-view (Watchlist and Rated lists), watchlist-view (sheets), main (modes)
-ratings.html         Classic ratings swipe feed (+ ratings.css)
-data/categories.json Film lists for the ratings page
+  dom.js             icon(), setChecked() and checked(), used by every mode
+  app/               main (modes, settings), list-view (Watchlist and Rated lists),
+                     sheets (add and title sheets), old-pages (bring in
+                     the retired pages' titles)
+  review/            Review mode: config, store (rating rules over the Library), tmdb,
+                     catalog, taste, feed, recommend, tvrecs, foryou, title-search
+                     (both searches), ui, app
+data/categories.json Film lists for review mode
 data/similar.json    Similar-films data for recommendations
 data/awards.json     Award lists, fetched the first time one is opened
 tools/               build-categories.js (MovieLens → lists), oscars.json,
                      build-similar.js + eval-similar.js (recommender data and tests),
-                     build-awards.js (award lists from Wikidata and Wikipedia)
+                     build-awards.js (award lists), build-icons.py
 ```
 
 ## Licence
@@ -181,4 +148,4 @@ Third-party data and services keep their own terms, which the MIT License doesn'
 - **MovieLens** data in `data/` (built from MovieLens 32M by GroupLens Research) is under GroupLens's licence, which allows non-commercial use only.
 - **TMDB:** this product uses the TMDB API but is not endorsed or certified by TMDB.
 - **OMDb:** film details and posters come from the OMDb API under its terms of use.
-- **App icons** (`movie.png`, `movie2.png` and the `icons/` built from them): [Movie icons created by monkik - Flaticon](https://www.flaticon.com/free-icons/movie), used under Flaticon's free licence, which requires this attribution. It's shown in the credits on every page.
+- **App icons** (`movie.png`, `movie2.png` and the `icons/` built from them): [Movie icons created by monkik - Flaticon](https://www.flaticon.com/free-icons/movie), used under Flaticon's free licence, which requires this attribution. It's shown in the app's credits (Settings).

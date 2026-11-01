@@ -1,18 +1,17 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
-// Tests for the watchlist page: search, OMDb, lists, thumbs and status.
-// Storing, merging, importing and exporting are shared with the ratings page
-// and tested in tests/library.test.js. Run with: node --test tests/*.test.js
+// Tests for Watchlist and Rated modes: search, OMDb, lists, thumbs, tags and status.
+// Storing, merging, importing and exporting are tested in tests/library.test.js. Run with: node --test tests/*.test.js
 'use strict';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { loadWatchlist, plain } = require('./helpers');
+const { loadLists, plain } = require('./helpers');
 
 const ids = results => plain(results.map(r => r.imdbID));
 const titles = app => plain(app.ItemManager.getFiltered().map(i => i.title));
 
 test('html escapes interpolated values but not nested html', () => {
-  const { html } = loadWatchlist();
+  const { html } = loadLists();
   const name = '<img src=x onerror=alert(1)>';
   assert.equal(String(html`<b title="${'"q"'}">${name}</b>`),
     '<b title="&quot;q&quot;">&lt;img src=x onerror=alert(1)&gt;</b>');
@@ -24,7 +23,7 @@ test('html escapes interpolated values but not nested html', () => {
 // ---- Search -------------------------------------------------------------------
 
 test('parseQuery recognises IMDb links, trailing years, and title-numbers', () => {
-  const { MovieAPI } = loadWatchlist();
+  const { MovieAPI } = loadLists();
   assert.equal(MovieAPI.parseQuery('https://m.imdb.com/title/tt31450459/?ref_=x').imdbID, 'tt31450459');
   assert.equal(MovieAPI.parseQuery('dune 1984').year, '1984');
   assert.equal(MovieAPI.parseQuery('dune (1984)').title, 'dune');
@@ -34,7 +33,7 @@ test('parseQuery recognises IMDb links, trailing years, and title-numbers', () =
 });
 
 test('rank puts exact titles first, then requested year, then recent releases', () => {
-  const { MovieAPI } = loadWatchlist();
+  const { MovieAPI } = loadLists();
   const thisYear = String(new Date().getFullYear());
   const candidates = [
     { imdbID: '1', title: 'Gold Digger', year: thisYear },
@@ -67,7 +66,7 @@ const hostileOmdb = {
 };
 
 test('OMDb details: non-strings dropped, lengths capped, bad ratings and unsafe posters removed', () => {
-  const { OMDb, Security, Title } = loadWatchlist();
+  const { OMDb, Security, Title } = loadLists();
   const details = OMDb.parseDetails(hostileOmdb);
   assert.deepEqual(plain([details.poster, details.year, details.genres, details.imdbRating, details.director, details.actors]),
     ['', null, [], null, '', '']);
@@ -81,7 +80,7 @@ test('OMDb details: non-strings dropped, lengths capped, bad ratings and unsafe 
 });
 
 test('OMDb details and search results without a real IMDb ID are dropped', async () => {
-  const app = loadWatchlist();
+  const app = loadLists();
   assert.equal(app.OMDb.parseDetails({ ...hostileOmdb, imdbID: '../../evil' }), null);
   assert.equal(app.OMDb.parseDetails({ ...hostileOmdb, Type: 'game' }), null);
   app.setFetch(async () => ({
@@ -120,7 +119,7 @@ const overLimit = { status: 200, json: async () => ({ Response: 'False', Error: 
 
 test('OMDb uses the app key, and switches to the fallback key for the visit if it is rejected', async () => {
   for (const rejection of [invalidKey, overLimit]) {
-    const app = loadWatchlist();
+    const app = loadLists();
     const keysUsed = fakeOmdb(app, rejection);
     assert.equal((await app.MovieAPI.getDetails('tt0111161')).title, 'Shawshank');
     assert.equal((await app.MovieAPI.getDetails('tt0068646')).title, 'Shawshank');
@@ -130,7 +129,7 @@ test('OMDb uses the app key, and switches to the fallback key for the visit if i
 });
 
 test('OMDb with a working key never touches the fallback, and asks once per title', async () => {
-  const app = loadWatchlist();
+  const app = loadLists();
   const keysUsed = fakeOmdb(app, null);
   await app.MovieAPI.getDetails('tt0111161');
   await app.OMDb.details({ i: 'tt0111161' });
@@ -138,7 +137,7 @@ test('OMDb with a working key never touches the fallback, and asks once per titl
 });
 
 test('OMDb reports a key problem when the fallback key fails too', async () => {
-  const app = loadWatchlist();
+  const app = loadLists();
   app.setFetch(async () => invalidKey);
   await assert.rejects(app.MovieAPI.getDetails('tt0111161'), /Invalid API key/);
 });
@@ -146,67 +145,35 @@ test('OMDb reports a key problem when the fallback key fails too', async () => {
 // ---- Lists ------------------------------------------------------------------------
 
 function withTitles(list) {
-  const app = loadWatchlist();
+  const app = loadLists();
   app.Library.load(list);
   return app;
 }
 
-test('getFiltered respects priority, type, the watched list and quick search', () => {
+test('getFiltered: priority and type chips, quick search, and titles only review mode cares about stay hidden', () => {
   const app = withTitles([
     { title: 'Now Playing', priority: 'watching', want: true },
     { title: 'Future', priority: 'someday', want: true },
-    { title: 'Show', type: 'series', priority: 'high', want: true },
+    { title: 'Show', type: 'series', priority: 'high', want: true, rewatch: true },
     { title: 'Seen', priority: 'high', verdict: 'up' },
-    { title: 'Skipped on the ratings page', imdbID: 'tt0000009', verdict: 'skip' }
+    { title: 'Skipped in review', imdbID: 'tt0000009', verdict: 'skip' }
   ]);
   const { state } = app;
-  state.filter = 'watching';
+  state.filter = 'priority:watching';
   assert.deepEqual(titles(app), ['Now Playing']);
-  state.filter = 'medium';
+  state.filter = 'priority:medium';
   assert.deepEqual(titles(app), ['Future'], 'unknown priorities show as medium');
-  state.filter = 'series';
+  state.filter = 'label:tv';
+  assert.deepEqual(titles(app), ['Show']);
+  state.filter = 'rewatch';
   assert.deepEqual(titles(app), ['Show']);
   state.filter = 'all';
-  state.list = 'watched';
-  assert.deepEqual(titles(app), ['Seen'], 'titles only the ratings page cares about stay hidden');
+  state.list = 'unrated';
+  assert.deepEqual(titles(app), ['Seen'], 'watched with only the default 👍; the skip stays hidden');
   state.list = 'queue';
   state.quickSearch = 'now';
   assert.deepEqual(titles(app), ['Now Playing']);
-});
-
-test('rewatch filter applies to both the active and watched lists', () => {
-  const app = withTitles([
-    { title: 'Again Soon', rewatch: true, want: true },
-    { title: 'Not Yet', want: true },
-    { title: 'Loved It', rewatch: true, verdict: 'up' },
-    { title: 'Once Was Enough', verdict: 'up' }
-  ]);
-  app.state.filter = 'rewatch';
-  assert.deepEqual(titles(app), ['Again Soon']);
-  app.state.list = 'watched';
-  assert.deepEqual(titles(app), ['Loved It']);
-});
-
-test('👍 and 👎 lists show every title with that thumb, combined with other filters', () => {
-  const app = withTitles([
-    { title: 'Seen, unrated', watched: true },
-    { title: 'Loved show', type: 'series', verdict: 'up' },
-    { title: 'Disliked', verdict: 'down' },
-    { title: 'Low stars', watched: true, stars: 1 },
-    { title: 'Queued, rated elsewhere', want: true, verdict: 'up' },
-    { title: 'Queued', want: true }
-  ]);
-  const { state } = app;
-  state.list = 'up';
-  assert.deepEqual(titles(app), ['Seen, unrated', 'Loved show', 'Queued, rated elsewhere']);
-  state.list = 'down';
-  assert.deepEqual(titles(app), ['Disliked', 'Low stars']);
-  state.list = 'up';
-  state.filter = 'series';
-  assert.deepEqual(titles(app), ['Loved show']);
-  state.filter = 'all';
-  state.list = 'queue';
-  assert.deepEqual(titles(app), ['Queued, rated elsewhere', 'Queued']);
+  state.quickSearch = '';
 });
 
 test('Rated lists every rated title, narrows by verdict, and sorts', () => {
@@ -233,11 +200,12 @@ test('Rated lists every rated title, narrows by verdict, and sorts', () => {
   assert.deepEqual(sorted('recent'), ['Zeta', 'beta', 'Alpha']);
   state.verdict = 'down';
   assert.deepEqual(sorted('recent'), ['Gamma']);
-  state.list = 'watched';
-  assert.deepEqual(sorted('recent'), ['Zeta', 'beta', 'Alpha'], 'the verdict filter only applies to Rated');
+  state.list = 'queue';
+  assert.deepEqual(sorted('recent'), ['Gamma', 'Delta'], 'the verdict filter only applies to Rated');
   state.verdict = 'all';
 
   // The Rated mode keeps its own view state: the watchlist's search and list don't touch it
+  state.list = 'rated';
   state.quickSearch = 'zeta';
   const rated = { list: 'rated', filter: 'all', quickSearch: '', verdict: 'down', sort: 'recent' };
   assert.deepEqual(plain(ItemManager.getFiltered(rated).map(t => t.title)), ['Gamma']);
@@ -416,7 +384,7 @@ test('delete removes the title, and undo puts it back where it was', () => {
 });
 
 test('adding puts the title on the list and refuses duplicates', () => {
-  const app = loadWatchlist();
+  const app = loadLists();
   assert.equal(app.ItemManager.add({ title: 'Dune', imdbID: 'tt1160419', genres: 'Action, Sci-Fi', imdbRating: '8.0' }), true);
   const dune = app.Library.byImdb('tt1160419');
   assert.deepEqual(plain([dune.want, dune.genres, dune.imdbRating]), [true, ['Action', 'Sci-Fi'], 8]);
@@ -426,32 +394,21 @@ test('adding puts the title on the list and refuses duplicates', () => {
 
 // ---- Import, export and status -------------------------------------------------------
 
-test('import reports what changed, and a failure stays on screen until the next good import', () => {
-  const app = loadWatchlist();
-  assert.equal(app.ItemManager.import(JSON.stringify({ something: 1 })), false);
-  assert.match(app.errors.at(-1), /Import failed: Not a watchlist or ratings export/);
-  assert.equal(app.ItemManager.import('not json'), false);
-  assert.match(app.errors.at(-1), /Invalid JSON format/);
-  assert.equal(app.ItemManager.import(JSON.stringify([{ title: 'A', imdbID: 'tt0000001' }])), true);
-  assert.equal(app.errors.at(-1), null);
-  assert.equal(app.statuses.at(-1), 'Added 1 item');
-});
-
-test('status shows saved once stored titles have loaded, including an empty list', async () => {
-  for (const stored of [JSON.stringify([{ title: 'A' }]), '[]', undefined]) {
-    const app = loadWatchlist();
-    if (stored !== undefined) app.Store.saved.set('watchlist_v1', stored);
+test('loading says nothing when it works, including an empty list, and says so when it fails', async () => {
+  for (const stored of [[{ title: 'A' }], [], undefined]) {
+    const app = loadLists();
+    if (stored !== undefined) app.Store.saved.set('titles_v2', stored);
     await app.ItemManager.load();
-    assert.equal(app.statuses.at(-1), 'saved', `stored: ${stored}`);
+    assert.deepEqual(app.statuses, [], `stored: ${JSON.stringify(stored)}`);
   }
-  const broken = loadWatchlist();
-  broken.Store.saved.set('watchlist_v1', '{not json');
+  const broken = loadLists();
+  broken.Store.saved.set('titles_v2', '{not json');
   await broken.ItemManager.load();
   assert.equal(broken.statuses.at(-1), 'load failed');
 });
 
 test('titles that fail to load are never overwritten: nothing saves for the rest of the visit', async () => {
-  const app = loadWatchlist();
+  const app = loadLists();
   app.Store.saved.set('titles_v2', { not: 'a list' });
   await app.ItemManager.load();
   assert.equal(app.Library.all().length, 0, 'the page carries on empty');
@@ -461,11 +418,11 @@ test('titles that fail to load are never overwritten: nothing saves for the rest
 });
 
 test('a title can be added as already seen, with its thumb', () => {
-  const app = loadWatchlist();
+  const app = loadLists();
   assert.equal(app.ItemManager.add({ title: 'Arrival', imdbID: 'tt2543164', verdict: 'up', want: false }), true);
   const t = app.Library.byImdb('tt2543164');
   assert.deepEqual(plain([t.want, t.verdict]), [false, 'up']);
   assert.ok(t.reviewDate, 'adding it as seen dates the review');
-  app.state.list = 'watched';
-  assert.deepEqual(plain(app.ItemManager.getFiltered().map(i => i.title)), ['Arrival']);
+  app.state.list = 'rated';
+  assert.deepEqual(plain(app.ItemManager.getFiltered().map(i => i.title)), ['Arrival'], 'in Rated, not the list to watch');
 });

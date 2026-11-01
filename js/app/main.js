@@ -3,7 +3,7 @@
 // The combined page (app.html): three modes over one set of titles in this
 // page's own database.
 //   Watchlist  what to watch and what you've watched (js/app/list-view.js)
-//   Review     the ratings feed (js/ratings/), started the first time you
+//   Review     the swipe feed (js/review/), started the first time you
 //              open it so its lists only load when needed
 //   Rated      everything you've rated, filtered and sorted (list-view.js)
 // All change titles through the shared Library, so each mode sees the
@@ -20,8 +20,7 @@ const Main = {
   async init() {
     // The ratings UI owns the sheets every mode shares: settings (export,
     // import), notes, lists, taste. Its feed waits for review mode.
-    RatingsUI.init();
-    RatingsUI.exportPrefix = 'titles';
+    ReviewUI.init();
     UI.init();
 
     document.querySelectorAll('.mode-switch [data-mode]').forEach(tab => {
@@ -59,6 +58,7 @@ const Main = {
     });
 
     document.getElementById('runCleanup').addEventListener('click', () => this.runCleanup());
+    document.getElementById('bringIn').addEventListener('click', () => this.bringIn());
 
     // A change in either mode (or an import) shows in watchlist mode; it
     // re-renders once per frame however many titles changed
@@ -69,13 +69,14 @@ const Main = {
       requestAnimationFrame(() => {
         pending = false;
         UI.render();
-        RatingsUI.updateHeader();
+        ReviewUI.updateHeader();
       });
     };
 
     await ItemManager.load(CONFIG.STORAGE.APP);
-    await RatingsApp.loadPrefs();
+    await ReviewApp.loadPrefs();
     TitleSearch.init();
+    this.offerOldPages();
 
     let saved = '';
     try {
@@ -127,10 +128,30 @@ const Main = {
         lines.push(`Storage: ${(usage / 1e6).toFixed(1)} MB used of ${(quota / 1e9).toFixed(1)} GB${persisted ? ', kept by the browser' : ''}.`);
       }
       show(lines, matches);
-      RatingsUI.toast(report.changed ? 'Cleanup done' : 'Everything was already tidy', 'check');
+      ReviewUI.toast(report.changed ? 'Cleanup done' : 'Everything was already tidy', 'check');
     } catch (error) {
       console.error('Cleanup failed:', error);
       show([`Cleanup couldn’t finish: ${error.message}. Nothing was lost; export a backup to be safe.`], false);
+    } finally {
+      button.disabled = false;
+    }
+  },
+
+  // Settings → Titles from the old pages: shown only if they saved any here
+  async offerOldPages() {
+    const count = await OldPages.count();
+    document.getElementById('oldPages').hidden = !count;
+    document.getElementById('bringIn').textContent = `Bring in ${count} title${count === 1 ? '' : 's'} from the old pages`;
+  },
+
+  async bringIn() {
+    const button = document.getElementById('bringIn');
+    button.disabled = true;
+    try {
+      const { added, updated } = await OldPages.bringIn();
+      ReviewUI.toast(added || updated ? `From the old pages: ${added} new, ${updated} updated` : 'Everything from the old pages was already here', 'check');
+    } catch (error) {
+      ReviewUI.toast(`Couldn’t bring them in: ${error.message}`);
     } finally {
       button.disabled = false;
     }
@@ -145,7 +166,7 @@ const Main = {
     for (const [name, id] of Object.entries(this.PANELS)) document.getElementById(id).hidden = name !== mode;
     document.getElementById('addButton').hidden = mode !== 'watchlist';
     document.body.dataset.mode = mode;
-    RatingsUI.paused = !review;
+    ReviewUI.paused = !review;
     UI.showView(review ? null : mode);
     try {
       localStorage.setItem(this.MODE_KEY, mode);
@@ -155,14 +176,14 @@ const Main = {
 
     if (review) {
       if (!this.reviewStart) {
-        this.reviewStart = RatingsApp.start().catch(error => {
+        this.reviewStart = ReviewApp.start().catch(error => {
           console.error('Review mode failed to start:', error);
-          RatingsUI.toast(`Could not load the lists: ${error.message}`);
+          ReviewUI.toast(`Could not load the lists: ${error.message}`);
           this.reviewStart = null;
         });
       } else {
         // Titles may have changed in the other modes
-        RatingsUI.updateHeader();
+        ReviewUI.updateHeader();
       }
     }
   }

@@ -251,7 +251,7 @@ function removeItem(index) {
     : `${batch.items.length} item${batch.items.length === 1 ? '' : 's'} in your watchlist`;
 }
 
-// The same file format both pages export, so either page's Import accepts it
+// The same file format the app exports, so its Import accepts it
 function exportPayload() {
   return Library.fileText(batch.items, 'batch-upload');
 }

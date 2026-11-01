@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
-// Tests for the ratings page: the feed, catalog, taste profile, recommender
+// Tests for review mode: the feed, catalog, taste profile, recommender
 // and TV. Storing, merging, importing and exporting are shared with the
 // watchlist and tested in tests/library.test.js. Run with: node --test tests/*.test.js
 'use strict';
@@ -7,13 +7,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-const { read, loadRatings, film, plain } = require('./helpers');
+const { read, loadReview, film, plain } = require('./helpers');
 
 test('swipes record verdicts; thumbs clear "want" and stamp when rated', () => {
-  const { Ratings } = loadRatings();
+  const { Ratings } = loadReview();
   Ratings.update(film(1), { want: true });
   assert.equal(Ratings.isDone('tt0000001'), true);
-  const rated = Ratings.setVerdict(film(1), 'up');
+  const rated = Ratings.update(film(1), { verdict: 'up' });
   assert.equal(rated.verdict, 'up');
   assert.equal(rated.want, false);
   assert.ok(rated.reviewDate);
@@ -22,9 +22,9 @@ test('swipes record verdicts; thumbs clear "want" and stamp when rated', () => {
 });
 
 test('a skip is not done: it stays to rate, after the titles not yet seen, and comes round on the next pass', () => {
-  const { Ratings, Catalog, Feed } = loadRatings();
+  const { Ratings, Catalog, Feed } = loadReview();
   // List "one" is Alpha then Beta; skip Alpha
-  Ratings.setVerdict({ imdbID: 'tt0000001', title: 'Alpha', type: 'movie' }, 'skip');
+  Ratings.update({ imdbID: 'tt0000001', title: 'Alpha', type: 'movie' }, { verdict: 'skip' });
   assert.equal(Ratings.isDone('tt0000001'), false);
   assert.equal(Catalog.remaining('one'), 2, 'still counted as to rate');
   assert.deepEqual(plain(Catalog.queue('one', 'ranked')), ['tt0000002', 'tt0000001'], 'unseen first, then skipped');
@@ -38,7 +38,7 @@ test('a skip is not done: it stays to rate, after the titles not yet seen, and c
   assert.equal(Feed.next(), 'tt0000002', 'a new pass deals them again');
 
   // Rated, passed on and wanted titles are done; notes mean seen
-  Ratings.setVerdict({ imdbID: 'tt0000002', title: 'Beta', type: 'movie' }, 'pass');
+  Ratings.update({ imdbID: 'tt0000002', title: 'Beta', type: 'movie' }, { verdict: 'pass' });
   assert.equal(Catalog.remaining('one'), 1);
   Ratings.update({ imdbID: 'tt0000001', title: 'Alpha', type: 'movie' }, { want: true });
   assert.equal(Catalog.remaining('one'), 0, 'wanting a skipped title takes it out');
@@ -46,8 +46,8 @@ test('a skip is not done: it stays to rate, after the titles not yet seen, and c
 });
 
 test('feed deals unrated films, goes back and forward, and skips finished ones', () => {
-  const { Ratings, Feed } = loadRatings();
-  Ratings.setVerdict(film(2), 'down');
+  const { Ratings, Feed } = loadReview();
+  Ratings.update(film(2), { verdict: 'down' });
   Feed.start('one');
   assert.equal(Feed.next(), 'tt0000001');
   assert.equal(Feed.next(), null, 'Beta is already rated');
@@ -60,7 +60,7 @@ test('feed deals unrated films, goes back and forward, and skips finished ones',
 });
 
 test('a show found with the title search is dealt as a show, not passed over as a non-film', () => {
-  const { MovieInfo } = loadRatings();
+  const { MovieInfo } = loadReview();
   const show = { imdbID: 'tt11280740', title: 'Severance', type: 'series' };
   assert.equal(MovieInfo.isUsable(show, 'tt11280740'), false, 'film lists pass over series');
   MovieInfo.expected.set('tt11280740', 'series');
@@ -68,10 +68,10 @@ test('a show found with the title search is dealt as a show, not passed over as 
 });
 
 test('catalog treats films found by title as done once rated, and passes over series', () => {
-  const { Ratings, Catalog, MovieInfo } = loadRatings();
+  const { Ratings, Catalog, MovieInfo } = loadReview();
   MovieInfo.cache.set('title:Delta (2025)', film(9, { imdbID: 'tt0000009' }));
   assert.equal(Catalog.remaining('two'), 2);
-  Ratings.setVerdict(film(9), 'up');
+  Ratings.update(film(9), { verdict: 'up' });
   assert.equal(Catalog.remaining('two'), 1);
   MovieInfo.cache.set('tt0000003', film(3, { type: 'series' }));
   assert.equal(Catalog.remaining('two'), 0);
@@ -81,8 +81,8 @@ test('catalog treats films found by title as done once rated, and passes over se
 });
 
 test('taste profile smooths small samples and ranks groups against your overall rate', () => {
-  const { Ratings, Taste } = loadRatings();
-  const add = (n, genre, verdict) => Ratings.setVerdict(film(n, { imdbID: `tt10000${String(n).padStart(2, '0')}`, genres: [genre] }), verdict);
+  const { Ratings, Taste } = loadReview();
+  const add = (n, genre, verdict) => Ratings.update(film(n, { imdbID: `tt10000${String(n).padStart(2, '0')}`, genres: [genre] }), { verdict });
   for (let n = 0; n < 5; n++) add(n, 'Horror', 'up');
   for (let n = 5; n < 10; n++) add(n, 'Romance', 'down');
   add(10, 'Western', 'up'); // Too few to count
@@ -93,9 +93,9 @@ test('taste profile smooths small samples and ranks groups against your overall 
 });
 
 test('AI profile lists likes with stars and notes', () => {
-  const { Ratings, Taste } = loadRatings();
+  const { Ratings, Taste } = loadReview();
   Ratings.update(film(1), { verdict: 'up', stars: 5, review: 'tense\nand clever', rewatch: true });
-  Ratings.setVerdict(film(2), 'down');
+  Ratings.update(film(2), { verdict: 'down' });
   const text = Ratings.aiProfile(Taste.compute(Ratings.all()));
   assert.match(text, /## Liked \(1\)\n- Film 1 \(1991\) · ★★★★★ · would rewatch · "tense and clever"/);
   assert.match(text, /## Disliked \(1\)\n- Film 2 \(1992\)/);
@@ -132,7 +132,7 @@ test('build script cleans tags: folds synonyms, drops opinions and genre repeats
 });
 
 test('catalog exposes MovieLens tags and crowd like-rate', () => {
-  const { Catalog } = loadRatings();
+  const { Catalog } = loadReview();
   Catalog.use({ movies: { tt0000001: ['Alpha', 1984, 'Drama', 'atmospheric|twist ending', 82, 12000] }, categories: [] });
   const basics = Catalog.basics('tt0000001');
   assert.deepEqual([...basics.tags], ['atmospheric', 'twist ending']);
@@ -142,13 +142,13 @@ test('catalog exposes MovieLens tags and crowd like-rate', () => {
 });
 
 test('taste profile covers themes and agreement with the crowd', () => {
-  const { Ratings, Taste } = loadRatings();
+  const { Ratings, Taste } = loadReview();
   const tags = {}, crowd = {};
   const add = (n, verdict, tagList, rate) => {
     const id = `tt20000${String(n).padStart(2, '0')}`;
     tags[id] = tagList;
     crowd[id] = rate;
-    Ratings.setVerdict(film(n, { imdbID: id }), verdict);
+    Ratings.update(film(n, { imdbID: id }), { verdict });
   };
   for (let n = 0; n < 4; n++) add(n, 'up', ['atmospheric'], 0.8);
   for (let n = 4; n < 8; n++) add(n, 'down', ['quirky'], 0.7);
@@ -174,7 +174,7 @@ test('categories file carries tags and crowd like-rates for MovieLens films', ()
 
 // A small similarity file: A-B-C sci-fi, D-E-F comedies the crowd panned, G unrelated
 function loadRecommender() {
-  const { Recommender, REC } = require('../js/ratings/recommend.js');
+  const { Recommender, REC } = require('../js/review/recommend.js');
   Recommender.use({
     films: [
       ['tt0000001', 'A', 2001, 'Sci-Fi', '', 80, 50000, 420],
@@ -235,7 +235,7 @@ test('wanted titles lift their neighbours but never explain a pick', () => {
 });
 
 test('strong picks: top 1% only, each close to at least three liked titles, never padded', () => {
-  const { Recommender, REC, makeGraph } = require('../js/ratings/recommend.js');
+  const { Recommender, REC, makeGraph } = require('../js/review/recommend.js');
   const item = (id, likeRate = 0.8) => ({ id, imdbID: id, title: id, likeRate, average: 4, popularity: 0.5 });
   const ids = ['L1', 'L2', 'L3', 'P', 'Q', 'R', ...Array.from({ length: 20 }, (_, k) => `Z${k}`)];
   const graph = makeGraph(ids.map(id => item(id)), entry => entry.imdbID);
@@ -273,15 +273,15 @@ test('similarity file is well formed and has no TV series flagged by raters', ()
 });
 
 test('entries keep the IMDb rating OMDb gave, and drop nonsense values', () => {
-  const { Ratings, Title } = loadRatings();
-  assert.equal(Ratings.setVerdict(film(1, { imdbRating: '7.4' }), 'up').imdbRating, 7.4);
+  const { Ratings, Title } = loadReview();
+  assert.equal(Ratings.update(film(1, { imdbRating: '7.4' }), { verdict: 'up' }).imdbRating, 7.4);
   assert.equal(Ratings.update(film(1, { imdbRating: '' }), { stars: 4 }).imdbRating, 7.4, 'a blank lookup keeps it');
   assert.equal(Title.sanitize({ imdbID: 'tt1234567', title: 'A', imdbRating: 'N/A' }).imdbRating, null);
   assert.equal(Title.sanitize({ imdbID: 'tt1234567', title: 'A', imdbRating: 42 }).imdbRating, null);
 });
 
 test('TMDB show details map onto the same shape as film details', () => {
-  const { TMDB } = loadRatings();
+  const { TMDB } = loadReview();
   const info = TMDB.parse({
     id: 1396, name: 'Breaking Bad', first_air_date: '2008-01-20', overview: 'A chemistry teacher…',
     genres: [{ id: 18, name: 'Drama' }, { id: 80, name: 'Crime' }], created_by: [{ name: 'Vince Gilligan' }],
@@ -305,7 +305,7 @@ test('TMDB show details map onto the same shape as film details', () => {
 });
 
 test('TV lists load into the catalog and expect series; film lists expect films', () => {
-  const { Catalog, MovieInfo, Ratings } = loadRatings();
+  const { Catalog, MovieInfo, Ratings } = loadReview();
   assert.ok(Catalog.isTv('tv-most-watched'));
   assert.equal(Catalog.get('tv-most-watched').loaded, false);
   assert.equal(Catalog.nextId('one'), 'two', 'film lists rotate among films');
@@ -319,7 +319,7 @@ test('TV lists load into the catalog and expect series; film lists expect films'
   MovieInfo.cache.set('tv:1396', show);
   assert.equal(MovieInfo.isUsable(show, 'tv:1396'), true);
   assert.equal(MovieInfo.isUsable(show, 'tt0903747'), false, 'a series turning up in a film list is passed over');
-  Ratings.setVerdict({ ...show }, 'up');
+  Ratings.update({ ...show }, { verdict: 'up' });
   assert.equal(MovieInfo.isUsable(show, 'tt0903747'), true, 'but a show you rated opens fine by its IMDb ID');
   assert.equal(Catalog.remaining('tv-most-watched'), 0);
 
@@ -333,7 +333,7 @@ const tmdbShows = (...shows) => ({
 });
 
 test('TV recommendations: TMDB lists become a graph scored like films', () => {
-  const { Ratings, TvRecs, Recommender } = loadRatings();
+  const { Ratings, TvRecs, Recommender } = loadReview();
   const show = (tmdbId, fields) => Ratings.update({ imdbID: `tt90000${tmdbId}`, title: `Show ${tmdbId}`, type: 'series', tmdbId }, fields);
   show(10, { verdict: 'up', stars: 5 });
   show(20, { verdict: 'down' });
@@ -354,7 +354,7 @@ test('TV recommendations: TMDB lists become a graph scored like films', () => {
 });
 
 test('TV refresh resolves watchlist shows by IMDb ID and falls back to similar shows', async () => {
-  const { Ratings, TvRecs, TMDB } = loadRatings();
+  const { Ratings, TvRecs, TMDB } = loadReview();
   Ratings.update({ imdbID: 'tt0903747', title: 'Breaking Bad', type: 'series' }, { verdict: 'up' });
   const calls = [];
   TMDB.request = async path => {
@@ -371,7 +371,7 @@ test('TV refresh resolves watchlist shows by IMDb ID and falls back to similar s
 });
 
 test('TV bridge ranks shows by how many of your film themes they share', async () => {
-  const { TvRecs, TMDB } = loadRatings();
+  const { TvRecs, TMDB } = loadReview();
   TMDB.request = async (path, params) => {
     if (path === '/search/keyword') {
       const ids = { dystopia: 4565, 'time travel': 4379, quirky: 1 };
@@ -391,7 +391,7 @@ test('TV bridge ranks shows by how many of your film themes they share', async (
 });
 
 test('guesses are kept with the first verdict and summarised against your verdicts', () => {
-  const { Ratings, Guesses, Title } = loadRatings();
+  const { Ratings, Guesses, Title } = loadReview();
   const add = (n, verdict, guessPct) => Ratings.update(film(n, { imdbID: `tt30000${String(n).padStart(2, '0')}` }), { verdict, guessPct });
   for (let n = 0; n < 6; n++) add(n, 'up', 0.995);
   add(6, 'down', 0.99);
@@ -412,7 +412,7 @@ test('guesses are kept with the first verdict and summarised against your verdic
 });
 
 test('learn-fastest order puts widely seen films with little evidence first', () => {
-  const { Catalog, Recommender, Guesses } = loadRatings();
+  const { Catalog, Recommender, Guesses } = loadReview();
   Recommender.use({
     films: [
       ['tt0000001', 'Alpha', 1984, 'Drama', '', 70, 50000, 400],
@@ -427,7 +427,7 @@ test('learn-fastest order puts widely seen films with little evidence first', ()
 });
 
 test('not interested: kept as a verdict, unseen, out of the feed, counted, and in the AI profile', () => {
-  const { Ratings, Title, Taste } = loadRatings();
+  const { Ratings, Title, Taste } = loadReview();
   const entry = Ratings.update(film(1), { verdict: 'pass', want: false });
   assert.equal(entry.verdict, 'pass');
   assert.equal(Title.isSeen(entry), false);
@@ -439,7 +439,7 @@ test('not interested: kept as a verdict, unseen, out of the feed, counted, and i
 });
 
 test('review date: thumbs, stars, notes and rewatch date a review; skips and wants do not', () => {
-  const { Ratings, Title } = loadRatings();
+  const { Ratings, Title } = loadReview();
   assert.equal(Ratings.update(film(1), { verdict: 'skip' }).reviewDate, '');
   assert.equal(Ratings.update(film(2), { want: true }).reviewDate, '');
   assert.ok(Ratings.update(film(3), { review: 'nice' }).reviewDate);
@@ -455,9 +455,9 @@ test('review date: thumbs, stars, notes and rewatch date a review; skips and wan
 });
 
 // ---- API responses are untrusted input ------------------------------------
-// OMDb's parsing is shared with the watchlist and tested in tests/watchlist.test.js
+// OMDb's parsing is shared with the watchlist and tested in tests/lists.test.js
 test('film cards ask the shared OMDb client; titles it can’t find count as missing', async () => {
-  const app = loadRatings();
+  const app = loadReview();
   app.setFetch(async url => ({
     status: 200,
     json: async () => (new URL(url).searchParams.get('i') === 'tt0000001'
@@ -470,7 +470,7 @@ test('film cards ask the shared OMDb client; titles it can’t find count as mis
 });
 
 test('TMDB show details: non-strings dropped, lengths capped, posters only from TMDB paths', () => {
-  const { TMDB } = loadRatings();
+  const { TMDB } = loadReview();
   const show = TMDB.parse({
     id: 5, name: { evil: 1 }, overview: 'o'.repeat(5000), poster_path: '/../../x" onerror="alert(1)',
     external_ids: { imdb_id: 'tt7654321' }, genres: [{ name: 7 }, { name: 'Drama' }, null],
@@ -487,16 +487,16 @@ test('TMDB show details: non-strings dropped, lengths capped, posters only from 
 
 
 test('settings saved before the feed starts keep the saved key and list', async () => {
-  const app = loadRatings();
+  const app = loadReview();
   app.Store.saved.set('prefs_v1', { order: 'shuffled', tmdbKey: 'secret', categoryId: 'two' });
-  await app.RatingsApp.loadPrefs();
+  await app.ReviewApp.loadPrefs();
   app.Feed.order = 'learn';
-  app.RatingsApp.savePrefs();
+  app.ReviewApp.savePrefs();
   assert.deepEqual(plain(app.Store.saved.get('prefs_v1')), { categoryId: 'two', order: 'learn', tmdbKey: 'secret' });
 });
 
 test('title suggestions forgive half-typed words and typos, and put your titles first', () => {
-  const { Library, TitleSearch, Catalog } = loadRatings();
+  const { Library, TitleSearch, Catalog } = loadReview();
   Catalog.use({
     movies: {
       tt0816692: ['Interstellar', 2014, 'Sci-Fi', '', 80, 90000],
@@ -529,7 +529,7 @@ test('title suggestions forgive half-typed words and typos, and put your titles 
 });
 
 test('recent titles from TMDB are parsed defensively', () => {
-  const { TitleSearch } = loadRatings();
+  const { TitleSearch } = loadReview();
   assert.deepEqual(plain(TitleSearch.parseTmdb({ id: 7, title: 'Bugonia', release_date: '2025-10-24', poster_path: '/a.jpg', popularity: 50 }, 'movie')),
     { tmdb: 'movie:7', title: 'Bugonia', year: 2025, type: 'movie', poster: 'https://image.tmdb.org/t/p/w185/a.jpg', popularity: 50 });
   assert.equal(TitleSearch.parseTmdb({ id: 8, name: 'A show', poster_path: 'javascript:x' }, 'tv').poster, '');
@@ -538,7 +538,7 @@ test('recent titles from TMDB are parsed defensively', () => {
 });
 
 test('award lists: listed where the yearly Best Picture lists were, fetched only when opened', async () => {
-  const app = loadRatings();
+  const app = loadReview();
   const { Catalog, MovieInfo } = app;
   Catalog.use({
     movies: { tt0000001: ['Alpha', 1984, 'Drama'], 'title:Bugonia (2025)': ['Bugonia', 2025, ''] },
@@ -576,11 +576,11 @@ test('award lists: listed where the yearly Best Picture lists were, fetched only
 });
 
 test('data/awards.json matches the award lists the page names', () => {
-  const { RATINGS } = { RATINGS: null };
+  const { REVIEW } = { REVIEW: null };
   const data = JSON.parse(read('data/awards.json'));
-  const config = read('js/ratings/config.js');
+  const config = read('js/review/config.js');
   for (const list of data.lists) {
-    assert.match(config, new RegExp(`id: '${list.id}'`), `${list.id} is named in js/ratings/config.js`);
+    assert.match(config, new RegExp(`id: '${list.id}'`), `${list.id} is named in js/review/config.js`);
     assert.ok(list.keys.length >= 20, `${list.id} has titles`);
     for (const key of list.keys) {
       assert.match(key, /^(tt\d{7,10}|title:.+)$/);
@@ -590,4 +590,37 @@ test('data/awards.json matches the award lists the page names', () => {
   assert.equal(data.lists.length, 9);
   const names = [...config.matchAll(/id: '(awards-[a-z-]+)'/g)].map(m => m[1]);
   assert.deepEqual(names, data.lists.map(l => l.id), 'the page names every list in the file, in the same order');
+});
+
+test('one search routine for both searches: suggestions at once, OMDb after a pause, older searches dropped', async () => {
+  const { TitleSearch, MovieAPI, Catalog } = loadReview();
+  Catalog.use({ movies: { tt0087182: ['Dune', 1984, 'Sci-Fi', '', 50, 30000] }, categories: [] });
+  const asked = [];
+  MovieAPI.search = async (query, type) => {
+    asked.push([query, type]);
+    return { results: [{ imdbID: 'tt0087182', title: 'Dune', year: '1984', type: 'movie' }, { imdbID: 'tt1160419', title: 'Dune', year: '2021', type: 'movie' }], tooMany: false };
+  };
+  const seen = [];
+  const searcher = TitleSearch.searcher(found => seen.push({ ...found, suggestions: found.suggestions.map(r => r.imdbID), results: found.results.map(r => r.imdbID) }));
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  searcher.search('du', { delay: 5 });
+  assert.equal(seen.at(-1).state, 'short', 'two letters: suggestions only');
+  searcher.search('dune', { delay: 5, type: 'movie' });
+  assert.deepEqual(plain([seen.at(-1).state, seen.at(-1).suggestions]), ['searching', ['tt0087182']]);
+  await wait(20);
+  assert.deepEqual(plain([seen.at(-1).state, seen.at(-1).results]), ['done', ['tt1160419']], 'without the one already suggested');
+  assert.deepEqual(plain(asked), [['dune', 'movie']]);
+
+  searcher.search('dune', { delay: 5 });
+  searcher.search('dun', { delay: 5 });
+  await wait(20);
+  assert.equal(seen.at(-1).query, 'dun', 'only the latest search reports');
+  searcher.search('dune', { delay: 5 });
+  searcher.cancel();
+  const count = seen.length;
+  await wait(20);
+  assert.equal(seen.length, count, 'cancelled: nothing more');
+  searcher.search('  ');
+  assert.equal(seen.at(-1).state, '', 'nothing typed');
 });

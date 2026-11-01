@@ -34,7 +34,7 @@ const Guesses = {
   },
 
   label(guess) {
-    const { GUESS_LABELS } = RATINGS;
+    const { GUESS_LABELS } = REVIEW;
     return guess.strong ? GUESS_LABELS.strong : guess.top ? GUESS_LABELS.top : GUESS_LABELS.rest;
   },
 
@@ -81,11 +81,11 @@ const ForYou = {
 
   open() {
     this.render();
-    RatingsUI.els.forYouSheet.showModal();
+    ReviewUI.els.forYouSheet.showModal();
   },
 
   bind() {
-    RatingsUI.els.forYouBody.addEventListener('click', event => {
+    ReviewUI.els.forYouBody.addEventListener('click', event => {
       const tab = event.target.closest('[data-tab]');
       if (tab) {
         this.tab = tab.dataset.tab;
@@ -95,12 +95,12 @@ const ForYou = {
       if (decide) return this.decide(decide.dataset.key, decide.dataset.decide);
       const pick = event.target.closest('[data-pick]');
       if (pick) {
-        RatingsUI.els.forYouSheet.close();
-        return RatingsUI.jumpTo(pick.dataset.pick);
+        ReviewUI.els.forYouSheet.close();
+        return ReviewUI.jumpTo(pick.dataset.pick);
       }
       if (event.target.closest('[data-action="settings"]')) {
-        RatingsUI.els.forYouSheet.close();
-        RatingsUI.openSettings();
+        ReviewUI.els.forYouSheet.close();
+        ReviewUI.openSettings();
       }
     });
   },
@@ -114,7 +114,7 @@ const ForYou = {
   },
 
   show(content) {
-    RatingsUI.els.forYouBody.innerHTML = html`${this.tabs()}${content}`;
+    ReviewUI.els.forYouBody.innerHTML = html`${this.tabs()}${content}`;
   },
 
   render() {
@@ -127,16 +127,16 @@ const ForYou = {
     if (!Recommender.ready()) return this.show(html`<p class="hint">Loading film data…</p>`);
     const entries = Ratings.all();
     const judged = entries.filter(e => e.type === 'movie' && (e.verdict === 'up' || e.verdict === 'down')).length;
-    if (judged < RATINGS.MIN_FOR_YOU) {
-      return this.show(html`<p class="hint">Give at least ${RATINGS.MIN_FOR_YOU} films a thumb up or down first. So far: ${judged}.</p>`);
+    if (judged < REVIEW.MIN_FOR_YOU) {
+      return this.show(html`<p class="hint">Give at least ${REVIEW.MIN_FOR_YOU} films a thumb up or down first. So far: ${judged}.</p>`);
     }
     const top = Recommender.strongPicks(entries);
-    const { great, fun } = this.without(Recommender.lanes(entries, RATINGS.FOR_YOU_PICKS), top);
+    const { great, fun } = this.without(Recommender.lanes(entries, REVIEW.FOR_YOU_PICKS), top);
     this.show(html`
       ${this.topLane(top, 'films')}
       ${this.lane('Great films for you', 'Close to your best-rated films, and well regarded', great, 'films')}
       ${this.lane('Fun picks', 'Your comfort zones, whatever the critics said', fun, 'films')}`);
-    this.fillPosters([...top, ...great.slice(0, RATINGS.FOR_YOU_POSTERS), ...fun.slice(0, RATINGS.FOR_YOU_POSTERS)]);
+    this.fillPosters([...top, ...great.slice(0, REVIEW.FOR_YOU_POSTERS), ...fun.slice(0, REVIEW.FOR_YOU_POSTERS)]);
   },
 
   async renderTv(seq) {
@@ -152,14 +152,14 @@ const ForYou = {
       await TvRecs.refresh(entries);
       const graph = TvRecs.graph(entries);
       top = Recommender.strongPicks(entries, graph);
-      lanes = this.without(Recommender.lanes(entries, RATINGS.FOR_YOU_PICKS, graph), top);
+      lanes = this.without(Recommender.lanes(entries, REVIEW.FOR_YOU_PICKS, graph), top);
       if (TvRecs.ratedShows(entries) < TV_REC.BRIDGE_UNTIL_RATED) {
         const filmTaste = Taste.compute(entries.filter(e => e.type === 'movie'), {
           tagsOf: entry => Catalog.basics(entry.imdbID).tags
         });
         const shown = new Set([...top, ...lanes.great, ...lanes.fun].map(item => item.id));
         bridge = (await TvRecs.bridge(entries, filmTaste.tags))
-          .filter(item => !shown.has(item.id)).slice(0, RATINGS.FOR_YOU_PICKS);
+          .filter(item => !shown.has(item.id)).slice(0, REVIEW.FOR_YOU_PICKS);
       }
     } catch (error) {
       if (seq === this.renderSeq) this.show(html`<p class="hint">${error.message}</p>`);
@@ -200,19 +200,19 @@ const ForYou = {
   async decide(key, decision) {
     try {
       const info = await MovieInfo.fetch(key);
-      if (!MovieInfo.isUsable(info, key)) return RatingsUI.toast('Couldn’t find that title');
+      if (!MovieInfo.isUsable(info, key)) return ReviewUI.toast('Couldn’t find that title');
       if (decision === 'want') {
         const entry = Ratings.get(info.imdbID);
         const unseen = entry && (entry.verdict === 'skip' || entry.verdict === 'pass');
         Ratings.update(info, unseen ? { want: true, verdict: '' } : { want: true });
-        RatingsUI.toast(`Added ${info.title} to want to watch`, 'want');
+        ReviewUI.toast(`Added ${info.title} to want to watch`, 'want');
       } else {
         Ratings.update(info, { verdict: 'pass', want: false });
-        RatingsUI.toast(`Not interested in ${info.title}`, 'pass');
+        ReviewUI.toast(`Not interested in ${info.title}`, 'pass');
       }
       this.render();
     } catch (error) {
-      RatingsUI.toast(`Couldn’t save that: ${error.message}`);
+      ReviewUI.toast(`Couldn’t save that: ${error.message}`);
     }
   },
 
@@ -258,7 +258,7 @@ const ForYou = {
         const item = queue.shift();
         try {
           const info = await MovieInfo.fetch(item.id);
-          const row = RatingsUI.els.forYouBody.querySelector(`[data-pick="${item.id}"] .thumb`);
+          const row = ReviewUI.els.forYouBody.querySelector(`[data-pick="${item.id}"] .thumb`);
           if (row && info.poster && seq === this.renderSeq) {
             const img = document.createElement('img');
             img.src = info.poster;

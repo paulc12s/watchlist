@@ -3,7 +3,7 @@
 // Palette and appearance: the colour theme (Settings → Theme) and light or
 // dark (Settings → Appearance), kept per browser like
 // the app icon. Loaded in <head>, before the page draws, so it never flashes
-// the default colours. The palettes themselves are CSS (ratings.css), keyed
+// the default colours. The palettes themselves are CSS (base.css), keyed
 // by data-palette on <html>; Basic is the default and sets nothing.
 // "classic", Basic's earlier name, is still read.
 // ============================================================================

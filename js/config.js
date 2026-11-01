@@ -7,17 +7,16 @@ const CONFIG = {
   // Replaced with the commit hash at deploy time; see js/version-check.js
   APP_VERSION: '__APP_VERSION__',
   STORAGE: {
-    // Each page has its own database. Titles live under TITLES_KEY in the
-    // shared record shape (js/title.js); legacyKey holds what earlier versions
-    // wrote, read once if TITLES_KEY is empty and never written again, so an
-    // out-of-date copy of the app still finds its own data intact
+    // The app's database (app.html). Titles live under TITLES_KEY in the
+    // shared record shape (js/title.js)
+    APP: { name: 'TitlesDB', storeName: 'kv' },
+    // The retired Watchlist and Ratings pages' databases, only ever read, to
+    // bring their titles in (js/app/old-pages.js). legacyKey holds what their
+    // earliest versions wrote, read if TITLES_KEY is empty
     WATCHLIST: { name: 'WatchlistDB', storeName: 'items', legacyKey: 'watchlist_v1' },
     RATINGS: { name: 'RatingsDB', storeName: 'kv', legacyKey: 'ratings_v1' },
-    // The combined page (app.html): both modes share this one; it starts empty
-    APP: { name: 'TitlesDB', storeName: 'kv' },
     TITLES_KEY: 'titles_v2',
-    SAVE_DELAY_MS: 300,
-    RETRY_DELAY_MS: 2000
+    SAVE_DELAY_MS: 300
   },
   API: {
     // API OPTIONS FOR MOVIE DATA:
@@ -76,7 +75,6 @@ const CONFIG = {
     medium: 'Medium',
     low: 'Low'
   },
-  VIEW_STORAGE_KEY: 'watchlist_compact_view',
   PLATFORMS: [
     'Netflix',
     'Amazon Prime',
