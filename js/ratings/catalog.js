@@ -222,8 +222,9 @@ const Catalog = {
     };
   },
 
-  // A film or show is out of the running once rated, skipped or wanted, or
-  // once its details say it isn't what the list expected
+  // A film or show is out of the running once rated, passed on or wanted
+  // (not skipped: a skip comes round again), or once its details say it
+  // isn't what the list expected
   isDone(key) {
     const imdbID = MovieInfo.imdbID(key);
     if (imdbID && Ratings.isDone(imdbID)) return true;
@@ -231,29 +232,27 @@ const Catalog = {
     return Boolean(info && !MovieInfo.isUsable(info, key));
   },
 
-  // IMDb IDs of a list's titles you skipped, so they can come round again
-  skippedIn(id) {
-    const ids = new Set();
-    for (const key of this.get(id).keys) {
-      const imdbID = MovieInfo.imdbID(key);
-      const entry = imdbID && Ratings.get(imdbID);
-      if (entry && entry.verdict === 'skip') ids.add(imdbID);
-    }
-    return ids;
+  isSkipped(key) {
+    const imdbID = MovieInfo.imdbID(key);
+    return Boolean(imdbID && Ratings.isSkipped(imdbID));
   },
 
+  // How many titles in a list are still to rate (skipped ones included)
   remaining(id) {
     return this.get(id).keys.filter(key => !this.isDone(key)).length;
   },
 
-  // Keys to deal, in list order or shuffled; the mix is always shuffled
+  // Keys to deal, in list order or shuffled (the mix always is): titles you
+  // haven't seen yet first, then the ones you skipped, in the same order
   queue(id, order) {
-    const keys = this.get(id).keys.filter(key => !this.isDone(key));
+    let keys = this.get(id).keys.filter(key => !this.isDone(key));
     if (order === 'learn' && !this.isTv(id) && this.learnScore) {
       const score = this.learnScore();
-      return keys.map(key => [key, score(key)]).sort((a, b) => b[1] - a[1]).map(([key]) => key);
+      keys = keys.map(key => [key, score(key)]).sort((a, b) => b[1] - a[1]).map(([key]) => key);
+    } else if (order === 'shuffled' || id === MIX_ID) {
+      keys = shuffle(keys);
     }
-    return order === 'shuffled' || id === MIX_ID ? shuffle(keys) : keys;
+    return [...keys.filter(key => !this.isSkipped(key)), ...keys.filter(key => this.isSkipped(key))];
   },
 
   // Set once the recommender is ready: returns key -> how much rating it would

@@ -29,7 +29,7 @@ const RatingsUI = {
     const ids = ['card', 'stage', 'categoryButton', 'categoryName', 'categoryProgress', 'nextCategory',
       'tasteButton', 'settingsButton', 'toast', 'categorySheet', 'categoryList', 'noteSheet', 'noteFilm',
       'noteText', 'noteSave', 'tasteSheet', 'tasteBody', 'settingsSheet', 'exportBackup', 'importButton',
-      'importFile', 'importError', 'exportAI', 'clearSkips', 'tmdbKey', 'tmdbSave',
+      'importFile', 'importError', 'exportAI', 'tmdbKey', 'tmdbSave',
       'forYouButton', 'forYouSheet', 'forYouBody'];
     ids.forEach(id => { this.els[id] = document.getElementById(id); });
 
@@ -89,7 +89,7 @@ const RatingsUI = {
 
   async switchCategory(id, { announce = true } = {}) {
     if (!id) {
-      this.toast('You’ve been through every list. Try “Show skipped titles again” in settings.');
+      this.toast('Every list is rated');
       return;
     }
     const category = Catalog.get(id);
@@ -121,7 +121,7 @@ const RatingsUI = {
     }
     Feed.start(id);
     RatingsApp.savePrefs();
-    // A list you pick yourself and have finished says so, rather than
+    // A list you pick yourself and have rated all of says so, rather than
     // quietly moving on to another list
     if (announce && Catalog.remaining(id) === 0) return this.renderFinished(category);
     if (announce) this.toast(category.name);
@@ -130,15 +130,27 @@ const RatingsUI = {
 
   renderFinished(category) {
     const nextId = Catalog.nextId(category.id);
-    const skipped = Catalog.skippedIn(category.id).size;
     this.updateHeader();
     this.els.card.className = 'card empty';
     this.els.card.innerHTML = html`
       <div class="info">
         <h1 class="title">You’ve finished “${category.name}”</h1>
-        <p class="meta">Every title in it is rated, skipped, passed on or on your list.</p>
-        ${skipped > 0 && html`<button type="button" class="button" data-action="revisit-skips">Show the ${skipped} skipped again</button>`}
+        <p class="meta">Every title in it is rated, passed on or on your list to watch.</p>
         ${nextId && html`<button type="button" class="button primary" data-action="next-list">Next list: ${Catalog.get(nextId).name}</button>`}
+      </div>`;
+  },
+
+  // This pass is through, but titles you skipped are still to rate
+  renderSkippedLeft(category, count) {
+    const nextId = Catalog.nextId(category.id);
+    this.updateHeader();
+    this.els.card.className = 'card empty';
+    this.els.card.innerHTML = html`
+      <div class="info">
+        <h1 class="title">Only skipped titles left</h1>
+        <p class="meta">${count} title${count === 1 ? '' : 's'} in “${category.name}” ${count === 1 ? 'is' : 'are'} still to rate: ones you skipped.</p>
+        <button type="button" class="button" data-action="go-again">Go through ${count === 1 ? 'it' : 'them'} again</button>
+        ${nextId && nextId !== category.id && html`<button type="button" class="button primary" data-action="next-list">Next list: ${Catalog.get(nextId).name}</button>`}
       </div>`;
   },
 
@@ -152,7 +164,8 @@ const RatingsUI = {
     const category = Catalog.get(Feed.categoryId);
     const total = category.keys.length;
     this.els.categoryName.textContent = category.name;
-    this.els.categoryProgress.textContent = `${total - Catalog.remaining(category.id)} / ${total}`;
+    const left = Catalog.remaining(category.id);
+    this.els.categoryProgress.textContent = left ? `${left} of ${total} to rate` : `All ${total} rated`;
   },
 
   openCategories() {
@@ -161,16 +174,15 @@ const RatingsUI = {
         <h3>${group}</h3>
         ${categories.map(category => {
           const total = category.keys.length;
-          const done = total - Catalog.remaining(category.id);
-          // Finished lists stay tappable: their skipped titles can come round again
-          const finished = category.loaded && total > 0 && done === total;
-          const skipped = finished ? Catalog.skippedIn(category.id).size : 0;
+          // Skipped titles count as still to rate
+          const left = Catalog.remaining(category.id);
+          const finished = category.loaded && total > 0 && left === 0;
           const note = category.media === 'tv' && !TMDB.hasKey() ? 'Needs a TMDB key (Settings)'
-            : finished ? `Finished${skipped ? ` · ${skipped} skipped, tap to revisit` : ''}` : category.note;
+            : finished ? 'All rated' : category.note;
           return html`
             <button type="button" class="category-option ${category.id === Feed.categoryId ? 'current' : ''} ${finished ? 'finished' : ''}" data-category="${category.id}">
               <span class="option-name">${finished && icon('check', 'tiny')}${category.name}</span>
-              <span class="option-progress">${category.loaded ? `${done} / ${total}` : ''}</span>
+              <span class="option-progress">${category.loaded && !finished ? `${left} to rate` : ''}</span>
               ${note && html`<span class="option-note">${note}</span>`}
             </button>`;
         })}
@@ -302,6 +314,9 @@ const RatingsUI = {
   advance() {
     const key = Feed.next();
     if (!key) {
+      // Through this pass, with skipped titles still to rate: offer them again
+      const left = Catalog.remaining(Feed.categoryId);
+      if (left > 0) return this.renderSkippedLeft(Catalog.get(Feed.categoryId), left);
       const finished = Catalog.get(Feed.categoryId).name;
       const nextId = Catalog.nextId(Feed.categoryId);
       if (!nextId) {
@@ -447,7 +462,7 @@ const RatingsUI = {
     this.els.card.innerHTML = html`
       <div class="info">
         <h1 class="title">That’s everything</h1>
-        <p class="meta">You’ve been through every list. Skipped films can come back from settings.</p>
+        <p class="meta">Every title in every list is rated, passed on or on your list to watch.</p>
       </div>`;
   },
 
@@ -477,11 +492,9 @@ const RatingsUI = {
     if (action === 'settings') return this.openSettings();
     if (action === 'retry') return this.show(key);
     if (action === 'next-list') return this.switchCategory(Catalog.nextId(Feed.categoryId));
-    if (action === 'revisit-skips') {
-      // Only this list's skips; they're dealt again straight away
-      const count = Ratings.clearSkips(Catalog.skippedIn(Feed.categoryId));
-      this.toast(`${count} skipped title${count === 1 ? '' : 's'} back in “${Catalog.get(Feed.categoryId).name}”`, 'check');
-      return this.switchCategory(Feed.categoryId, { announce: false });
+    if (action === 'go-again') {
+      Feed.start(Feed.categoryId);
+      return this.advance();
     }
     // A message card (finished list, missing key) has no title to rate: the
     // film behind it is the last one shown, which back returns to
@@ -826,7 +839,6 @@ const RatingsUI = {
     this.els.settingsSheet.querySelectorAll('[data-order]').forEach(button => {
       button.setAttribute('aria-checked', String(button.dataset.order === Feed.order));
     });
-    this.els.clearSkips.textContent = `Show skipped titles again (${Ratings.counts().skip})`;
     this.els.tmdbKey.value = TMDB.key;
     this.els.importError.hidden = true;
     this.els.settingsSheet.showModal();
@@ -885,14 +897,6 @@ const RatingsUI = {
       }
     });
 
-    this.els.clearSkips.addEventListener('click', () => {
-      const count = Ratings.clearSkips();
-      this.toast(count ? `${count} skipped title${count > 1 ? 's' : ''} will come round again` : 'Nothing skipped');
-      this.els.settingsSheet.close();
-      if (!this.feedStarted()) return;
-      Feed.start(Feed.categoryId);
-      this.updateHeader();
-    });
   },
 
   download(filename, text, type = 'application/json') {

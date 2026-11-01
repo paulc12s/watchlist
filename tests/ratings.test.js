@@ -21,25 +21,27 @@ test('swipes record verdicts; thumbs clear "want" and stamp when rated', () => {
   assert.equal(Ratings.setStars(film(1), 4).stars, 0, 'tapping the same star clears it');
 });
 
-test('clearSkips can bring back only one list’s skips', () => {
-  const { Ratings } = loadRatings();
-  Ratings.setVerdict(film(1), 'skip');
-  Ratings.setVerdict(film(2), 'skip');
-  assert.equal(Ratings.clearSkips(new Set(['tt0000001'])), 1);
-  assert.equal(Ratings.get('tt0000002').verdict, 'skip', 'other lists keep theirs');
-});
+test('a skip is not done: it stays to rate, after the titles not yet seen, and comes round on the next pass', () => {
+  const { Ratings, Catalog, Feed } = loadRatings();
+  // List "one" is Alpha then Beta; skip Alpha
+  Ratings.setVerdict({ imdbID: 'tt0000001', title: 'Alpha', type: 'movie' }, 'skip');
+  assert.equal(Ratings.isDone('tt0000001'), false);
+  assert.equal(Catalog.remaining('one'), 2, 'still counted as to rate');
+  assert.deepEqual(plain(Catalog.queue('one', 'ranked')), ['tt0000002', 'tt0000001'], 'unseen first, then skipped');
 
-test('clearSkips forgets plain skips but keeps anything else about the film', () => {
-  const { Ratings } = loadRatings();
-  Ratings.setVerdict(film(1), 'skip');
-  Ratings.update(film(2), { want: true });
-  Ratings.setVerdict(film(2), 'skip');
-  Ratings.setVerdict(film(3), 'down');
-  assert.equal(Ratings.clearSkips(), 2);
-  assert.equal(Ratings.get('tt0000001'), undefined);
-  assert.deepEqual(plain([Ratings.get('tt0000002').verdict, Ratings.get('tt0000002').want]), ['', true]);
-  assert.equal(Ratings.get('tt0000003').verdict, 'down');
-  // Notes mean you've seen it, so a skip with notes counts as seen
+  Feed.trail = []; Feed.index = -1;
+  Feed.start('one');
+  assert.equal(Feed.next(), 'tt0000002');
+  assert.equal(Feed.next(), 'tt0000001');
+  assert.equal(Feed.next(), null, 'each title once per pass');
+  Feed.start('one');
+  assert.equal(Feed.next(), 'tt0000002', 'a new pass deals them again');
+
+  // Rated, passed on and wanted titles are done; notes mean seen
+  Ratings.setVerdict({ imdbID: 'tt0000002', title: 'Beta', type: 'movie' }, 'pass');
+  assert.equal(Catalog.remaining('one'), 1);
+  Ratings.update({ imdbID: 'tt0000001', title: 'Alpha', type: 'movie' }, { want: true });
+  assert.equal(Catalog.remaining('one'), 0, 'wanting a skipped title takes it out');
   assert.equal(Ratings.update(film(4), { verdict: 'skip', review: 'saw half' }).verdict, 'up');
 });
 
@@ -432,7 +434,6 @@ test('not interested: kept as a verdict, unseen, out of the feed, counted, and i
   assert.equal(entry.reviewDate, '', 'not a review of something seen');
   assert.equal(Ratings.isDone('tt0000001'), true, 'not dealt again');
   assert.equal(Ratings.counts().pass, 1);
-  assert.equal(Ratings.clearSkips(), 0, 'showing skips again leaves it alone');
   assert.match(Ratings.aiProfile(Taste.compute(Ratings.all())), /## Not interested, haven't seen \(1\)\n- Film 1 \(1991\)/);
   assert.equal(Title.sanitize({ title: 'A', verdict: 'pass', stars: 4 }).verdict, 'up', 'stars mean seen, so it becomes a thumb');
 });

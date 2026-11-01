@@ -20,9 +20,16 @@ const Ratings = {
   },
 
   // A film that's been dealt with doesn't come back in the feed
+  // Out of the review lists: rated, not interested, or on your list to watch.
+  // A skip isn't done: it means not seen yet, so it comes round again.
   isDone(imdbID) {
     const entry = this.get(imdbID);
-    return Boolean(entry && (entry.verdict || entry.want));
+    return Boolean(entry && ((entry.verdict && entry.verdict !== 'skip') || entry.want));
+  },
+
+  isSkipped(imdbID) {
+    const entry = this.get(imdbID);
+    return Boolean(entry && entry.verdict === 'skip' && !entry.want);
   },
 
   // Stars, notes or a rewatch flag mean you've seen it, so skipping isn't an option
@@ -45,17 +52,6 @@ const Ratings = {
   setStars(info, stars) {
     const current = this.get(info.imdbID);
     return this.update(info, { stars: current && current.stars === stars ? 0 : stars });
-  },
-
-  // Forget skips so those films come round again: all of them, or only the
-  // IMDb IDs given (one list's); returns how many
-  clearSkips(only = null) {
-    const skipped = this.all().filter(e => e.verdict === 'skip' && (!only || only.has(e.imdbID)));
-    for (const entry of skipped) {
-      if (entry.want) Library.change(entry, { verdict: '' });
-      else Library.remove(entry);
-    }
-    return skipped.length;
   },
 
   counts() {

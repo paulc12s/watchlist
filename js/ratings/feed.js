@@ -12,12 +12,16 @@ const Feed = {
   queue: [],
   trail: [],
   index: -1,
+  // Where in the trail this pass through the list began: a title shown in
+  // this pass (and skipped) isn't dealt again until the next pass
+  round: 0,
 
   // Start dealing from a list; anything ahead in the trail is dropped
   start(categoryId) {
     this.categoryId = Catalog.get(categoryId).id;
     this.queue = Catalog.queue(this.categoryId, this.order);
     this.trail = this.trail.slice(0, this.index + 1);
+    this.round = this.trail.length;
   },
 
   current() {
@@ -33,7 +37,7 @@ const Feed = {
     }
     while (this.queue.length) {
       const key = this.queue.shift();
-      if (Catalog.isDone(key) || this.trail.includes(key)) continue;
+      if (Catalog.isDone(key) || this.trail.indexOf(key, this.round) !== -1) continue;
       this.trail.push(key);
       this.index = this.trail.length - 1;
       return key;
@@ -53,6 +57,7 @@ const Feed = {
     if (at === -1) return;
     this.trail.splice(at, 1);
     if (this.index >= at) this.index--;
+    if (this.round > at) this.round--;
   },
 
   // The next few films to be dealt, to fetch their details ahead of time

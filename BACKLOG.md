@@ -51,6 +51,7 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Skips come round again: a skipped title stays to rate (after unseen ones), lists show how many are left to rate, and a pass with only skipped titles left offers to go through them again. The settings button to show skipped titles again is gone.
 - Award lists: Best Picture (replacing the five yearly lists), Oscar acting, Oscar directing/writing/cinematography, International, Documentary, Animated, Golden Globe & Emmy TV, festival top prizes, Sight and Sound poll; built by tools/build-awards.js, fetched on demand.
 - Settings → Appearance: Auto, Light or Dark (data-scheme on <html>, set before the page draws); the browser bar colour follows the page. Themes checked readable in every combination.
 - Search: suggestions as you type with typos forgiven (your titles, bundled films, TMDB's recent and popular titles), OMDb prefix matching ("bugo*"), "Did you mean", Enter picks; in review and the add sheet. Themes: Basic (was Classic) plus five that colour the whole app. App icon attribution (monkik, Flaticon).
