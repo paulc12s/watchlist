@@ -446,6 +446,13 @@
   font-weight: 650;
 }
 
+/* App icon choice: each option shows its icon */
+.icon-choice img {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+}
+
 /* ---- Add and title sheets ---- */
 
 .sheet input[type="text"],

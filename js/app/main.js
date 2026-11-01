@@ -24,6 +24,16 @@ const Main = {
       tab.addEventListener('click', () => this.setMode(tab.dataset.mode));
     });
 
+    // App icon (js/icon-choice.js)
+    const iconChoice = document.getElementById('iconChoice');
+    setChecked(iconChoice, 'icon', IconChoice.get());
+    iconChoice.addEventListener('click', event => {
+      const button = event.target.closest('[data-icon]');
+      if (!button) return;
+      IconChoice.set(button.dataset.icon);
+      setChecked(iconChoice, 'icon', button.dataset.icon);
+    });
+
     // A change in either mode (or an import) shows in watchlist mode; it
     // re-renders once per frame however many titles changed
     let pending = false;

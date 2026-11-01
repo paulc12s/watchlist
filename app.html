@@ -278,6 +278,14 @@
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
     <section class="setting">
+      <h3>App icon</h3>
+      <div class="segmented icon-choice" id="iconChoice" role="radiogroup" aria-label="App icon">
+        <button type="button" role="radio" data-icon="mono"><img src="icons/favicon-32.png" alt="">Black</button>
+        <button type="button" role="radio" data-icon="colour"><img src="icons/colour/favicon-32.png" alt="">Colour</button>
+      </div>
+      <p class="hint">For the browser tab and the home screen, on every page in this browser. Your phone copies the home-screen icon when you add the page, so remove it and add it again to switch.</p>
+    </section>
+    <section class="setting">
       <h3>Review order</h3>
       <div class="segmented" role="radiogroup" aria-label="Order">
         <button type="button" role="radio" data-order="ranked">Best first</button>
@@ -308,6 +316,7 @@
 </dialog>
 
 <script src="js/config.js?v=__APP_VERSION__"></script>
+<script src="js/icon-choice.js?v=__APP_VERSION__"></script>
 <script src="js/security.js?v=__APP_VERSION__"></script>
 <script src="js/title.js?v=__APP_VERSION__"></script>
 <script src="js/store.js?v=__APP_VERSION__"></script>

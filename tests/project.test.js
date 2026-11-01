@@ -35,6 +35,7 @@ test('every page’s local scripts, stylesheets and icons exist, and the deploy 
     const source = fs.readFileSync(path.join(root, page), 'utf8');
     const refs = [...source.matchAll(/(?:src|href)="([^"#:]+?\.(?:js|css|png))(?:\?[^"]*)?"/g)].map(m => m[1]);
     assert.ok(source.includes('href="icons/apple-touch-icon.png"'), `${page} lacks the home-screen icon`);
+    if (page !== 'index.html') assert.ok(source.includes('js/icon-choice.js'), `${page} doesn't apply the icon choice`);
     for (const ref of refs) assert.ok(fs.existsSync(path.join(root, ref)), `${page} loads ${ref}, which doesn't exist`);
     if (source.includes('__APP_VERSION__')) assert.ok(workflow.includes(` ${page}`), `pages.yml doesn't stamp ${page}`);
   }
@@ -51,7 +52,8 @@ test('the combined page allows every host its two modes load from', () => {
 
 test('site icons are opaque PNGs at the sizes the pages declare', () => {
   // iOS fills a home-screen icon's transparency with black, hiding a dark glyph
-  for (const [file, size] of [['apple-touch-icon.png', 180], ['favicon-32.png', 32], ['icon-192.png', 192], ['icon-512.png', 512]]) {
+  const files = [['apple-touch-icon.png', 180], ['favicon-32.png', 32], ['icon-192.png', 192], ['icon-512.png', 512]];
+  for (const [file, size] of ['', 'colour/'].flatMap(set => files.map(([name, px]) => [set + name, px]))) {
     const png = fs.readFileSync(path.join(root, 'icons', file));
     assert.equal(png.toString('ascii', 12, 16), 'IHDR', file);
     assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [size, size], `${file} size`);
