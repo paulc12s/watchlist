@@ -115,6 +115,9 @@ app.html             Watchlist & Review in one page (+ app.css, over ratings.css
 watchlist.html       Classic watchlist
 batch-upload.html    Bulk title importer (+ batch-upload.css)
 version.json         Deployed version, stamped by the Pages workflow
+movie.png            Icon artwork (black glyph on transparent, 512px)
+icons/               Site icons built from it by tools/build-icons.py (needs Pillow):
+                     opaque white tiles, since iOS shows transparency as black
 watchlist.css        Styles (light/dark, responsive)
 js/
   Shared by every page:
