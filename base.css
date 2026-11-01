@@ -1521,8 +1521,10 @@ textarea:focus {
   display: none;
 }
 
-#titleSearchResults,
-#addResults {
+/* Only while there are results to scroll: once one is chosen, the details
+   sit right under the search box */
+#titleSearchResults:has(.film-row),
+#addResults:has(.result) {
   padding-bottom: 45dvh;
 }
 

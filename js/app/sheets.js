@@ -243,6 +243,9 @@ const UI = {
         this.renderResults();
       });
       els.addOptions.hidden = false;
+      // The keyboard goes, and the details and options show from the top
+      if (document.activeElement === els.addSearch) els.addSearch.blur();
+      els.addSheet.querySelector('.sheet-body').scrollTop = 0;
     } catch (error) {
       ReviewUI.toast(error.message);
     }
