@@ -32,7 +32,9 @@ function memoryStore(Store) {
   const data = new Map();
   Store.open = async () => {};
   Store.load = async key => (data.has(key) ? JSON.parse(JSON.stringify(data.get(key))) : undefined);
-  Store.scheduleSave = (key, write) => data.set(key, JSON.parse(JSON.stringify(write())));
+  Store.scheduleSave = (key, write) => {
+    if (!Store.blocked) data.set(key, JSON.parse(JSON.stringify(write())));
+  };
   Store.flush = async () => {};
   return data;
 }

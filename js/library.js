@@ -124,6 +124,15 @@ const Library = {
     this.changed();
   },
 
+  // When the stored titles couldn't be loaded: nothing is saved this visit,
+  // so the titles in storage stay as they were, whatever happens on screen
+  LOAD_FAILED: 'Your saved titles couldn’t be loaded, so changes on this page won’t be saved. Your saved titles are untouched. Reload to try again.',
+
+  loadFailed() {
+    this.load([]);
+    Store.block(this.LOAD_FAILED);
+  },
+
   // Saves and notifies after a change made outside the methods above (undo)
   changed() {
     this.save();

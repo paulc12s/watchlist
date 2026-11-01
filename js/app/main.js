@@ -24,6 +24,16 @@ const Main = {
       tab.addEventListener('click', () => this.setMode(tab.dataset.mode));
     });
 
+    // Colour theme (js/palette.js)
+    const paletteChoice = document.getElementById('paletteChoice');
+    setChecked(paletteChoice, 'palette', Palette.get());
+    paletteChoice.addEventListener('click', event => {
+      const button = event.target.closest('[data-palette]');
+      if (!button) return;
+      Palette.set(button.dataset.palette);
+      setChecked(paletteChoice, 'palette', button.dataset.palette);
+    });
+
     // App icon (js/icon-choice.js)
     const iconChoice = document.getElementById('iconChoice');
     setChecked(iconChoice, 'icon', IconChoice.get());

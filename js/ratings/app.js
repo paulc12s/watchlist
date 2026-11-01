@@ -14,6 +14,11 @@ const RatingsApp = {
     try {
       // Titles are kept by the shared Library (js/library.js) in this page's database
       await Library.open(CONFIG.STORAGE.RATINGS);
+    } catch (error) {
+      console.error('Load failed:', error);
+      Library.loadFailed();
+    }
+    try {
       await this.start();
     } catch (error) {
       console.error('Start-up failed:', error);

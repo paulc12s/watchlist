@@ -60,10 +60,12 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 
 One page with both apps, switched with **Watchlist | Review** at the top. Both modes work on the same titles, so a thumb given in either shows in the other straight away. The page keeps its own database (`TitlesDB`) and starts empty: export from the classic pages and import here to bring titles over. Its export is the same file format as theirs. Light and dark themes follow the device.
 
-- **Watchlist mode** — *To watch*, *Watched*, ❤️, 👍 and 👎 lists with counts; filter chips (priority, type, rewatch, platform, tag); a search box that filters your titles. Tap 👍 / 👎 on a title once you've seen it (tap the lit one to put it back on the list), or ❤️ if you loved it (👍 with five stars; tap it again to keep just the 👍), or tap the title for its sheet: verdict, on-the-list and rewatch toggles, stars, notes, priority, tag, platform, delete, web search. Undo appears after each change
+- **Watchlist mode** — *To watch*, *Watched* and *Rated* lists with counts; filter chips for what's in the list (priority on To watch; type, rewatch, platform, tag); a search box that filters your titles. Watched and Rated sort by recently rated, your rating, title, year or IMDb rating (the choice is remembered on the device)
+- **Rated** — every title you've rated, including ones still on your list to watch, as compact rows with your verdict as an icon (❤️, 👍 or 👎, plus stars if you gave 1–4). Narrow it to ❤️, 👍 or 👎; tap a row to change the rating Tap 👍 / 👎 on a title once you've seen it (tap the lit one to put it back on the list), or ❤️ if you loved it (👍 with five stars; tap it again to keep just the 👍), or tap the title for its sheet: verdict, on-the-list and rewatch toggles, stars, notes, priority, tag, platform, delete, web search. Undo appears after each change
 - **Adding** — **+** opens a sheet: search OMDb (with year, type, or an IMDb link), add by hand, or add a YouTube video; then add it to watch, or as already seen with 👍 or 👎
 - **Review mode** — the ratings swipe feed (below), started the first time you open it, so its lists only load when you use them
 - **⚙ Settings** — export, import and the taste profile for both modes, plus review order, TMDB key and skipped titles; links to batch upload and the classic pages
+- **Colour theme** (Settings) — Classic, Pastel, Metal, Pride, Desert or Aurora, each with a light and a dark version that follow the device. Kept per browser (`js/palette.js`). A palette sets a handful of `--p-*` values in `ratings.css`; every tint is mixed from those, and each palette is checked for text contrast (4.5:1 for text on the background and on buttons)
 
 ## Moving titles between pages, browsers and devices
 
@@ -76,11 +78,17 @@ Both pages store titles in the same shape (`js/title.js`) through the same code 
 - **Deletes are local:** removing a title on one page leaves the other page's copy, and importing from it brings the title back
 - **Each browser and address keeps its own data.** `localhost` and the published site, Safari and Chrome, and different devices don't share; export and import to move between them
 
+### Keeping your data safe
+
+- **If your saved titles can't be loaded**, the page carries on empty but saves nothing for the rest of the visit, so the stored titles can't be overwritten. A red banner says so; reload to try again
+- **If a save fails**, it's kept and retried (after 2, 5, 15, 30 seconds, then every minute) on a fresh connection to the database, and a red banner stays until a save works. Export a backup if it doesn't go away
+- **One tab saves at a time.** Each save writes the whole list, so two tabs of the same page would undo each other's changes. The tab opened last saves; older tabs stop saving and show a banner with a Reload button
+
 ## Ratings (`ratings.html`)
 
 A separate swipe feed for rating films and TV shows and building a taste profile. It keeps its own copy of your titles (`RatingsDB`) and never changes the watchlist's; the two pages exchange files (see below).
 
-- **Swipe right / left** — thumbs up / down. **Swipe up** — skip (not seen, or can't remember). **Pass** on the card (or X) — not interested: not seen and don't want to, which counts against similar titles; skipped films don't come back unless you choose “Show skipped films again” in settings. **Swipe down** — back to the previous film. Arrow keys do the same on a computer. **❤️** (or L) — loved it: 👍 with five stars, the strongest signal the recommender gets
+- **Swipe right / left** — thumbs up / down. **Lists** — finished lists are dimmed with a ✓ and say how many you skipped; tap one to bring back just its skipped titles. **Swipe up** — skip (not seen, or can't remember). **Pass** on the card (or X) — not interested: not seen and don't want to, which counts against similar titles; skipped films don't come back unless you choose “Show skipped films again” in settings. **Swipe down** — back to the previous film. Arrow keys do the same on a computer. **❤️** (or L) — loved it: 👍 with five stars, the strongest signal the recommender gets
 - **On the card** — stars (1–5 keys), 🔖 want to watch (W), 🔁 would rewatch (R), ✏️ notes (N). Stars, notes or rewatch mean you've seen it, so the film needs a thumb rather than a skip
 - **TV** — add a free [TMDB](https://www.themoviedb.org/settings/api) key in settings (kept on that device only) to unlock live TV lists: most watched, top rated, trending, genres, networks and decades. Shows are rated like films and stored by IMDb ID, so they match the watchlist's TV items in both directions. TV ratings shape the taste profile but not recommendations, which use MovieLens films
 - **Lists** — tap the list name to choose (most watched, love-it-or-hate-it, Oscar Best Picture nominees, decades, genres, hidden gems, a mix); ⏭ moves to the next list, and a finished list rolls on to the next automatically. Best-first or shuffled order is in settings
@@ -128,7 +136,9 @@ js/
   config.js          API keys, limits, each page's database
   security.js        Escaping, URL checks, html`` templates
   title.js           The one record shape: sanitizing (incl. old field names), merging
-  store.js           IndexedDB key-value storage with batched saves
+  store.js           IndexedDB key-value storage: batched saves, retries, one saving tab
+  save-banner.js     The banner that stays while changes can't be saved
+  palette.js         Colour theme choice, applied in <head> before the page draws
   library.js         A page's titles: every change, import and export goes through here
   omdb.js            OMDb requests (key fallback, cache) and parsing
   version-check.js   Reload installed copies when a new version is deployed

@@ -26,8 +26,8 @@ const ItemManager = {
       UI.setStatus('saved', true);
     } catch (error) {
       console.error('Load error:', error);
-      Library.load([]);
-      UI.setStatus(error instanceof SyntaxError ? 'data corrupted - starting fresh' : 'load failed', false);
+      Library.loadFailed();
+      UI.setStatus('load failed', false);
     }
 
     UI.render();
@@ -101,7 +101,35 @@ const ItemManager = {
     // Every title with that thumb, watched or still on the list
     up: t => Title.thumb(t) === 'up',
     down: t => Title.thumb(t) === 'down',
-    loved: t => Title.isLoved(t)
+    loved: t => Title.isLoved(t),
+    // Everything you've rated, watched or still on the list
+    rated: t => Title.isSeen(t)
+  },
+
+  // Orders for every list but the queue (which groups by priority)
+  SORTS: {
+    recent: ['Recently rated', (a, b) => (b.reviewDate || b.updatedDate || '').localeCompare(a.reviewDate || a.updatedDate || '')],
+    rating: ['Your rating', (a, b) => ItemManager.yourRating(b) - ItemManager.yourRating(a)],
+    title: ['Title A–Z', (a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true })],
+    newest: ['Year, newest', (a, b) => (b.year || 0) - (a.year || 0)],
+    oldest: ['Year, oldest', (a, b) => (a.year || 9999) - (b.year || 9999)],
+    imdb: ['IMDb rating', (a, b) => (b.imdbRating || 0) - (a.imdbRating || 0)]
+  },
+
+  // Your verdict as one number for sorting: ❤️ (5★) 5, 4★ 4, 👍 3.5, 3★ 3,
+  // 2★ 2, 👎 1.5, 1★ 1; a rewatch flag nudges up
+  yourRating(t) {
+    const thumb = Title.thumb(t);
+    if (!thumb) return 0;
+    const base = t.stars || (thumb === 'up' ? 3.5 : 1.5);
+    return base + (t.rewatch ? 0.25 : 0);
+  },
+
+  // A list in the chosen order; ties stay most recently rated first
+  sorted(titles, sort = state.sort) {
+    const [, compare] = this.SORTS[sort] || this.SORTS.recent;
+    const recent = this.SORTS.recent[1];
+    return [...titles].sort((a, b) => compare(a, b) || recent(a, b));
   },
 
   getFiltered() {
@@ -110,6 +138,9 @@ const ItemManager = {
     const inList = this.LISTS[list] || this.LISTS.queue;
 
     const matchesSearch = (i) => !query || i.title.toLowerCase().includes(query);
+    // Rated narrows further by your verdict: ❤️, 👍 (includes ❤️) or 👎
+    const byVerdict = list === 'rated' && ['loved', 'up', 'down'].includes(state.verdict) ? this.LISTS[state.verdict] : null;
+    const matchesVerdict = (i) => !byVerdict || byVerdict(i);
 
     const matchesSecondaryFilter = (i) => {
       if (filter === 'all') return true;
@@ -119,7 +150,7 @@ const ItemManager = {
       return i.platform === filter || i.tag === filter;
     };
 
-    return Library.all().filter(i => inList(i) && matchesSecondaryFilter(i) && matchesSearch(i));
+    return Library.all().filter(i => inList(i) && matchesVerdict(i) && matchesSecondaryFilter(i) && matchesSearch(i));
   },
 
   // Titles this page shows in any list

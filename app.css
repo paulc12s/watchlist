@@ -10,11 +10,13 @@
 /* Light theme: the same design with light glass, following the device setting */
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f4f6f9;
+    color-scheme: light;
+    --bg: var(--p-bg-light);
     --surface: #ffffff;
     --ink: #0d1218;
     --ink-2: rgba(13, 18, 24, 0.68);
-    --ink-3: rgba(13, 18, 24, 0.46);
+    /* 0.6 keeps small grey text above 4.5:1 on the background */
+    --ink-3: rgba(13, 18, 24, 0.6);
     --ink-4: rgba(13, 18, 24, 0.14);
 
     --glass: rgba(255, 255, 255, 0.72);
@@ -31,18 +33,13 @@
     --poster-fallback: linear-gradient(160deg, #dde3ea, #c5ced9);
     --error-ink: #b42318;
 
-    --accent: #0a84c6;
-    --accent-deep: #0569a3;
-    --accent-soft: rgba(10, 132, 198, 0.12);
-    --accent-edge: rgba(10, 132, 198, 0.45);
-    --love: #e0335a;
-    --love-soft: rgba(224, 51, 90, 0.12);
-    --love-edge: rgba(224, 51, 90, 0.45);
-    --accent-glow: rgba(10, 132, 198, 0.3);
-  }
-
-  .button.primary {
-    color: #ffffff;
+    --accent: var(--p-accent-light);
+    --accent-deep: var(--p-deep-light);
+    --love: var(--p-love-light);
+    --on-accent: var(--p-on-accent-light);
+    --danger: #c93c3c;
+    /* Darker gold, so star counts read on white */
+    --star: #a86b12;
   }
 
   /* The review card always sits on a poster under a dark scrim, so it keeps
@@ -50,7 +47,7 @@
   .card {
     --ink: #f2f5f8;
     --ink-2: rgba(242, 245, 248, 0.68);
-    --ink-3: rgba(242, 245, 248, 0.42);
+    --ink-3: rgba(242, 245, 248, 0.56);
     --ink-4: rgba(242, 245, 248, 0.16);
     --glass: rgba(255, 255, 255, 0.07);
     --glass-hi: rgba(255, 255, 255, 0.13);
@@ -60,7 +57,12 @@
     --button-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
     --track: rgba(0, 0, 0, 0.3);
     --poster-fallback: linear-gradient(160deg, #1b2330, #0a0d12);
-    --accent: #5cd2ff;
+    --accent: var(--p-accent-dark);
+    --accent-deep: var(--p-deep-dark);
+    --love: var(--p-love-dark);
+    --on-accent: var(--p-on-accent-dark);
+    --danger: #ef6b6b;
+    --star: #e8a33d;
     color: var(--ink);
   }
 
@@ -107,10 +109,26 @@
   min-height: 0;
 }
 
-/* Review mode: the ratings layout, fitted under the mode bar */
+/* Review mode: the ratings layout, fitted under the mode bar. A flex column
+   all the way down rather than height: 100%, which WebKit can resolve
+   against the wrong box inside a flex item */
+.review-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.mode-panel[hidden] {
+  display: none;
+}
+
 .review-panel .app {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  width: 100%;
   padding-top: 0;
+  /* Never closer than 16px to the bottom edge, home indicator or not */
+  padding-bottom: max(16px, calc(var(--safe-bottom) + 8px));
 }
 
 /* ---- Watchlist mode ---- */
@@ -320,7 +338,7 @@
 }
 
 .tag-stars {
-  color: #e8a33d;
+  color: var(--star);
   letter-spacing: 0.05em;
 }
 
@@ -387,9 +405,9 @@
 }
 
 .thumb.down[aria-pressed="true"] {
-  border-color: rgba(240, 110, 110, 0.5);
-  background: rgba(240, 110, 110, 0.14);
-  color: #e35d5d;
+  border-color: var(--danger-edge);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 @media (hover: hover) {
@@ -430,7 +448,7 @@
 
 .button.danger {
   margin-right: auto;
-  color: #e35d5d;
+  color: var(--danger);
 }
 
 /* Undo sits above everything, bottom centre */
@@ -676,7 +694,7 @@
 }
 
 .star-row .filled {
-  color: #e8a33d;
+  color: var(--star);
 }
 
 .star-row .filled .icon {
@@ -692,3 +710,168 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Rated: verdict filter, sort, compact rows ---- */
+
+.list-options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.list-options[hidden] {
+  display: none;
+}
+
+.verdicts {
+  flex: 1;
+  min-width: 0;
+}
+
+.verdicts button {
+  gap: 4px;
+  padding-inline: 6px;
+}
+
+.verdicts .count {
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.sort-field {
+  flex: none;
+  margin-left: auto;
+}
+
+.sort-field select {
+  max-width: 150px;
+  padding: 7px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-full);
+  background: var(--well);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px; /* Keeps iOS from zooming in */
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.title-list:has(.rated-row) {
+  gap: 4px;
+}
+
+.title-row.rated-row {
+  grid-template-columns: 34px 1fr auto;
+  gap: 10px;
+  padding: 5px 8px 5px 5px;
+}
+
+.rated-row .row-poster {
+  width: 34px;
+  border-radius: 5px;
+}
+
+.rated-row .row-title {
+  font-size: 0.92rem;
+}
+
+.rated-row .row-meta {
+  font-size: 0.75rem;
+}
+
+.verdict-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+}
+
+.verdict-badge .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.verdict-badge.up {
+  color: var(--accent);
+}
+
+.verdict-badge.down {
+  color: var(--danger);
+}
+
+.verdict-badge.loved {
+  color: var(--love);
+}
+
+.badge-stars {
+  font-size: 0.66rem;
+  font-weight: 650;
+  color: var(--star);
+}
+
+/* Pride: the flag under the chosen mode */
+:root[data-palette="pride"] .mode-switch [aria-selected="true"] {
+  background-image: var(--p-rainbow);
+  background-size: 70% 3px;
+  background-position: bottom 3px center;
+  background-repeat: no-repeat;
+}
+
+/* ---- Colour theme choice (Settings) ---- */
+.palette-choice {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.palette-choice button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--well);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 550;
+}
+
+.palette-choice [aria-checked="true"] {
+  border-color: var(--accent-edge);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+/* Each swatch shows its palette's accent and ❤️ in both themes' shades;
+   fixed colours, since the swatches preview palettes not yet chosen */
+.swatch {
+  width: 100%;
+  height: 22px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.25);
+}
+
+.swatch-classic { background: linear-gradient(90deg, #5cd2ff, #0876b5 60%, #ff6b8b); }
+.swatch-pastel { background: linear-gradient(90deg, #c4b5fd, #a78bfa 60%, #f9a8d4); }
+.swatch-metal { background: linear-gradient(90deg, #8e8e93, #d9b874 45%, #b38f45 70%, #e3a6a0); }
+.swatch-pride { background: linear-gradient(90deg, #e40303, #ff8c00, #ffed00, #008026, #24408e, #732982); }
+.swatch-desert { background: linear-gradient(90deg, #f8e2c4, #f2a46b 45%, #a84a17 75%, #ff8a75); }
+.swatch-aurora { background: linear-gradient(90deg, #5eeac0, #2cc79c 45%, #4e6bd8 70%, #c99bff); }

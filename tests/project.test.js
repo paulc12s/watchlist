@@ -60,3 +60,25 @@ test('site icons are opaque PNGs at the sizes the pages declare', () => {
     assert.ok([0, 2].includes(png[25]), `${file} has an alpha channel (colour type ${png[25]}); rebuild with tools/build-icons.py`);
   }
 });
+
+test('every palette is complete: CSS sets each input, with a swatch and a Settings button', () => {
+  const read = file => fs.readFileSync(path.join(root, file), 'utf8');
+  const css = read('ratings.css');
+  const appCss = read('app.css');
+  const page = read('app.html');
+  const choices = read('js/palette.js').match(/CHOICES: \[([^\]]+)\]/)[1].match(/'([a-z]+)'/g).map(s => s.slice(1, -1));
+  const inputs = ['accent', 'deep', 'love', 'on-accent', 'bg'].flatMap(name => [`--p-${name}-dark`, `--p-${name}-light`]);
+  for (const choice of choices) {
+    assert.match(page, new RegExp(`data-palette="${choice}"`), `${choice}: Settings button`);
+    assert.match(appCss, new RegExp(`\\.swatch-${choice} \\{`), `${choice}: swatch`);
+    const block = choice === 'classic'
+      ? css.match(/:root \{([\s\S]*?)\n\}/)[1]
+      : (css.match(new RegExp(`:root\\[data-palette="${choice}"\\] \\{([\\s\\S]*?)\\n\\}`)) || [])[1];
+    assert.ok(block, `${choice}: CSS block`);
+    for (const input of inputs) assert.ok(block.includes(`${input}:`), `${choice} sets ${input}`);
+  }
+  for (const file of ['app.html', 'ratings.html']) {
+    const html = read(file);
+    assert.ok(html.indexOf('js/palette.js') < html.indexOf('</head>'), `${file} applies the palette before drawing`);
+  }
+});

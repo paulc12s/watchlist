@@ -21,6 +21,14 @@ test('swipes record verdicts; thumbs clear "want" and stamp when rated', () => {
   assert.equal(Ratings.setStars(film(1), 4).stars, 0, 'tapping the same star clears it');
 });
 
+test('clearSkips can bring back only one list’s skips', () => {
+  const { Ratings } = loadRatings();
+  Ratings.setVerdict(film(1), 'skip');
+  Ratings.setVerdict(film(2), 'skip');
+  assert.equal(Ratings.clearSkips(new Set(['tt0000001'])), 1);
+  assert.equal(Ratings.get('tt0000002').verdict, 'skip', 'other lists keep theirs');
+});
+
 test('clearSkips forgets plain skips but keeps anything else about the film', () => {
   const { Ratings } = loadRatings();
   Ratings.setVerdict(film(1), 'skip');

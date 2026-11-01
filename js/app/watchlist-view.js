@@ -13,10 +13,11 @@ const UI = {
   hidden: false,
   stale: false,
   add: { mode: 'search', type: '', chosen: null, results: [], seq: 0, timer: null },
+  SORT_KEY: 'list_sort',
   editing: null,
 
   init() {
-    const ids = ['listSearch', 'listTabs', 'filterChips', 'titleList', 'addButton', 'undoBar', 'undoMessage', 'undoButton',
+    const ids = ['listSearch', 'listTabs', 'listOptions', 'filterChips', 'titleList', 'addButton', 'undoBar', 'undoMessage', 'undoButton',
       'tagOptions', 'platformOptions', 'addSheet', 'addModes', 'addSearch', 'addType', 'addResults', 'manualTitle',
       'manualType', 'manualGenre', 'youtubeUrl', 'youtubeTitle', 'addOptions', 'addChosen', 'addPriority', 'addTag',
       'addPlatform', 'addSeenUp', 'addSeenDown', 'addToList', 'titleSheet', 'titleName', 'titleDetails', 'titleThumbs',
@@ -35,6 +36,28 @@ const UI = {
       state.list = tab.dataset.list;
       this.render();
     });
+    els.listOptions.addEventListener('click', event => {
+      const button = event.target.closest('[data-verdict]');
+      if (!button) return;
+      state.verdict = button.dataset.verdict;
+      this.render();
+    });
+    els.listOptions.addEventListener('change', event => {
+      if (event.target.id !== 'listSort') return;
+      state.sort = event.target.value;
+      try {
+        localStorage.setItem(this.SORT_KEY, state.sort);
+      } catch (error) {
+        // Not remembered; harmless
+      }
+      this.renderList();
+    });
+    try {
+      const sort = localStorage.getItem(this.SORT_KEY);
+      if (ItemManager.SORTS[sort]) state.sort = sort;
+    } catch (error) {
+      // Private browsing: default order
+    }
     els.filterChips.addEventListener('click', event => {
       const chip = event.target.closest('[data-filter]');
       if (!chip) return;
@@ -57,6 +80,7 @@ const UI = {
     }
     this.stale = false;
     this.renderTabs();
+    this.renderListOptions();
     this.renderChips();
     this.renderList();
     this.renderOptions();
@@ -83,23 +107,45 @@ const UI = {
   renderTabs() {
     const shown = ItemManager.shown();
     const count = list => shown.filter(ItemManager.LISTS[list]).length;
-    const tabs = [
-      ['queue', 'To watch', ''], ['watched', 'Watched', ''], ['loved', '', 'heart'], ['up', '', 'thumb-up'], ['down', '', 'thumb-down']
-    ];
-    const names = { loved: 'Loved', up: 'Liked', down: 'Not for me' };
-    this.elements.listTabs.innerHTML = html`${tabs.map(([list, label, iconName]) => html`
-      <button type="button" role="tab" data-list="${list}" aria-selected="${String(state.list === list)}"
-        aria-label="${label || names[list]}">
-        ${iconName && icon(iconName)}${label}<span class="count">${count(list)}</span>
+    // ❤️ / 👍 / 👎 live inside Rated (renderListOptions)
+    if (!['queue', 'watched', 'rated'].includes(state.list)) state.list = 'rated';
+    const tabs = [['queue', 'To watch'], ['watched', 'Watched'], ['rated', 'Rated']];
+    this.elements.listTabs.innerHTML = html`${tabs.map(([list, label]) => html`
+      <button type="button" role="tab" data-list="${list}" aria-selected="${String(state.list === list)}">
+        ${label}<span class="count">${count(list)}</span>
       </button>`)}`;
   },
 
-  renderChips() {
+  // Rated: which verdicts, and every list but the queue: the order
+  renderListOptions() {
     const shown = ItemManager.shown();
+    const verdicts = [['all', 'All', ''], ['loved', 'Loved', 'heart'], ['up', 'Liked', 'thumb-up'], ['down', 'Not for me', 'thumb-down']];
+    const count = v => shown.filter(v === 'all' ? ItemManager.LISTS.rated : ItemManager.LISTS[v]).length;
+    const sorts = Object.entries(ItemManager.SORTS);
+    this.elements.listOptions.hidden = state.list === 'queue';
+    this.elements.listOptions.innerHTML = state.list === 'queue' ? '' : html`
+      ${state.list === 'rated' && html`
+        <div class="segmented verdicts" role="radiogroup" aria-label="Your verdict">
+          ${verdicts.map(([v, label, iconName]) => html`
+            <button type="button" role="radio" data-verdict="${v}" aria-checked="${String(state.verdict === v)}" aria-label="${label}" title="${label}">
+              ${iconName ? icon(iconName) : label}<span class="count">${count(v)}</span>
+            </button>`)}
+        </div>`}
+      <label class="sort-field">
+        <span class="visually-hidden">Sort by</span>
+        <select id="listSort">
+          ${sorts.map(([key, [label]]) => html`<option value="${key}" ${state.sort === key ? 'selected' : ''}>${label}</option>`)}
+        </select>
+      </label>`;
+  },
+
+  // Chips for what's in the current list: priorities only on the list to watch
+  renderChips() {
+    const shown = ItemManager.shown().filter(ItemManager.LISTS[state.list] || ItemManager.LISTS.queue);
     const has = test => shown.some(test);
     const chips = [
       ['all', 'All'],
-      ...CONFIG.PRIORITIES.filter(p => has(t => t.want && Title.displayPriority(t) === p))
+      ...CONFIG.PRIORITIES.filter(p => state.list === 'queue' && has(t => t.want && Title.displayPriority(t) === p))
         .map(p => [p, p === 'watching' ? 'Watching now' : CONFIG.PRIORITY_LABELS[p]]),
       ...[['movie', 'Films'], ['series', 'TV'], ['youtube', 'YouTube']].filter(([type]) => has(t => t.type === type)),
       ...(has(t => t.rewatch) ? [['rewatch', 'Rewatch']] : []),
@@ -120,6 +166,7 @@ const UI = {
       list.innerHTML = html`<div class="empty">
         <p>${query ? `Nothing here matches “${query}”.` : {
           queue: 'Nothing to watch yet.', watched: 'Nothing watched yet. Tap a thumb on a title once you’ve seen it.',
+          rated: 'Nothing rated here yet. Rate titles with 👍, 👎 or ❤️ here or in Review.',
           up: 'No liked titles yet.', down: 'No titles marked “not for me”.'
         }[state.list]}</p>
         <button type="button" class="button primary" data-action="add">${icon('plus')}${query ? `Add “${query}”` : 'Add a title'}</button>
@@ -134,9 +181,9 @@ const UI = {
         <h2 class="group-label">${p === 'watching' ? 'Watching now' : `${CONFIG.PRIORITY_LABELS[p]} priority`}</h2>
         ${group.map(t => this.rowHTML(t))}`)}`;
     } else {
-      // Most recently reviewed first
-      const recent = [...titles].sort((a, b) => (b.reviewDate || b.updatedDate).localeCompare(a.reviewDate || a.updatedDate));
-      list.innerHTML = html`${recent.map(t => this.rowHTML(t))}`;
+      const sorted = ItemManager.sorted(titles);
+      const row = state.list === 'rated' ? t => this.ratedRowHTML(t) : t => this.rowHTML(t);
+      list.innerHTML = html`${sorted.map(row)}`;
     }
   },
 
@@ -170,6 +217,29 @@ const UI = {
             title="${watched && thumb === dir ? 'Put back on the list to watch' : dir === 'up' ? 'Watched: liked it' : 'Watched: not for me'}"
             aria-label="${dir === 'up' ? 'Thumbs up' : 'Thumbs down'}">${icon(`thumb-${dir}`)}</button>`)}
         </div>
+      </article>`;
+  },
+
+  // Rated: a compact row with your verdict as one badge; tap to change it
+  ratedRowHTML(t) {
+    const thumb = Title.thumb(t);
+    const loved = Title.isLoved(t);
+    const typeIcon = { movie: 'film', series: 'tv', youtube: 'play' }[t.type];
+    const meta = [t.year, t.genres[0], t.imdbRating && `IMDb ${Title.formatRating(t.imdbRating)}`].filter(Boolean);
+    const verdict = loved ? 'Loved' : thumb === 'up' ? 'Liked' : 'Not for me';
+    return html`
+      <article class="title-row rated-row" data-id="${t.id}">
+        <button type="button" class="row-poster" data-action="web" aria-label="${t.type === 'youtube' ? 'Watch' : 'Search the web for'} ${t.title}">
+          ${t.poster ? html`<img src="${t.poster}" alt="" loading="lazy">` : icon(typeIcon, 'tiny')}
+        </button>
+        <button type="button" class="row-main" data-action="open" aria-label="${t.title}: ${verdict}. Details and review">
+          <span class="row-title">${t.title}</span>
+          <span class="row-meta">${icon(typeIcon, 'tiny')}${meta.join(' · ')}${t.rewatch && icon('rewatch', 'tiny')}${t.review && icon('note', 'tiny')}</span>
+        </button>
+        <button type="button" class="verdict-badge ${loved ? 'loved' : thumb}" data-action="open" aria-label="Your verdict: ${verdict}${t.stars && !loved ? `, ${t.stars} stars` : ''}" title="${verdict}">
+          ${icon(loved ? 'heart' : `thumb-${thumb}`, loved ? 'filled' : '')}
+          ${t.stars > 0 && !loved && html`<span class="badge-stars">${t.stars}★</span>`}
+        </button>
       </article>`;
   },
 

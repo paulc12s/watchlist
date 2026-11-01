@@ -44,12 +44,16 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - **Go if:** iCloud sync and background updates matter more than the recommendation gain. A web version gets most of the gain from text embeddings.
 
 ## Later
+- CSS: a z-index scale as tokens; a manual light/dark override in Settings; `theme-color` following the palette.
 - Taste over time, now that reviews are dated (`reviewDate`).
 - In the watchlist import, flag conflicting verdicts (an existing 👎 alongside imported 4★) instead of keeping both.
 - Undo for imports.
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Colour themes (Classic, Pastel, Metal, Pride, Desert, Aurora) in Settings. CSS: palette tokens with tints mixed from the accent, `color-scheme` set for native controls, small grey text raised to 4.5:1 contrast, verdict and star colours as tokens, reduced motion covering every animation.
+- Watchlist mode: a Rated tab (compact rows, verdict icon, ❤️/👍/👎 filter, sorting), replacing the separate ❤️/👍/👎 tabs. Review: finished lists marked with a ✓ and their skips revisitable per list; review layout built as a flex column so the buttons stay on screen.
+- Storage safety: a failed load saves nothing for the visit; failed saves retry on a fresh connection with a banner until they work; only the newest tab of a page saves. Fixed: unreadable toasts in light mode, and picking a finished review list now says so instead of jumping to another list.
 - Recommendation quality, measured on a real export with `tools/eval-similar.js personal`: skips no longer count against (loved films' median rank 15 → 9), watchlist titles count as a mild like, Top picks in For you (top 1% with three close liked titles: 61% seen against 34% overall), guess labels only call the top 1% a match, and a **Not interested** verdict (`pass`) in review mode and Top picks.
 - ❤️ = 👍 with five stars, on watchlist rows, a Loved list, the title sheet and the review feed.
 - GitHub settings: Dependabot alerts on; Actions must be pinned to full commit SHAs.

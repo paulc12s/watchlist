@@ -111,8 +111,25 @@ const RatingsUI = {
     }
     Feed.start(id);
     RatingsApp.savePrefs();
+    // A list you pick yourself and have finished says so, rather than
+    // quietly moving on to another list
+    if (announce && Catalog.remaining(id) === 0) return this.renderFinished(category);
     if (announce) this.toast(category.name);
     this.advance();
+  },
+
+  renderFinished(category) {
+    const nextId = Catalog.nextId(category.id);
+    const skipped = Catalog.skippedIn(category.id).size;
+    this.updateHeader();
+    this.els.card.className = 'card empty';
+    this.els.card.innerHTML = html`
+      <div class="info">
+        <h1 class="title">You’ve finished “${category.name}”</h1>
+        <p class="meta">Every title in it is rated, skipped, passed on or on your list.</p>
+        ${skipped > 0 && html`<button type="button" class="button" data-action="revisit-skips">Show the ${skipped} skipped again</button>`}
+        ${nextId && html`<button type="button" class="button primary" data-action="next-list">Next list: ${Catalog.get(nextId).name}</button>`}
+      </div>`;
   },
 
   // On the combined page the feed starts the first time you open review mode
@@ -135,10 +152,14 @@ const RatingsUI = {
         ${categories.map(category => {
           const total = category.keys.length;
           const done = total - Catalog.remaining(category.id);
-          const note = category.media === 'tv' && !TMDB.hasKey() ? 'Needs a TMDB key (Settings)' : category.note;
+          // Finished lists stay tappable: their skipped titles can come round again
+          const finished = category.loaded && total > 0 && done === total;
+          const skipped = finished ? Catalog.skippedIn(category.id).size : 0;
+          const note = category.media === 'tv' && !TMDB.hasKey() ? 'Needs a TMDB key (Settings)'
+            : finished ? `Finished${skipped ? ` · ${skipped} skipped, tap to revisit` : ''}` : category.note;
           return html`
-            <button type="button" class="category-option ${category.id === Feed.categoryId ? 'current' : ''}" data-category="${category.id}">
-              <span class="option-name">${category.name}</span>
+            <button type="button" class="category-option ${category.id === Feed.categoryId ? 'current' : ''} ${finished ? 'finished' : ''}" data-category="${category.id}">
+              <span class="option-name">${finished && icon('check', 'tiny')}${category.name}</span>
               <span class="option-progress">${category.loaded ? `${done} / ${total}` : ''}</span>
               ${note && html`<span class="option-note">${note}</span>`}
             </button>`;
@@ -323,6 +344,19 @@ const RatingsUI = {
     const key = Feed.current();
     if (action === 'settings') return this.openSettings();
     if (action === 'retry') return this.show(key);
+    if (action === 'next-list') return this.switchCategory(Catalog.nextId(Feed.categoryId));
+    if (action === 'revisit-skips') {
+      // Only this list's skips; they're dealt again straight away
+      const count = Ratings.clearSkips(Catalog.skippedIn(Feed.categoryId));
+      this.toast(`${count} skipped title${count === 1 ? '' : 's'} back in “${Catalog.get(Feed.categoryId).name}”`, 'check');
+      return this.switchCategory(Feed.categoryId, { announce: false });
+    }
+    // A message card (finished list, missing key) has no title to rate: the
+    // film behind it is the last one shown, which back returns to
+    if (this.els.card.classList.contains('empty')) {
+      if (action === 'back' && key) this.show(key);
+      return;
+    }
     if (action === 'back') {
       if (!Feed.back()) return this.toast('This is the first one');
       await this.fly('back');

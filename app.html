@@ -28,6 +28,7 @@
 <title>Watchlist</title>
 <link rel="stylesheet" href="ratings.css?v=__APP_VERSION__">
 <link rel="stylesheet" href="app.css?v=__APP_VERSION__">
+<script src="js/palette.js?v=__APP_VERSION__"></script>
 </head>
 <body>
 <!-- Icon set: 24px grid, 1.75 stroke, round caps and joins. Used as <svg><use href="#i-name"/></svg> -->
@@ -77,6 +78,7 @@
         <input type="search" id="listSearch" placeholder="Search your titles" autocomplete="off" aria-label="Search your titles">
       </label>
       <div class="segmented list-tabs" id="listTabs" role="tablist" aria-label="Show"></div>
+      <div class="list-options" id="listOptions"></div>
       <div class="chips" id="filterChips" role="group" aria-label="Filter"></div>
     </div>
     <div class="title-list" id="titleList" aria-live="polite"></div>
@@ -282,6 +284,18 @@
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
     <section class="setting">
+      <h3>Colour theme</h3>
+      <div class="palette-choice" id="paletteChoice" role="radiogroup" aria-label="Colour theme">
+        <button type="button" role="radio" data-palette="classic"><span class="swatch swatch-classic"></span>Classic</button>
+        <button type="button" role="radio" data-palette="pastel"><span class="swatch swatch-pastel"></span>Pastel</button>
+        <button type="button" role="radio" data-palette="metal"><span class="swatch swatch-metal"></span>Metal</button>
+        <button type="button" role="radio" data-palette="pride"><span class="swatch swatch-pride"></span>Pride</button>
+        <button type="button" role="radio" data-palette="desert"><span class="swatch swatch-desert"></span>Desert</button>
+        <button type="button" role="radio" data-palette="aurora"><span class="swatch swatch-aurora"></span>Aurora</button>
+      </div>
+      <p class="hint">Light and dark still follow your device. Kept in this browser, for this page and the classic ratings page.</p>
+    </section>
+    <section class="setting">
       <h3>App icon</h3>
       <div class="segmented icon-choice" id="iconChoice" role="radiogroup" aria-label="App icon">
         <button type="button" role="radio" data-icon="mono"><img src="icons/favicon-32.png" alt="">Black</button>
@@ -324,6 +338,7 @@
 <script src="js/security.js?v=__APP_VERSION__"></script>
 <script src="js/title.js?v=__APP_VERSION__"></script>
 <script src="js/store.js?v=__APP_VERSION__"></script>
+<script src="js/save-banner.js?v=__APP_VERSION__"></script>
 <script src="js/library.js?v=__APP_VERSION__"></script>
 <script src="js/omdb.js?v=__APP_VERSION__"></script>
 <script src="js/version-check.js?v=__APP_VERSION__"></script>

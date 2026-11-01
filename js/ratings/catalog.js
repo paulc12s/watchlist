@@ -185,6 +185,17 @@ const Catalog = {
     return Boolean(info && !MovieInfo.isUsable(info, key));
   },
 
+  // IMDb IDs of a list's titles you skipped, so they can come round again
+  skippedIn(id) {
+    const ids = new Set();
+    for (const key of this.get(id).keys) {
+      const imdbID = MovieInfo.imdbID(key);
+      const entry = imdbID && Ratings.get(imdbID);
+      if (entry && entry.verdict === 'skip') ids.add(imdbID);
+    }
+    return ids;
+  },
+
   remaining(id) {
     return this.get(id).keys.filter(key => !this.isDone(key)).length;
   },

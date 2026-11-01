@@ -209,6 +209,35 @@ test('👍 and 👎 lists show every title with that thumb, combined with other 
   assert.deepEqual(titles(app), ['Queued, rated elsewhere', 'Queued']);
 });
 
+test('Rated lists every rated title, narrows by verdict, and sorts', () => {
+  const app = withTitles([
+    { id: 'a', title: 'Alpha', year: 1990, want: false, verdict: 'up', imdbRating: 7, reviewDate: '2026-01-01T00:00:00.000Z' },
+    { id: 'b', title: 'beta', year: 2010, want: false, verdict: 'up', stars: 5, imdbRating: 8, reviewDate: '2026-03-01T00:00:00.000Z' },
+    { id: 'c', title: 'Gamma', year: 2001, want: true, verdict: 'down', imdbRating: 6, reviewDate: '2026-02-01T00:00:00.000Z' },
+    { id: 'd', title: 'Delta', year: 2020, want: true },
+    { id: 'e', title: 'Epsilon', year: 1985, want: false, verdict: 'skip' },
+    { id: 'f', title: 'Zeta', year: 2005, want: false, verdict: 'up', stars: 3, reviewDate: '2026-04-01T00:00:00.000Z' }
+  ]);
+  const { state, ItemManager } = app;
+  const sorted = sort => plain(ItemManager.sorted(ItemManager.getFiltered(), sort).map(t => t.title));
+  state.list = 'rated';
+  assert.deepEqual(sorted('recent'), ['Zeta', 'beta', 'Gamma', 'Alpha'], 'rated, even if still on the list; not skips or unrated');
+  assert.deepEqual(sorted('rating'), ['beta', 'Alpha', 'Zeta', 'Gamma'], '❤️, 👍, 3★, 👎');
+  assert.deepEqual(sorted('title'), ['Alpha', 'beta', 'Gamma', 'Zeta'], 'ignoring case');
+  assert.deepEqual(sorted('newest'), ['beta', 'Zeta', 'Gamma', 'Alpha']);
+  assert.deepEqual(sorted('oldest'), ['Alpha', 'Gamma', 'Zeta', 'beta']);
+  assert.deepEqual(sorted('imdb'), ['beta', 'Alpha', 'Gamma', 'Zeta'], 'no IMDb rating last');
+  state.verdict = 'loved';
+  assert.deepEqual(sorted('recent'), ['beta']);
+  state.verdict = 'up';
+  assert.deepEqual(sorted('recent'), ['Zeta', 'beta', 'Alpha']);
+  state.verdict = 'down';
+  assert.deepEqual(sorted('recent'), ['Gamma']);
+  state.list = 'watched';
+  assert.deepEqual(sorted('recent'), ['Zeta', 'beta', 'Alpha'], 'the verdict filter only applies to Rated');
+  state.verdict = 'all';
+});
+
 // ---- Thumbs and edits -------------------------------------------------------------
 
 test('card thumbs: a thumb marks watched; tapping the shown thumb puts it back on the list', () => {
@@ -307,7 +336,17 @@ test('status shows saved once stored titles have loaded, including an empty list
   const broken = loadWatchlist();
   broken.Store.saved.set('watchlist_v1', '{not json');
   await broken.ItemManager.load();
-  assert.equal(broken.statuses.at(-1), 'data corrupted - starting fresh');
+  assert.equal(broken.statuses.at(-1), 'load failed');
+});
+
+test('titles that fail to load are never overwritten: nothing saves for the rest of the visit', async () => {
+  const app = loadWatchlist();
+  app.Store.saved.set('titles_v2', { not: 'a list' });
+  await app.ItemManager.load();
+  assert.equal(app.Library.all().length, 0, 'the page carries on empty');
+  assert.ok(app.Store.blocked, 'with saving stopped');
+  app.ItemManager.add({ title: 'New', want: true });
+  assert.deepEqual(plain(app.Store.saved.get('titles_v2')), { not: 'a list' }, 'storage untouched');
 });
 
 test('a title can be added as already seen, with its thumb', () => {

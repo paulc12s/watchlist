@@ -47,9 +47,10 @@ const Ratings = {
     return this.update(info, { stars: current && current.stars === stars ? 0 : stars });
   },
 
-  // Forget skips so those films come round again; returns how many
-  clearSkips() {
-    const skipped = this.all().filter(e => e.verdict === 'skip');
+  // Forget skips so those films come round again: all of them, or only the
+  // IMDb IDs given (one list's); returns how many
+  clearSkips(only = null) {
+    const skipped = this.all().filter(e => e.verdict === 'skip' && (!only || only.has(e.imdbID)));
     for (const entry of skipped) {
       if (entry.want) Library.change(entry, { verdict: '' });
       else Library.remove(entry);

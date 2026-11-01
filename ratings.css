@@ -5,14 +5,34 @@
    a translucent fill, a hairline edge, a soft top highlight and a spring on
    press. Icons come from the SVG sprite in ratings.html and take currentColor.
    Colours are tokens on :root, so app.css can add a light theme.
+
+   Palettes (Settings → Colour theme, js/palette.js) set data-palette on
+   <html>. A palette sets only the --p-* values below, each in a dark and a
+   light version; everything else derives from them. Soft, edge and glow
+   tints are mixed from the accent, so no colour is written twice.
    ============================================================================ */
 
 :root {
-  --bg: #07090c;
+  color-scheme: dark;
+
+  /* ---- Palette inputs (Classic) ---- */
+  --p-accent-dark: #5cd2ff;
+  --p-accent-light: #0876b5;
+  --p-deep-dark: #1aa7e6;
+  --p-deep-light: #0569a3;
+  --p-love-dark: #ff6b8b;
+  --p-love-light: #e0335a;
+  --p-on-accent-dark: #031018;
+  --p-on-accent-light: #ffffff;
+  --p-bg-dark: #07090c;
+  --p-bg-light: #f4f6f9;
+
+  --bg: var(--p-bg-dark);
   --surface: #10141a;
   --ink: #f2f5f8;
   --ink-2: rgba(242, 245, 248, 0.68);
-  --ink-3: rgba(242, 245, 248, 0.42);
+  /* 0.56 keeps small grey text above 4.5:1 on the background */
+  --ink-3: rgba(242, 245, 248, 0.56);
   --ink-4: rgba(242, 245, 248, 0.16);
 
   --glass: rgba(255, 255, 255, 0.07);
@@ -29,14 +49,13 @@
   --poster-fallback: linear-gradient(160deg, #1b2330, #0a0d12);
   --error-ink: #ffb4b4;
 
-  --accent: #5cd2ff;
-  --accent-deep: #1aa7e6;
-  --accent-soft: rgba(92, 210, 255, 0.14);
-  --accent-edge: rgba(92, 210, 255, 0.45);
-  --love: #ff6b8b;
-  --love-soft: rgba(255, 107, 139, 0.16);
-  --love-edge: rgba(255, 107, 139, 0.5);
-  --accent-glow: rgba(92, 210, 255, 0.35);
+  --accent: var(--p-accent-dark);
+  --accent-deep: var(--p-deep-dark);
+  --love: var(--p-love-dark);
+  --on-accent: var(--p-on-accent-dark);
+  /* Verdict and star colours, the same in every palette */
+  --danger: #ef6b6b;
+  --star: #e8a33d;
 
   --radius-sm: 10px;
   --radius-md: 14px;
@@ -46,6 +65,95 @@
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Tints mixed from the accent. Declared again on .card, which in the light
+   theme keeps the dark accent (see app.css) and needs its own tints */
+:root,
+.card {
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-edge: color-mix(in srgb, var(--accent) 45%, transparent);
+  --accent-glow: color-mix(in srgb, var(--accent) 35%, transparent);
+  --love-soft: color-mix(in srgb, var(--love) 16%, transparent);
+  --love-edge: color-mix(in srgb, var(--love) 50%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 14%, transparent);
+  --danger-edge: color-mix(in srgb, var(--danger) 50%, transparent);
+  /* Primary buttons: the accent's gradient, or a palette's own (--p-fill-art) */
+  --fill: var(--p-fill-art, linear-gradient(180deg, var(--accent), var(--accent-deep)));
+}
+
+/* ---- Palettes ------------------------------------------------------------
+   Original palettes; Desert and Aurora take their cue from the seasonal
+   palettes on dopely.top. Each sets accent, deep accent (gradients), love
+   (❤️), text on the accent, and the page background, for dark and light. */
+
+:root[data-palette="pastel"] {
+  --p-accent-dark: #c4b5fd;
+  --p-accent-light: #6f4fd0;
+  --p-deep-dark: #a78bfa;
+  --p-deep-light: #5a3bb8;
+  --p-love-dark: #f9a8d4;
+  --p-love-light: #c23a7c;
+  --p-on-accent-dark: #1a1033;
+  --p-on-accent-light: #ffffff;
+  --p-bg-dark: #0c0b12;
+  --p-bg-light: #f8f6fc;
+}
+
+:root[data-palette="metal"] {
+  --p-accent-dark: #d9b874;
+  --p-accent-light: #86651c;
+  --p-deep-dark: #b38f45;
+  --p-deep-light: #6b4f12;
+  --p-love-dark: #e3a6a0;
+  --p-love-light: #a8504a;
+  --p-on-accent-dark: #1c1508;
+  --p-on-accent-light: #ffffff;
+  --p-bg-dark: #0b0b0c;
+  --p-bg-light: #f1f1ef;
+}
+
+:root[data-palette="pride"] {
+  --p-accent-dark: #b98cff;
+  --p-accent-light: #6a36cf;
+  --p-deep-dark: #8f5cf5;
+  --p-deep-light: #5527b8;
+  --p-love-dark: #ff5c8a;
+  --p-love-light: #d01f55;
+  --p-on-accent-dark: #14062b;
+  --p-on-accent-light: #ffffff;
+  --p-bg-dark: #08080c;
+  --p-bg-light: #f6f5f9;
+  /* The six-stripe flag as a band along the bottom of primary buttons and
+     the chosen mode tab; text stays on the violet, where it reads */
+  --p-rainbow: linear-gradient(90deg, #e40303, #ff8c00, #ffed00, #008026, #24408e, #732982);
+  --p-fill-art: var(--p-rainbow) bottom / 100% 4px no-repeat, linear-gradient(180deg, var(--accent), var(--accent-deep));
+}
+
+:root[data-palette="desert"] {
+  --p-accent-dark: #f2a46b;
+  --p-accent-light: #a84a17;
+  --p-deep-dark: #d9824a;
+  --p-deep-light: #873a10;
+  --p-love-dark: #ff8a75;
+  --p-love-light: #bb3a28;
+  --p-on-accent-dark: #1f0f05;
+  --p-on-accent-light: #ffffff;
+  --p-bg-dark: #0f0c0a;
+  --p-bg-light: #f8f3ec;
+}
+
+:root[data-palette="aurora"] {
+  --p-accent-dark: #5eeac0;
+  --p-accent-light: #08805f;
+  --p-deep-dark: #2cc79c;
+  --p-deep-light: #066a4f;
+  --p-love-dark: #c99bff;
+  --p-love-light: #8a2fd6;
+  --p-on-accent-dark: #04140f;
+  --p-on-accent-light: #ffffff;
+  --p-bg-dark: #060b0b;
+  --p-bg-light: #f1f7f5;
 }
 
 * {
@@ -129,7 +237,7 @@ button:focus-visible {
   padding: calc(var(--safe-top) + 10px) 14px calc(var(--safe-bottom) + 12px);
   gap: 12px;
   /* A faint cool bloom behind the card */
-  background: radial-gradient(120% 60% at 50% 0%, rgba(92, 210, 255, 0.07), transparent 70%);
+  background: radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%);
 }
 
 /* ---- Top bar ------------------------------------------------------------- */
@@ -269,7 +377,7 @@ button:focus-visible {
   justify-content: center;
   padding: 32px;
   background:
-    radial-gradient(90% 60% at 30% 20%, rgba(92, 210, 255, 0.16), transparent 60%),
+    radial-gradient(90% 60% at 30% 20%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
     var(--poster-fallback);
   font-size: 1.7rem;
   font-weight: 700;
@@ -600,7 +708,7 @@ button:focus-visible {
 .action.up {
   color: var(--accent);
   border-color: var(--accent-edge);
-  background: radial-gradient(circle at 50% 25%, rgba(92, 210, 255, 0.32), rgba(92, 210, 255, 0.06) 70%);
+  background: radial-gradient(circle at 50% 25%, color-mix(in srgb, var(--accent) 32%, transparent), color-mix(in srgb, var(--accent) 6%, transparent) 70%);
   box-shadow: var(--highlight), 0 0 0 0 var(--accent-glow), 0 8px 24px -6px var(--accent-glow);
 }
 
@@ -668,6 +776,8 @@ button:focus-visible {
   border-radius: var(--radius-full);
   background: rgba(16, 20, 26, 0.82);
   box-shadow: var(--highlight), 0 12px 32px -8px rgba(0, 0, 0, 0.7);
+  /* The bubble is always dark glass, so its text is always light, in either theme */
+  color: #f3f6fa;
   font-size: 0.86rem;
   font-weight: 500;
   transform: translate(-50%, -12px) scale(0.96);
@@ -882,9 +992,9 @@ textarea:focus {
 
 .button.primary {
   border-color: transparent;
-  background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+  background: var(--fill);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 20px -8px var(--accent-glow);
-  color: #031018;
+  color: var(--on-accent);
   font-weight: 650;
 }
 
@@ -1155,17 +1265,15 @@ textarea:focus {
   color: var(--accent);
 }
 
+/* Reduced motion: every transition and animation on every page that uses
+   this stylesheet, rather than a list that falls out of date */
 @media (prefers-reduced-motion: reduce) {
-  .card,
-  .toast,
-  .action,
-  .star,
-  .rail-button {
-    transition: none;
-  }
-  .sheet[open],
-  .card.nudge {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
 
@@ -1210,4 +1318,61 @@ textarea:focus {
 /* The reasons matter more than the crowd figure where space is short */
 .film-list li.with-actions .film-crowd {
   display: none;
+}
+
+/* ---- Save banner (js/save-banner.js): stays while changes can't be saved -- */
+.save-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 12px 12px 12px 16px;
+  border-radius: 14px;
+  background: #7a1c1c;
+  color: #fff;
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.save-banner[hidden] {
+  display: none;
+}
+
+.save-banner button {
+  flex: none;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+}
+
+/* A finished list: dimmed with a check, still tappable to revisit its skips */
+.category-option.finished .option-name,
+.category-option.finished .option-progress {
+  color: var(--ink-3);
+}
+
+.category-option.finished .option-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.category-option.finished .option-name .icon {
+  color: var(--accent);
+  stroke-width: 2.6;
+}
+
+.card.empty .info .button + .button {
+  margin-top: 10px;
 }
