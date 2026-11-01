@@ -51,7 +51,12 @@ const CONFIG = {
   SEARCH: {
     MAX_PAGES: 3,        // OMDb returns 10 results per page
     MAX_RESULTS: 25,
-    DETAIL_PREFETCH: 5   // Top results get director/cast loaded for disambiguation
+    DETAIL_PREFETCH: 5,  // Top results get director/cast loaded for disambiguation
+    // A last word this long is also searched as a prefix ("bugo*"); shorter
+    // ones bring back too many results for OMDb to answer
+    WILDCARD_MIN: 3,
+    // Searching OMDb waits this long after the last key; suggestions don't wait
+    DELAY_MS: 400
   },
   UNDO_TIMEOUT: 6000,
   BATCH_DELAY_MS: 250, // Pause between titles in batch upload to stay under OMDb rate limits

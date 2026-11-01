@@ -44,13 +44,15 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - **Go if:** iCloud sync and background updates matter more than the recommendation gain. A web version gets most of the gain from text embeddings.
 
 ## Later
-- CSS: a z-index scale as tokens; a manual light/dark override in Settings; `theme-color` following the palette.
+- CSS: a z-index scale as tokens.
 - Taste over time, now that reviews are dated (`reviewDate`).
 - In the watchlist import, flag conflicting verdicts (an existing 👎 alongside imported 4★) instead of keeping both.
 - Undo for imports.
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Settings → Appearance: Auto, Light or Dark (data-scheme on <html>, set before the page draws); the browser bar colour follows the page. Themes checked readable in every combination.
+- Search: suggestions as you type with typos forgiven (your titles, bundled films, TMDB's recent and popular titles), OMDb prefix matching ("bugo*"), "Did you mean", Enter picks; in review and the add sheet. Themes: Basic (was Classic) plus five that colour the whole app. App icon attribution (monkik, Flaticon).
 - Review: search in Choose a list to rate any one film or show straight away (your titles first, then OMDb).
 - Tags and platforms stored in one spelling on every add, edit and import; Settings → Run cleanup tidies older data and checks that what's saved matches what's shown. One chip per name (YouTube once), counts on every chip.
 - Colour themes (Classic, Pastel, Metal, Pride, Desert, Aurora) in Settings. CSS: palette tokens with tints mixed from the accent, `color-scheme` set for native controls, small grey text raised to 4.5:1 contrast, verdict and star colours as tokens, reduced motion covering every animation.

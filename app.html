@@ -307,14 +307,23 @@
     <section class="setting">
       <h3>Theme</h3>
       <div class="palette-choice" id="paletteChoice" role="radiogroup" aria-label="Theme">
-        <button type="button" role="radio" data-palette="classic"><span class="swatch swatch-classic"></span>Classic</button>
+        <button type="button" role="radio" data-palette="basic"><span class="swatch swatch-basic"></span>Basic</button>
         <button type="button" role="radio" data-palette="pastel"><span class="swatch swatch-pastel"></span>Pastel</button>
         <button type="button" role="radio" data-palette="metal"><span class="swatch swatch-metal"></span>Metal</button>
         <button type="button" role="radio" data-palette="pride"><span class="swatch swatch-pride"></span>Pride</button>
         <button type="button" role="radio" data-palette="desert"><span class="swatch swatch-desert"></span>Desert</button>
         <button type="button" role="radio" data-palette="aurora"><span class="swatch swatch-aurora"></span>Aurora</button>
       </div>
-      <p class="hint">Light and dark still follow your device. Kept in this browser, for this page and the classic ratings page.</p>
+      <p class="hint">Kept in this browser, for this page and the classic ratings page.</p>
+    </section>
+    <section class="setting">
+      <h3>Appearance</h3>
+      <div class="segmented" id="schemeChoice" role="radiogroup" aria-label="Appearance">
+        <button type="button" role="radio" data-scheme="auto">Auto</button>
+        <button type="button" role="radio" data-scheme="light">Light</button>
+        <button type="button" role="radio" data-scheme="dark">Dark</button>
+      </div>
+      <p class="hint">Auto follows your device’s light or dark setting.</p>
     </section>
     <section class="setting">
       <h3>App icon</h3>
@@ -356,6 +365,7 @@
       Film lists built from <a href="https://grouplens.org/datasets/movielens/" rel="noopener" target="_blank">MovieLens</a> (GroupLens Research) ·
       Film details from <a href="https://www.omdbapi.com/" rel="noopener" target="_blank">OMDb</a> ·
       TV lists and details from <a href="https://www.themoviedb.org/" rel="noopener" target="_blank">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB.
+      App icon: <a href="https://www.flaticon.com/free-icons/movie" title="movie icons" rel="noopener" target="_blank">Movie icons created by monkik - Flaticon</a>.
     </p>
   </div>
 </dialog>
@@ -383,6 +393,7 @@
 <script src="js/ratings/recommend.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/tvrecs.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/foryou.js?v=__APP_VERSION__"></script>
+<script src="js/ratings/title-search.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/ui.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/app.js?v=__APP_VERSION__"></script>
 <script src="js/app/list-view.js?v=__APP_VERSION__"></script>

@@ -15,7 +15,7 @@
 :root {
   color-scheme: dark;
 
-  /* ---- Palette inputs (Classic) ---- */
+  /* ---- Palette inputs (Basic) ---- */
   --p-accent-dark: #5cd2ff;
   --p-accent-light: #0876b5;
   --p-deep-dark: #1aa7e6;
@@ -82,6 +82,62 @@
   --fill: var(--p-fill-art, linear-gradient(180deg, var(--accent), var(--accent-deep)));
 }
 
+/* ---- Themed surfaces ------------------------------------------------------
+   Every palette but Basic colours the whole app, not just the accent: the
+   background and its glow, glass, borders, wells, sheets, and selected tabs
+   and chips filled with the palette's own gradient. Dark here; app.css has
+   the light version, which must set the same tokens. */
+
+:root[data-palette] {
+  --bg: var(--p-bg-dark);
+  --surface: color-mix(in srgb, var(--accent) 12%, #0e1116);
+  --glass: color-mix(in srgb, var(--accent) 14%, rgba(255, 255, 255, 0.03));
+  --glass-hi: color-mix(in srgb, var(--accent) 30%, rgba(255, 255, 255, 0.06));
+  --hairline: color-mix(in srgb, var(--accent) 34%, transparent);
+  --edge-strong: color-mix(in srgb, var(--accent) 60%, transparent);
+  --well: color-mix(in srgb, var(--accent) 10%, transparent);
+  --track: color-mix(in srgb, var(--accent) 12%, rgba(0, 0, 0, 0.3));
+  --sheet-top: color-mix(in srgb, var(--accent) 18%, #10131a);
+  --glass-fill: linear-gradient(180deg, color-mix(in srgb, var(--accent) 26%, transparent), color-mix(in srgb, var(--accent) 10%, transparent));
+  --button-fill: linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, transparent), color-mix(in srgb, var(--accent) 8%, transparent));
+  --orb: radial-gradient(circle at 50% 25%, color-mix(in srgb, var(--accent) 34%, transparent), color-mix(in srgb, var(--accent) 6%, transparent) 70%);
+  --poster-fallback: linear-gradient(160deg, color-mix(in srgb, var(--accent) 30%, #1b2330), color-mix(in srgb, var(--love) 20%, #0a0d12));
+  /* The glow behind everything: accent from the top left, love from the bottom right */
+  --backdrop:
+    radial-gradient(90% 55% at 0% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%),
+    radial-gradient(80% 55% at 100% 100%, color-mix(in srgb, var(--love) 18%, transparent), transparent 70%);
+  /* Grey text a shade stronger, to stay above 4.5:1 on the tinted glow */
+  --ink-3: rgba(242, 245, 248, 0.62);
+}
+
+:root[data-palette] body {
+  background: var(--backdrop), var(--bg);
+  background-attachment: fixed;
+}
+
+/* Chosen tabs, segments and chips take the palette's fill */
+:root[data-palette] .segmented [aria-selected="true"],
+:root[data-palette] .segmented [aria-checked="true"],
+:root[data-palette] .chip[aria-pressed="true"] {
+  background: var(--fill);
+  border-color: transparent;
+  color: var(--on-accent);
+}
+
+:root[data-palette] .segmented [aria-selected="true"] .icon,
+:root[data-palette] .segmented [aria-checked="true"] .icon,
+:root[data-palette] .segmented [aria-selected="true"] .count,
+:root[data-palette] .segmented [aria-checked="true"] .count,
+:root[data-palette] .chip[aria-pressed="true"] .count {
+  color: inherit;
+}
+
+:root[data-palette] .group-label,
+:root[data-palette] .setting h3,
+:root[data-palette] .results-label {
+  color: var(--accent);
+}
+
 /* ---- Palettes ------------------------------------------------------------
    Original palettes; Desert and Aurora take their cue from the seasonal
    palettes on dopely.top. Each sets accent, deep accent (gradients), love
@@ -96,21 +152,21 @@
   --p-love-light: #c23a7c;
   --p-on-accent-dark: #1a1033;
   --p-on-accent-light: #ffffff;
-  --p-bg-dark: #0c0b12;
-  --p-bg-light: #f8f6fc;
+  --p-bg-dark: #171228;
+  --p-bg-light: #efe9ff;
 }
 
 :root[data-palette="metal"] {
   --p-accent-dark: #d9b874;
-  --p-accent-light: #86651c;
+  --p-accent-light: #76591a;
   --p-deep-dark: #b38f45;
   --p-deep-light: #6b4f12;
   --p-love-dark: #e3a6a0;
   --p-love-light: #a8504a;
   --p-on-accent-dark: #1c1508;
   --p-on-accent-light: #ffffff;
-  --p-bg-dark: #0b0b0c;
-  --p-bg-light: #f1f1ef;
+  --p-bg-dark: #16140f;
+  --p-bg-light: #ece7da;
 }
 
 :root[data-palette="pride"] {
@@ -122,8 +178,8 @@
   --p-love-light: #d01f55;
   --p-on-accent-dark: #14062b;
   --p-on-accent-light: #ffffff;
-  --p-bg-dark: #08080c;
-  --p-bg-light: #f6f5f9;
+  --p-bg-dark: #130b20;
+  --p-bg-light: #f4ecff;
   /* The six-stripe flag as a band along the bottom of primary buttons and
      the chosen mode tab; text stays on the violet, where it reads */
   --p-rainbow: linear-gradient(90deg, #e40303, #ff8c00, #ffed00, #008026, #24408e, #732982);
@@ -139,21 +195,21 @@
   --p-love-light: #bb3a28;
   --p-on-accent-dark: #1f0f05;
   --p-on-accent-light: #ffffff;
-  --p-bg-dark: #0f0c0a;
-  --p-bg-light: #f8f3ec;
+  --p-bg-dark: #1c1109;
+  --p-bg-light: #f9eadb;
 }
 
 :root[data-palette="aurora"] {
   --p-accent-dark: #5eeac0;
-  --p-accent-light: #08805f;
+  --p-accent-light: #07724f;
   --p-deep-dark: #2cc79c;
   --p-deep-light: #066a4f;
   --p-love-dark: #c99bff;
   --p-love-light: #8a2fd6;
   --p-on-accent-dark: #04140f;
   --p-on-accent-light: #ffffff;
-  --p-bg-dark: #060b0b;
-  --p-bg-light: #f1f7f5;
+  --p-bg-dark: #05171a;
+  --p-bg-light: #ddf3ed;
 }
 
 * {
@@ -1425,4 +1481,13 @@ textarea:focus {
 
 .sheet-search .hint {
   padding: 10px 6px;
+}
+
+.results-label {
+  margin: 10px 6px 4px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
 }

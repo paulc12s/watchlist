@@ -38,6 +38,16 @@ const Main = {
       setChecked(paletteChoice, 'palette', button.dataset.palette);
     });
 
+    // Appearance (js/palette.js)
+    const schemeChoice = document.getElementById('schemeChoice');
+    setChecked(schemeChoice, 'scheme', Appearance.get());
+    schemeChoice.addEventListener('click', event => {
+      const button = event.target.closest('[data-scheme]');
+      if (!button) return;
+      Appearance.set(button.dataset.scheme);
+      setChecked(schemeChoice, 'scheme', button.dataset.scheme);
+    });
+
     // App icon (js/icon-choice.js)
     const iconChoice = document.getElementById('iconChoice');
     setChecked(iconChoice, 'icon', IconChoice.get());
@@ -65,6 +75,7 @@ const Main = {
 
     await ItemManager.load(CONFIG.STORAGE.APP);
     await RatingsApp.loadPrefs();
+    TitleSearch.init();
 
     let saved = '';
     try {

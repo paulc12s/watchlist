@@ -24,6 +24,8 @@ const RatingsApp = {
       console.error('Start-up failed:', error);
       RatingsUI.toast(`Could not start: ${error.message}`);
     }
+    // After start, which loads the TMDB key that recent titles need
+    TitleSearch.init();
     VersionCheck.start();
   },
 

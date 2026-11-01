@@ -493,3 +493,45 @@ test('settings saved before the feed starts keep the saved key and list', async 
   app.RatingsApp.savePrefs();
   assert.deepEqual(plain(app.Store.saved.get('prefs_v1')), { categoryId: 'two', order: 'learn', tmdbKey: 'secret' });
 });
+
+test('title suggestions forgive half-typed words and typos, and put your titles first', () => {
+  const { Library, TitleSearch, Catalog } = loadRatings();
+  Catalog.use({
+    movies: {
+      tt0816692: ['Interstellar', 2014, 'Sci-Fi', '', 80, 90000],
+      tt0068646: ['The Godfather', 1972, 'Crime', '', 85, 95000],
+      tt0087182: ['Dune', 1984, 'Sci-Fi', '', 50, 30000],
+      tt1160419: ['Dune', 2021, 'Sci-Fi', '', 75, 40000],
+      'title:One Battle After Another (2025)': ['One Battle After Another', 2025, '', '', null, 0]
+    },
+    categories: []
+  });
+  Library.add({ title: 'Bugonia', year: 2025, imdbID: 'tt12300742', want: true });
+  const first = query => { const [top] = TitleSearch.suggest(query); return top ? `${top.title} ${top.year}` : null; };
+
+  assert.equal(first('bugo'), 'Bugonia 2025', 'the start of a word');
+  assert.equal(first('bagonia'), 'Bugonia 2025', 'a letter wrong');
+  assert.equal(first('bgunoia'), null, 'but not a jumble');
+  assert.equal(first('interstelar'), 'Interstellar 2014');
+  assert.equal(first('the godfathr'), 'The Godfather 1972');
+  assert.equal(first('godfather'), 'The Godfather 1972', 'articles can be left out');
+  assert.equal(first('one batt'), 'One Battle After Another 2025');
+  assert.equal(first('dune 1984'), 'Dune 1984', 'a year picks between titles');
+  assert.deepEqual(plain(TitleSearch.suggest('b')), [], 'too short');
+
+  const near = TitleSearch.suggest('bagonia')[0];
+  assert.deepEqual(plain([near.source, near.near, near.imdbID]), ['yours', true, 'tt12300742']);
+  Library.add({ title: 'Dune', year: 2021, imdbID: 'tt1160419', want: true });
+  assert.equal(TitleSearch.suggest('dune').filter(r => r.year === 2021).length, 1, 'one suggestion per title across sources');
+  const recent = TitleSearch.suggest('one battle')[0];
+  assert.equal(recent.listKey, 'title:One Battle After Another (2025)', 'no IMDb ID yet: looked up when picked');
+});
+
+test('recent titles from TMDB are parsed defensively', () => {
+  const { TitleSearch } = loadRatings();
+  assert.deepEqual(plain(TitleSearch.parseTmdb({ id: 7, title: 'Bugonia', release_date: '2025-10-24', poster_path: '/a.jpg', popularity: 50 }, 'movie')),
+    { tmdb: 'movie:7', title: 'Bugonia', year: 2025, type: 'movie', poster: 'https://image.tmdb.org/t/p/w185/a.jpg', popularity: 50 });
+  assert.equal(TitleSearch.parseTmdb({ id: 8, name: 'A show', poster_path: 'javascript:x' }, 'tv').poster, '');
+  assert.equal(TitleSearch.parseTmdb({ id: 9, name: 'Someone' }, 'person'), null);
+  assert.equal(TitleSearch.parseTmdb({ id: '10', title: 'Bad id' }, 'movie'), null);
+});

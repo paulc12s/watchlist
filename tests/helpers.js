@@ -61,10 +61,10 @@ function loadWatchlist() {
 // The ratings page's logic, with a small catalog of films to deal
 function loadRatings() {
   const app = load(
-    [...SHARED, 'js/ratings/config.js', 'js/ratings/store.js', 'js/ratings/tmdb.js', 'js/ratings/catalog.js',
+    [...SHARED, 'js/movie-api.js', 'js/ratings/config.js', 'js/ratings/store.js', 'js/ratings/tmdb.js', 'js/ratings/catalog.js',
       'js/ratings/taste.js', 'js/ratings/feed.js', 'js/ratings/recommend.js', 'js/ratings/tvrecs.js', 'js/ratings/foryou.js',
-      'js/ratings/app.js'],
-    'CONFIG, Title, Store, Library, OMDb, Ratings, Catalog, MovieInfo, Taste, Feed, TMDB, Recommender, TvRecs, Guesses, RatingsApp'
+      'js/ratings/title-search.js', 'js/ratings/app.js'],
+    'CONFIG, Title, Store, Library, OMDb, Ratings, Catalog, MovieInfo, Taste, Feed, TMDB, Recommender, TvRecs, Guesses, RatingsApp, TitleSearch'
   );
   app.Catalog.use({
     movies: {

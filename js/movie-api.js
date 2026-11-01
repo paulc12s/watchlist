@@ -46,6 +46,10 @@ const MovieAPI = {
     // OMDb's exact-title lookup finds titles its fuzzy search buries many pages deep
     const exactLookups = [this.lookupTitle(title, year, type)];
     const pageLookups = [this.searchPage(title, year, type, 1)];
+    // OMDb matches whole words only; a trailing * matches the start of the
+    // last one, so a half-typed title finds something ("bugo*" -> Bugonia)
+    const lastWord = title.trim().split(' ').pop();
+    if (lastWord.length >= CONFIG.SEARCH.WILDCARD_MIN) pageLookups.push(this.searchPage(`${title.trim()}*`, year, type, 1));
 
     if (fullQuery) {
       // The trailing number may belong to the title ("Death Race 2000"), so also search it literally

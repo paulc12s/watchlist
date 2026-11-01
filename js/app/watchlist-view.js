@@ -11,7 +11,7 @@
 const UI = {
   elements: {},
   views: {},
-  add: { mode: 'search', type: '', chosen: null, results: [], seq: 0, timer: null },
+  add: { mode: 'search', type: '', chosen: null, results: [], suggestions: [], state: '', seq: 0, timer: null },
   editing: null,
 
   init() {
@@ -96,6 +96,12 @@ const UI = {
       if (tab) this.setAddMode(tab.dataset.addMode);
     });
     els.addSearch.addEventListener('input', () => this.searchSoon());
+    els.addSearch.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      const [first] = [...this.add.suggestions, ...this.add.results];
+      if (first && !this.add.chosen) this.chooseFound(first);
+    });
     els.addType.addEventListener('click', event => {
       const button = event.target.closest('[data-type]');
       if (!button) return;
@@ -109,7 +115,7 @@ const UI = {
     });
     els.addResults.addEventListener('click', event => {
       const result = event.target.closest('[data-result]');
-      if (result) this.choose(this.add.results[Number(result.dataset.result)]);
+      if (result) this.chooseFound([...this.add.suggestions, ...this.add.results][Number(result.dataset.result)]);
     });
     els.addPriority.addEventListener('click', event => {
       const button = event.target.closest('[data-priority]');
@@ -123,6 +129,9 @@ const UI = {
   openAdd(query = '') {
     const els = this.elements;
     this.add.chosen = null;
+    this.add.suggestions = [];
+    this.add.results = [];
+    this.add.state = '';
     els.addSearch.value = query;
     [els.manualTitle, els.manualGenre, els.youtubeUrl, els.youtubeTitle, els.addTag, els.addPlatform].forEach(input => { input.value = ''; });
     setChecked(els.addPriority, 'priority', 'medium');
@@ -144,60 +153,93 @@ const UI = {
     if (mode === 'search') this.renderResults();
   },
 
-  searchSoon(delay = 350) {
+  // Suggestions (js/ratings/title-search.js) show at once as you type, typos
+  // forgiven; OMDb is asked once you pause
+  searchSoon(delay = CONFIG.SEARCH.DELAY_MS) {
     clearTimeout(this.add.timer);
     this.add.chosen = null;
     this.elements.addOptions.hidden = true;
-    this.add.timer = setTimeout(() => this.search(), delay);
+    const query = this.elements.addSearch.value.trim();
+    const shown = new Set();
+    this.add.suggestions = TitleSearch.suggest(query, { type: this.add.type })
+      .filter(r => !r.imdbID || (!shown.has(r.imdbID) && shown.add(r.imdbID)));
+    const enough = MovieAPI.parseQuery(query).imdbID || query.replace(/\s/g, '').length >= CONFIG.SEARCH.WILDCARD_MIN;
+    this.add.results = [];
+    this.add.state = !query ? '' : enough ? 'searching' : 'short';
+    this.add.seq++;
+    this.renderResults();
+    if (enough) this.add.timer = setTimeout(() => this.search(), delay);
   },
 
   async search() {
     const query = this.elements.addSearch.value.trim();
     const seq = ++this.add.seq;
-    if (query.length < 2) {
-      this.add.results = [];
-      this.renderResults();
-      return;
-    }
-    this.elements.addResults.innerHTML = html`<p class="hint">Searching…</p>`;
     try {
       const { results, tooMany } = await MovieAPI.search(query, this.add.type);
       if (seq !== this.add.seq) return;
-      this.add.results = results;
-      this.renderResults(tooMany ? 'Too many matches. Keep typing, or add a year (e.g. "dune 1984").' : 'No matches. Try another spelling, or add it by hand.');
+      const suggested = new Set(this.add.suggestions.map(r => r.imdbID).filter(Boolean));
+      this.add.results = results.filter(r => !suggested.has(r.imdbID));
+      this.add.state = 'done';
+      this.renderResults(tooMany ? 'Too many matches. Keep typing, or add a year (e.g. "dune 1984").' : 'No matches. Check the spelling, add the year, or add it by hand.');
       // Director and cast for the top results, to tell same-named titles apart
       results.slice(0, CONFIG.SEARCH.DETAIL_PREFETCH).forEach(result => {
         MovieAPI.getDetails(result.imdbID).then(() => { if (seq === this.add.seq && !this.add.chosen) this.renderResults(); }).catch(() => {});
       });
     } catch (error) {
-      if (seq === this.add.seq) this.elements.addResults.innerHTML = html`<p class="hint error">${error.message}</p>`;
+      if (seq !== this.add.seq) return;
+      this.add.state = 'done';
+      this.renderResults(error.message);
+    }
+  },
+
+  // A suggestion may need its IMDb ID looked up before its details load
+  async chooseFound(found) {
+    if (!found) return;
+    if (found.imdbID) return this.choose(found);
+    try {
+      const imdbID = await TitleSearch.resolve(found);
+      if (!imdbID) return RatingsUI.toast(`Couldn’t find ${found.title} on IMDb`);
+      this.choose({ ...found, imdbID });
+    } catch (error) {
+      RatingsUI.toast(error.message);
     }
   },
 
   renderResults(emptyMessage = '') {
-    const { results, chosen } = this.add;
+    const { results, suggestions, chosen, state } = this.add;
     const els = this.elements;
     if (chosen) {
       els.addResults.innerHTML = '';
       return;
     }
-    if (!results.length) {
-      els.addResults.innerHTML = emptyMessage ? html`<p class="hint">${emptyMessage}</p>` : '';
-      return;
-    }
-    els.addResults.innerHTML = html`${results.map((result, index) => {
-      const details = MovieAPI.detailsCache.get(result.imdbID) || result;
-      const have = Library.byImdb(result.imdbID);
-      return html`<button type="button" class="result" data-result="${index}">
-        ${result.poster ? html`<img src="${result.poster}" alt="" loading="lazy">` : html`<span class="poster-blank">${icon(result.type === 'series' ? 'tv' : 'film')}</span>`}
-        <span class="result-text">
-          <span class="row-title">${result.title}</span>
-          <span class="row-meta">${[result.year, result.type === 'series' ? 'TV' : 'Film', details.imdbRating && `★ ${Title.formatRating(details.imdbRating)}`].filter(Boolean).join(' · ')}</span>
-          ${this.credits(details) && html`<span class="row-meta">${this.credits(details)}</span>`}
-          ${have && html`<span class="tag">Already in your titles</span>`}
-        </span>
-      </button>`;
-    })}`;
+    const all = [...suggestions, ...results];
+    const label = text => html`<p class="results-label">${text}</p>`;
+    // With nothing from OMDb, the suggestions are the best guess at what you meant
+    const didYouMean = state === 'done' && !results.length && suggestions.length;
+    const footer = state === 'short' ? html`<p class="hint">Keep typing to search everything…</p>`
+      : state === 'searching' ? html`<p class="hint">Searching OMDb…</p>`
+        : state === 'done' && !all.length && emptyMessage ? html`<p class="hint">${emptyMessage}</p>` : '';
+    const rows = list => list.map(result => this.resultHTML(result, all.indexOf(result)));
+    els.addResults.innerHTML = html`
+      ${suggestions.length > 0 && label(didYouMean ? 'Did you mean' : 'Suggestions')}
+      ${rows(suggestions)}
+      ${results.length > 0 && suggestions.length > 0 && label('More results')}
+      ${rows(results)}
+      ${footer}`;
+  },
+
+  resultHTML(result, index) {
+    const details = MovieAPI.detailsCache.get(result.imdbID) || result;
+    const have = result.imdbID && Library.byImdb(result.imdbID);
+    return html`<button type="button" class="result" data-result="${index}">
+      ${result.poster ? html`<img src="${result.poster}" alt="" loading="lazy">` : html`<span class="poster-blank">${icon(result.type === 'series' ? 'tv' : 'film')}</span>`}
+      <span class="result-text">
+        <span class="row-title">${result.title}</span>
+        <span class="row-meta">${[result.year, result.type === 'series' ? 'TV' : 'Film', details.imdbRating && `★ ${Title.formatRating(details.imdbRating)}`].filter(Boolean).join(' · ')}</span>
+        ${this.credits(details) && html`<span class="row-meta">${this.credits(details)}</span>`}
+        ${have && html`<span class="tag">Already in your titles</span>`}
+      </span>
+    </button>`;
   },
 
   // "Dir. Denis Villeneuve · Ryan Gosling, Harrison Ford"

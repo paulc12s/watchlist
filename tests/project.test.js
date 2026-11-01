@@ -71,7 +71,7 @@ test('every palette is complete: CSS sets each input, with a swatch and a Settin
   for (const choice of choices) {
     assert.match(page, new RegExp(`data-palette="${choice}"`), `${choice}: Settings button`);
     assert.match(appCss, new RegExp(`\\.swatch-${choice} \\{`), `${choice}: swatch`);
-    const block = choice === 'classic'
+    const block = choice === 'basic'
       ? css.match(/:root \{([\s\S]*?)\n\}/)[1]
       : (css.match(new RegExp(`:root\\[data-palette="${choice}"\\] \\{([\\s\\S]*?)\\n\\}`)) || [])[1];
     assert.ok(block, `${choice}: CSS block`);
@@ -81,4 +81,35 @@ test('every palette is complete: CSS sets each input, with a swatch and a Settin
     const html = read(file);
     assert.ok(html.indexOf('js/palette.js') < html.indexOf('</head>'), `${file} applies the palette before drawing`);
   }
+});
+
+test('palette.js runs on its own in <head>, setting the theme and appearance before the page draws', () => {
+  const vm = require('node:vm');
+  const attributes = {};
+  const stored = { palette: 'pride', scheme: 'light' };
+  const metas = [{ removeAttribute() {}, setAttribute(name, value) { this[name] = value; } }];
+  const context = vm.createContext({
+    localStorage: { getItem: k => stored[k] ?? null, setItem: (k, v) => { stored[k] = v; } },
+    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    addEventListener() {},
+    getComputedStyle: () => ({ getPropertyValue: () => '#f4ecff' }),
+    document: {
+      body: {},
+      documentElement: {
+        dataset: attributes,
+        setAttribute(name, value) { attributes[name.replace('data-', '')] = value; },
+        removeAttribute(name) { delete attributes[name.replace('data-', '')]; }
+      },
+      querySelectorAll: () => metas
+    }
+  });
+  vm.runInContext(fs.readFileSync(path.join(root, 'js/palette.js'), 'utf8'), context);
+  assert.deepEqual({ ...attributes }, { palette: 'pride', scheme: 'light' });
+  assert.equal(metas[0].content, '#f4ecff', 'the browser bar takes the page background');
+  stored.scheme = 'auto';
+  vm.runInContext('Appearance.apply()', context);
+  assert.equal(attributes.scheme, 'dark', 'auto follows the device (dark here)');
+  stored.palette = 'classic';
+  vm.runInContext('Palette.apply()', context);
+  assert.equal(attributes.palette, undefined, 'Basic (once called Classic) sets nothing');
 });

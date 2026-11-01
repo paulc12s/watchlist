@@ -137,6 +137,8 @@ const Library = {
 
   // Saves and notifies after a change made outside the methods above (undo)
   changed() {
+    // Counts changes, so anything built from the titles knows when to rebuild
+    this.revision = (this.revision || 0) + 1;
     this.save();
     this.onChange();
   },

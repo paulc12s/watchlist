@@ -173,28 +173,26 @@ const RatingsUI = {
 
   // ---- Finding one title (Choose a list → search) ---------------------------
   // Type a title (with a year, or an IMDb link) to rate one film or show
-  // straight away: your own titles match at once, OMDb's results follow.
-  // Picking one deals its card next; the feed carries on from there.
+  // straight away. Suggestions (js/ratings/title-search.js: your titles,
+  // recent and well-known ones, typos forgiven) show as you type; OMDb's
+  // results follow once you pause. Enter or a tap deals the card next, and
+  // the feed carries on from there.
 
-  titleSearch: { seq: 0, timer: null, results: [] },
+  titleSearch: { seq: 0, timer: null, rows: [] },
 
   bindTitleSearch() {
     const input = document.getElementById('titleSearch');
     const list = document.getElementById('titleSearchResults');
     if (!input || !list) return;
-    input.addEventListener('input', () => {
-      clearTimeout(this.titleSearch.timer);
-      this.titleSearch.timer = setTimeout(() => this.searchTitles(input.value), 300);
-      this.showTitleResults(input.value.trim().length > 0);
+    input.addEventListener('input', () => this.searchTitles(input.value));
+    input.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      if (this.titleSearch.rows.length) this.pickTitle(this.titleSearch.rows[0]);
     });
     list.addEventListener('click', event => {
       const row = event.target.closest('[data-found]');
-      if (!row) return;
-      const found = this.titleSearch.results[Number(row.dataset.found)];
-      if (!found) return;
-      MovieInfo.expected.set(found.imdbID, found.type === 'series' ? 'series' : 'movie');
-      this.els.categorySheet.close();
-      this.jumpTo(found.imdbID);
+      if (row) this.pickTitle(this.titleSearch.rows[Number(row.dataset.found)]);
     });
   },
 
@@ -202,6 +200,7 @@ const RatingsUI = {
     const input = document.getElementById('titleSearch');
     if (!input) return;
     input.value = '';
+    clearTimeout(this.titleSearch.timer);
     this.titleSearch.seq++;
     this.showTitleResults(false);
   },
@@ -212,54 +211,80 @@ const RatingsUI = {
     this.els.categoryList.hidden = searching;
   },
 
-  async searchTitles(raw) {
+  searchTitles(raw) {
     const query = raw.trim();
     const seq = ++this.titleSearch.seq;
-    if (query.length < 2) return this.renderTitleResults([], query);
-    // Yours first: titles you've rated, skipped or listed
-    const lower = query.toLowerCase();
-    const yours = Library.all()
-      .filter(t => t.imdbID && t.type !== 'youtube' && t.title.toLowerCase().includes(lower))
-      .slice(0, 5)
-      .map(t => ({ imdbID: t.imdbID, title: t.title, year: t.year, type: t.type, poster: t.poster }));
-    this.renderTitleResults(yours, query, true);
-    try {
-      const { results } = await MovieAPI.search(query);
-      if (seq !== this.titleSearch.seq) return;
-      const seen = new Set(yours.map(r => r.imdbID));
-      const found = results.filter(r => r.imdbID && !seen.has(r.imdbID) && (r.type === 'movie' || r.type === 'series'));
-      this.renderTitleResults([...yours, ...found].slice(0, 15), query);
-    } catch (error) {
-      if (seq !== this.titleSearch.seq) return;
-      this.renderTitleResults(yours, query, false, error.message);
-    }
+    clearTimeout(this.titleSearch.timer);
+    this.showTitleResults(query.length > 0);
+    if (!query) return;
+    const suggestions = TitleSearch.suggest(query);
+    const enough = MovieAPI.parseQuery(query).imdbID || query.replace(/\s/g, '').length >= CONFIG.SEARCH.WILDCARD_MIN;
+    this.renderTitleResults(query, suggestions, [], enough ? 'searching' : 'short');
+    if (!enough) return;
+    this.titleSearch.timer = setTimeout(async () => {
+      try {
+        const { results } = await MovieAPI.search(query);
+        if (seq !== this.titleSearch.seq) return;
+        const shown = new Set(suggestions.map(r => r.imdbID).filter(Boolean));
+        const more = results.filter(r => r.imdbID && !shown.has(r.imdbID) && (r.type === 'movie' || r.type === 'series'));
+        this.renderTitleResults(query, suggestions, more.slice(0, 12), 'done');
+      } catch (error) {
+        if (seq === this.titleSearch.seq) this.renderTitleResults(query, suggestions, [], error.message);
+      }
+    }, CONFIG.SEARCH.DELAY_MS);
   },
 
-  renderTitleResults(results, query, searching = false, error = '') {
-    this.titleSearch.results = results;
-    const list = document.getElementById('titleSearchResults');
-    const status = entry => {
+  // state: 'short' (keep typing), 'searching', 'done', or an error message
+  renderTitleResults(query, suggestions, results, state) {
+    this.titleSearch.rows = [...suggestions, ...results];
+    const status = imdbID => {
+      const entry = imdbID && Library.byImdb(imdbID);
       if (!entry) return '';
       if (Title.isLoved(entry)) return 'Loved';
       return { up: 'Liked', down: 'Not for me', skip: 'Skipped', pass: 'Not interested' }[entry.verdict] || (entry.want ? 'On your list' : '');
     };
-    const note = error ? html`<li class="hint">${error}</li>`
-      : searching ? html`<li class="hint">Searching OMDb…</li>`
-        : !results.length && query.length >= 2 ? html`<li class="hint">Nothing found for “${query}”. Try the year, or an IMDb link.</li>` : '';
-    list.innerHTML = html`
-      ${results.map((r, i) => {
-        const entry = Library.byImdb(r.imdbID);
-        const mark = status(entry);
-        return html`
-          <li><button type="button" class="film-row" data-found="${i}">
-            ${r.poster ? html`<img src="${r.poster}" alt="" loading="lazy">` : html`<span class="thumb"></span>`}
-            <span class="film-text">
-              <span class="film-title">${r.title}${r.year && ` (${r.year})`}</span>
-              <span class="film-why">${r.type === 'series' ? 'TV' : 'Film'}${mark && ` · ${mark}`}</span>
-            </span>
-          </button></li>`;
-      })}
-      ${note}`;
+    const row = (r, i) => {
+      const mark = status(r.imdbID);
+      return html`
+        <li><button type="button" class="film-row" data-found="${i}">
+          ${r.poster ? html`<img src="${r.poster}" alt="" loading="lazy">` : html`<span class="thumb"></span>`}
+          <span class="film-text">
+            <span class="film-title">${r.title}${r.year && ` (${r.year})`}</span>
+            <span class="film-why">${r.type === 'series' ? 'TV' : 'Film'}${mark && ` · ${mark}`}</span>
+          </span>
+        </button></li>`;
+    };
+    // With no results from OMDb, the suggestions are the best guess at what you meant
+    const didYouMean = state === 'done' && !results.length && suggestions.length;
+    const label = text => html`<li class="results-label">${text}</li>`;
+    const note = text => html`<li class="hint">${text}</li>`;
+    document.getElementById('titleSearchResults').innerHTML = html`
+      ${suggestions.length > 0 && label(didYouMean ? 'Did you mean' : 'Suggestions')}
+      ${suggestions.map(row)}
+      ${results.length > 0 && label('More results')}
+      ${results.map((r, i) => row(r, suggestions.length + i))}
+      ${state === 'short' ? note('Keep typing to search everything…')
+        : state === 'searching' ? note('Searching OMDb…')
+          : state === 'done' ? (!suggestions.length && !results.length ? note(`Nothing found for “${query}”. Check the spelling, add the year, or paste an IMDb link.`) : '')
+            : note(state)}`;
+  },
+
+  async pickTitle(found) {
+    if (!found) return;
+    let imdbID = found.imdbID;
+    if (!imdbID) {
+      this.toast(`Finding ${found.title}…`);
+      try {
+        imdbID = await TitleSearch.resolve(found);
+      } catch (error) {
+        return this.toast(error.message);
+      }
+      if (!imdbID) return this.toast(`Couldn’t find ${found.title} on IMDb`);
+    }
+    MovieInfo.expected.set(imdbID, found.type === 'series' ? 'series' : 'movie');
+    this.els.categorySheet.close();
+    this.clearTitleSearch();
+    this.jumpTo(imdbID);
   },
 
   // ---- Cards ----------------------------------------------------------------
@@ -813,6 +838,7 @@ const RatingsUI = {
     this.els.tmdbSave.addEventListener('click', () => {
       TMDB.key = this.els.tmdbKey.value.trim();
       RatingsApp.savePrefs();
+      TitleSearch.refreshRecent();
       this.els.settingsSheet.close();
       this.toast(TMDB.key ? 'TMDB key saved on this device' : 'TMDB key removed', 'check');
       if (this.feedStarted() && Catalog.isTv(Feed.categoryId)) this.switchCategory(Feed.categoryId, { announce: false });

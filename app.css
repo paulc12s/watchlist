@@ -7,69 +7,89 @@
    and the add and title sheets.
    ============================================================================ */
 
-/* Light theme: the same design with light glass, following the device setting */
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light;
-    --bg: var(--p-bg-light);
-    --surface: #ffffff;
-    --ink: #0d1218;
-    --ink-2: rgba(13, 18, 24, 0.68);
-    /* 0.6 keeps small grey text above 4.5:1 on the background */
-    --ink-3: rgba(13, 18, 24, 0.6);
-    --ink-4: rgba(13, 18, 24, 0.14);
+/* Light theme: the same design with light glass. js/palette.js sets
+   data-scheme on <html> from Settings → Appearance (Auto follows the device) */
+:root[data-scheme="light"] {
+  color-scheme: light;
+  --bg: var(--p-bg-light);
+  --surface: #ffffff;
+  --ink: #0d1218;
+  --ink-2: rgba(13, 18, 24, 0.68);
+  /* 0.6 keeps small grey text above 4.5:1 on the background */
+  --ink-3: rgba(13, 18, 24, 0.6);
+  --ink-4: rgba(13, 18, 24, 0.14);
 
-    --glass: rgba(255, 255, 255, 0.72);
-    --glass-hi: #ffffff;
-    --hairline: rgba(13, 18, 24, 0.10);
-    --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.7));
-    --button-fill: linear-gradient(180deg, #ffffff, #f3f5f8);
-    --orb: radial-gradient(circle at 50% 25%, #ffffff, #eef1f5 70%);
-    --edge-strong: rgba(13, 18, 24, 0.22);
-    --well: rgba(13, 18, 24, 0.04);
-    --track: rgba(13, 18, 24, 0.06);
-    --sheet-top: #ffffff;
-    --poster-fallback: linear-gradient(160deg, #dde3ea, #c5ced9);
-    --error-ink: #b42318;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-hi: #ffffff;
+  --hairline: rgba(13, 18, 24, 0.10);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.7));
+  --button-fill: linear-gradient(180deg, #ffffff, #f3f5f8);
+  --orb: radial-gradient(circle at 50% 25%, #ffffff, #eef1f5 70%);
+  --edge-strong: rgba(13, 18, 24, 0.22);
+  --well: rgba(13, 18, 24, 0.04);
+  --track: rgba(13, 18, 24, 0.06);
+  --sheet-top: #ffffff;
+  --poster-fallback: linear-gradient(160deg, #dde3ea, #c5ced9);
+  --error-ink: #b42318;
 
-    --accent: var(--p-accent-light);
-    --accent-deep: var(--p-deep-light);
-    --love: var(--p-love-light);
-    --on-accent: var(--p-on-accent-light);
-    --danger: #c93c3c;
-    /* Darker gold, so star counts read on white */
-    --star: #a86b12;
-  }
+  --accent: var(--p-accent-light);
+  --accent-deep: var(--p-deep-light);
+  --love: var(--p-love-light);
+  --on-accent: var(--p-on-accent-light);
+  --danger: #c93c3c;
+  /* Darker gold, so star counts read on white */
+  --star: #a86b12;
+}
 
-  /* The review card always sits on a poster under a dark scrim, so it keeps
-     the dark theme's light ink and glass */
-  .card {
-    --ink: #f2f5f8;
-    --ink-2: rgba(242, 245, 248, 0.68);
-    --ink-3: rgba(242, 245, 248, 0.56);
-    --ink-4: rgba(242, 245, 248, 0.16);
-    --glass: rgba(255, 255, 255, 0.07);
-    --glass-hi: rgba(255, 255, 255, 0.13);
-    --hairline: rgba(255, 255, 255, 0.11);
-    --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.10);
-    --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04));
-    --button-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
-    --track: rgba(0, 0, 0, 0.3);
-    --poster-fallback: linear-gradient(160deg, #1b2330, #0a0d12);
-    --accent: var(--p-accent-dark);
-    --accent-deep: var(--p-deep-dark);
-    --love: var(--p-love-dark);
-    --on-accent: var(--p-on-accent-dark);
-    --danger: #ef6b6b;
-    --star: #e8a33d;
-    color: var(--ink);
-  }
+/* The review card always sits on a poster under a dark scrim, so it keeps
+   the dark theme's light ink and glass */
+:root[data-scheme="light"] .card {
+  --ink: #f2f5f8;
+  --ink-2: rgba(242, 245, 248, 0.68);
+  --ink-3: rgba(242, 245, 248, 0.56);
+  --ink-4: rgba(242, 245, 248, 0.16);
+  --glass: rgba(255, 255, 255, 0.07);
+  --glass-hi: rgba(255, 255, 255, 0.13);
+  --hairline: rgba(255, 255, 255, 0.11);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  --glass-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04));
+  --button-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  --track: rgba(0, 0, 0, 0.3);
+  --poster-fallback: linear-gradient(160deg, #1b2330, #0a0d12);
+  --accent: var(--p-accent-dark);
+  --accent-deep: var(--p-deep-dark);
+  --love: var(--p-love-dark);
+  --on-accent: var(--p-on-accent-dark);
+  --danger: #ef6b6b;
+  --star: #e8a33d;
+  color: var(--ink);
+}
 
-  .segmented [aria-checked="true"],
-  .segmented [aria-selected="true"] {
-    box-shadow: var(--highlight), 0 1px 4px rgba(13, 18, 24, 0.12);
-  }
+:root[data-scheme="light"] .segmented [aria-checked="true"],
+:root[data-scheme="light"] .segmented [aria-selected="true"] {
+  box-shadow: var(--highlight), 0 1px 4px rgba(13, 18, 24, 0.12);
+}
+
+/* Themed surfaces, light: the same tokens as ratings.css sets for dark */
+:root[data-scheme="light"][data-palette] {
+  --bg: var(--p-bg-light);
+  --surface: color-mix(in srgb, var(--accent) 5%, #ffffff);
+  --glass: color-mix(in srgb, var(--accent) 9%, rgba(255, 255, 255, 0.8));
+  --glass-hi: #ffffff;
+  --hairline: color-mix(in srgb, var(--accent) 30%, transparent);
+  --edge-strong: color-mix(in srgb, var(--accent) 55%, transparent);
+  --well: color-mix(in srgb, var(--accent) 8%, rgba(255, 255, 255, 0.6));
+  --track: color-mix(in srgb, var(--accent) 12%, transparent);
+  --sheet-top: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  --glass-fill: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, #ffffff), color-mix(in srgb, var(--accent) 16%, #ffffff));
+  --button-fill: linear-gradient(180deg, #ffffff, color-mix(in srgb, var(--accent) 12%, #ffffff));
+  --orb: radial-gradient(circle at 50% 25%, #ffffff, color-mix(in srgb, var(--accent) 16%, #ffffff) 70%);
+  --poster-fallback: linear-gradient(160deg, color-mix(in srgb, var(--accent) 25%, #ffffff), color-mix(in srgb, var(--love) 25%, #ffffff));
+  --backdrop:
+    radial-gradient(90% 55% at 0% 0%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 70%),
+    radial-gradient(80% 55% at 100% 100%, color-mix(in srgb, var(--love) 12%, transparent), transparent 70%);
+  --ink-3: rgba(13, 18, 24, 0.66);
 }
 
 [hidden] {
@@ -794,13 +814,6 @@
   color: var(--star);
 }
 
-/* Pride: the flag under the chosen mode */
-:root[data-palette="pride"] .mode-switch [aria-selected="true"] {
-  background-image: var(--p-rainbow);
-  background-size: 70% 3px;
-  background-position: bottom 3px center;
-  background-repeat: no-repeat;
-}
 
 /* ---- Colour theme choice (Settings) ---- */
 .palette-choice {
@@ -839,7 +852,7 @@
   box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.25);
 }
 
-.swatch-classic { background: linear-gradient(90deg, #5cd2ff, #0876b5 60%, #ff6b8b); }
+.swatch-basic { background: linear-gradient(90deg, #5cd2ff, #0876b5 60%, #ff6b8b); }
 .swatch-pastel { background: linear-gradient(90deg, #c4b5fd, #a78bfa 60%, #f9a8d4); }
 .swatch-metal { background: linear-gradient(90deg, #8e8e93, #d9b874 45%, #b38f45 70%, #e3a6a0); }
 .swatch-pride { background: linear-gradient(90deg, #e40303, #ff8c00, #ffed00, #008026, #24408e, #732982); }
