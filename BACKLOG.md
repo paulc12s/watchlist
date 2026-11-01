@@ -51,6 +51,7 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Review: search in Choose a list to rate any one film or show straight away (your titles first, then OMDb).
 - Tags and platforms stored in one spelling on every add, edit and import; Settings → Run cleanup tidies older data and checks that what's saved matches what's shown. One chip per name (YouTube once), counts on every chip.
 - Colour themes (Classic, Pastel, Metal, Pride, Desert, Aurora) in Settings. CSS: palette tokens with tints mixed from the accent, `color-scheme` set for native controls, small grey text raised to 4.5:1 contrast, verdict and star colours as tokens, reduced motion covering every animation.
 - Watchlist streamlined to To watch only; Watched became Rated → Not rated (watched with only the default 👍, rated in one tap). Rated as a third top-level mode beside Watchlist and Review (compact rows, verdict icon, ❤️/👍/👎 filter, sorting, its own search and filters), replacing the separate ❤️/👍/👎 tabs. Review: finished lists marked with a ✓ and their skips revisitable per list; review layout built as a flex column so the buttons stay on screen.

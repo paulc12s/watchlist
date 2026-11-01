@@ -83,6 +83,13 @@
     <h2 id="categoryTitle">Choose a list</h2>
     <button type="button" class="icon-button" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
   </header>
+  <div class="sheet-search">
+    <label class="search-field">
+      <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+      <input type="search" id="titleSearch" placeholder="Find a film or show to rate" autocomplete="off" aria-label="Find a film or show to rate">
+    </label>
+    <ul class="film-list" id="titleSearchResults" aria-live="polite" hidden></ul>
+  </div>
   <div class="sheet-body" id="categoryList"></div>
 </dialog>
 
@@ -171,6 +178,7 @@
 <script src="js/save-banner.js?v=__APP_VERSION__"></script>
 <script src="js/library.js?v=__APP_VERSION__"></script>
 <script src="js/omdb.js?v=__APP_VERSION__"></script>
+<script src="js/movie-api.js?v=__APP_VERSION__"></script>
 <script src="js/version-check.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/config.js?v=__APP_VERSION__"></script>
 <script src="js/ratings/store.js?v=__APP_VERSION__"></script>

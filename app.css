@@ -151,40 +151,6 @@
   background: linear-gradient(180deg, var(--bg) 82%, transparent);
 }
 
-.search-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-full);
-  background: var(--well);
-  color: var(--ink-3);
-  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-
-.search-field:focus-within {
-  border-color: var(--accent-edge);
-  box-shadow: 0 0 0 4px var(--accent-soft);
-}
-
-.search-field .icon {
-  width: 18px;
-  height: 18px;
-}
-
-.search-field input {
-  flex: 1;
-  min-width: 0;
-  padding: 11px 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 16px; /* Keeps iOS from zooming in */
-  outline: none;
-}
-
 .list-tabs button {
   white-space: nowrap;
 }

@@ -57,6 +57,14 @@ test('feed deals unrated films, goes back and forward, and skips finished ones',
   assert.equal(Feed.next(), 'title:Delta (2025)');
 });
 
+test('a show found with the title search is dealt as a show, not passed over as a non-film', () => {
+  const { MovieInfo } = loadRatings();
+  const show = { imdbID: 'tt11280740', title: 'Severance', type: 'series' };
+  assert.equal(MovieInfo.isUsable(show, 'tt11280740'), false, 'film lists pass over series');
+  MovieInfo.expected.set('tt11280740', 'series');
+  assert.equal(MovieInfo.isUsable(show, 'tt11280740'), true);
+});
+
 test('catalog treats films found by title as done once rated, and passes over series', () => {
   const { Ratings, Catalog, MovieInfo } = loadRatings();
   MovieInfo.cache.set('title:Delta (2025)', film(9, { imdbID: 'tt0000009' }));

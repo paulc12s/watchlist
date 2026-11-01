@@ -31,7 +31,11 @@ const MovieInfo = {
 
   // What a key should turn out to be: shows from TV lists, or a show you've
   // already rated; everything else is a film
+  // Titles found with the search in Choose a list: the type the search said
+  expected: new Map(),
+
   expectedType(key) {
+    if (this.expected.has(key)) return this.expected.get(key);
     if (TMDB.isShowKey(key)) return 'series';
     const entry = key.startsWith('tt') ? Ratings.get(key) : null;
     return entry && entry.type === 'series' ? 'series' : 'movie';
