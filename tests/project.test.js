@@ -114,12 +114,3 @@ test('palette.js runs on its own in <head>, setting the theme and appearance bef
   assert.equal(attributes.palette, undefined, 'Basic (once called Classic) sets nothing');
 });
 
-test('viewport: the keyboard counts as up only when it takes a real share of the screen', () => {
-  const vm = require('node:vm');
-  const context = vm.createContext({});
-  vm.runInContext(`${fs.readFileSync(path.join(root, 'js/viewport.js'), 'utf8')}\nthis.Viewport = Viewport;`, context);
-  const { Viewport } = context;
-  assert.deepEqual({ ...Viewport.measure(844, { height: 508.4, offsetTop: 210 }) }, { top: 210, height: 508, keyboard: true });
-  assert.equal(Viewport.measure(844, { height: 790, offsetTop: 0 }).keyboard, false, 'a toolbar showing is not the keyboard');
-  assert.deepEqual({ ...Viewport.measure(844, null) }, { top: 0, height: 844, keyboard: false });
-});

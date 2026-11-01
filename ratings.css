@@ -898,6 +898,7 @@ button:focus-visible {
 }
 
 .sheet-header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1471,15 +1472,18 @@ textarea:focus {
 /* Choose a list: the title search above the lists. The search box stays at
    the top; while searching, the results fill the rest of the sheet and
    scroll on their own */
+/* Never squeezed by the lists below it (which would then sit over the box
+   and take its taps); while searching, it takes the rest of the sheet */
 .sheet-search {
   display: flex;
+  flex: none;
   flex-direction: column;
-  min-height: 0;
   padding: 0 18px 4px;
 }
 
 .sheet-search:has(.film-list:not([hidden])) {
   flex: 1;
+  min-height: 0;
 }
 
 .sheet-search .search-field {
@@ -1495,19 +1499,27 @@ textarea:focus {
   padding-bottom: calc(var(--safe-bottom) + 16px);
 }
 
-/* Keyboard up (js/viewport.js): an open sheet fills exactly the part of the
-   screen you can see, so its search box can't slide off the top */
-:root[data-keyboard] .sheet[open] {
-  position: fixed;
-  inset: var(--vv-top, 0px) 0 auto 0;
-  height: var(--vv-height, 100dvh);
-  max-height: var(--vv-height, 100dvh);
+/* Sheets you search in (Choose a list, Add a title) fill the screen with the
+   search box at the top. The on-screen keyboard only ever covers the bottom,
+   so the box never has to move to stay in view, on any phone. Results scroll
+   on their own, with room at the end to scroll the last ones above the
+   keyboard. */
+.sheet.search-sheet {
+  height: 100dvh;
+  max-height: 100dvh;
   margin: 0 auto;
+  padding-top: var(--safe-top);
+  border: 0;
   border-radius: 0;
 }
 
-:root[data-keyboard] .sheet[open]::before {
+.sheet.search-sheet::before {
   display: none;
+}
+
+#titleSearchResults,
+#addResults {
+  padding-bottom: 45dvh;
 }
 
 .sheet-search .hint {
