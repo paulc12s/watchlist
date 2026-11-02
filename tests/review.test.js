@@ -37,12 +37,13 @@ test('a skip is not done: it stays to rate, after the titles not yet seen, and c
   Feed.start('one');
   assert.equal(Feed.next(), 'tt0000002', 'a new pass deals them again');
 
-  // Rated, passed on and wanted titles are done; notes mean seen
+  // Rated, passed on and wanted titles are done; notes alone don't mean seen
   Ratings.update({ imdbID: 'tt0000002', title: 'Beta', type: 'movie' }, { verdict: 'pass' });
   assert.equal(Catalog.remaining('one'), 1);
   Ratings.update({ imdbID: 'tt0000001', title: 'Alpha', type: 'movie' }, { want: true });
   assert.equal(Catalog.remaining('one'), 0, 'wanting a skipped title takes it out');
-  assert.equal(Ratings.update(film(4), { verdict: 'skip', review: 'saw half' }).verdict, 'up');
+  assert.equal(Ratings.update(film(4), { verdict: 'skip', review: 'saw half' }).verdict, 'skip');
+  assert.equal(Ratings.update(film(5), { verdict: 'skip', stars: 2 }).verdict, 'down', 'stars still mean seen');
 });
 
 test('feed deals unrated films, goes back and forward, and skips finished ones', () => {

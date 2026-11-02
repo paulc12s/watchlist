@@ -32,10 +32,11 @@ const Ratings = {
     return Boolean(entry && entry.verdict === 'skip' && !entry.want);
   },
 
-  // Stars, notes or a rewatch flag mean you've seen it, so skipping isn't an option
+  // Stars or a rewatch flag mean you've seen it, so skipping isn't an option
+  // (notes don't: they can be about a title you haven't seen)
   hasOpinion(imdbID) {
     const entry = this.get(imdbID);
-    return Boolean(entry && (entry.stars || entry.review || entry.rewatch));
+    return Boolean(entry && (entry.stars || entry.rewatch));
   },
 
   // Creates the entry from the film's details on first touch, then applies changes

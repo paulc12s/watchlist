@@ -38,13 +38,15 @@ test('sanitize reads the retired ratings page’s old field names', () => {
   assert.deepEqual(plain([t.verdict, t.reviewDate, t.updatedDate]), ['skip', OLD, MID]);
 });
 
-test('seen means rated: a watched title or a review without a thumb gets one', () => {
+test('seen means rated: a watched title, stars or rewatch without a thumb get one; notes alone don\'t', () => {
   const { Title } = loadLists();
   const verdict = fields => Title.sanitize({ title: 'A', ...fields }).verdict;
   assert.equal(verdict({ watched: true }), 'up');
   assert.equal(verdict({ watched: true, stars: 2 }), 'down');
   assert.equal(verdict({ watched: false, stars: 5 }), 'up');
-  assert.equal(verdict({ review: 'notes' }), 'up');
+  assert.equal(verdict({ review: 'notes' }), '', 'a note can be about a title still to watch');
+  assert.equal(verdict({ want: true, review: 'Recommended by a friend' }), '');
+  assert.equal(verdict({ rewatch: true }), 'up');
   assert.equal(verdict({ watched: true, thumb: 'down', stars: 5 }), 'down', 'a given thumb wins');
   assert.equal(verdict({ watched: false }), '');
   assert.equal(verdict({ verdict: 'skip' }), 'skip');

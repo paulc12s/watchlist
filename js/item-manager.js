@@ -43,7 +43,7 @@ const ItemManager = {
     return true;
   },
 
-  update(id, updates) {
+  update(id, updates, message = 'Item updated') {
     const item = Library.get(id);
     if (!item) return false;
     const previous = { ...item };
@@ -51,7 +51,7 @@ const ItemManager = {
       UI.setStatus('invalid item data', false);
       return false;
     }
-    UndoManager.push('Item updated', { type: 'edit', data: { id, previous } });
+    UndoManager.push(message, { type: 'edit', data: { id, previous } });
     return true;
   },
 

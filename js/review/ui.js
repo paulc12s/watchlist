@@ -550,8 +550,8 @@ const ReviewUI = {
     return guess;
   },
 
-  // Not interested means unseen, so a title you've rated (or given stars,
-  // notes or rewatch, which mean seen) can't take it
+  // Not interested means unseen, so a title you've rated (or given stars or
+  // rewatch, which mean seen) can't take it
   refuseSeen() {
     this.nudge();
     this.toast('You’ve rated this one. Swipe right or left to save it.');

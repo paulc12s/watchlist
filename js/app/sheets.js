@@ -410,9 +410,13 @@ const UI = {
   saveTitle() {
     const els = this.elements;
     const { id, draft } = this.editing;
-    // A title is either on the list or seen; with neither, it would vanish
-    const want = draft.verdict ? draft.want : true;
+    // The bookmark as shown: off takes a title off the watchlist, keeping
+    // everything else about it. One that's neither on the list nor rated
+    // stays in your titles (search finds it) and review can deal it again
+    const want = draft.want;
     const current = Library.get(id);
+    const message = current && current.want && !want ? 'Removed from your watchlist'
+      : current && !current.want && want ? 'Added to your watchlist' : 'Item updated';
     ItemManager.update(id, {
       // Keep a skip or not-interested from review mode unless a thumb replaces it
       verdict: draft.verdict || (current && !Title.isSeen(current) ? current.verdict : ''),
@@ -423,7 +427,7 @@ const UI = {
       priority: draft.priority,
       tag: els.titleTag.value,
       platform: els.titlePlatform.value
-    });
+    }, message);
     els.titleSheet.close();
     this.render();
   }

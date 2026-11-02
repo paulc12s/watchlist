@@ -114,8 +114,9 @@ const Title = {
     let verdict = this.VERDICTS.includes(given) ? given : '';
     const legacyWatched = typeof raw.watched === 'boolean' ? raw.watched : null;
     const want = typeof raw.want === 'boolean' ? raw.want : legacyWatched === false;
-    // A review, or having watched it, means you've seen it, so it has a thumb
-    if (!this.thumb({ verdict }) && (stars || review || rewatch || legacyWatched)) verdict = this.impliedThumb(stars);
+    // Stars, a rewatch flag, or having watched it mean you've seen it, so it
+    // has a thumb. Notes don't: they can be about a title still to watch
+    if (!this.thumb({ verdict }) && (stars || rewatch || legacyWatched)) verdict = this.impliedThumb(stars);
 
     return {
       id: text(raw.id, 60) || this.newId(),

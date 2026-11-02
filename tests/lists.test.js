@@ -521,3 +521,18 @@ test('suggestions include your titles without an IMDb ID, and know which title t
 });
 
 
+
+test('taking an unrated title off the watchlist keeps it, with its details, off every list', () => {
+  const app = withTitles([{ id: 'u', title: 'Maybe Later', year: 2020, want: true, priority: 'high', tag: 'from Sam', platform: 'Netflix' }]);
+  const { ItemManager, Library, UndoManager } = app;
+  const inList = list => plain(ItemManager.getFiltered({ list, filter: 'all', quickSearch: '', verdict: 'all' }).map(t => t.id));
+  assert.deepEqual(inList('queue'), ['u']);
+  ItemManager.update('u', { want: false, verdict: '', priority: 'high', tag: 'from Sam', platform: 'Netflix' }, 'Removed from your watchlist');
+  const t = Library.get('u');
+  assert.deepEqual(plain([t.want, t.verdict, t.tag, t.platform, t.priority]), [false, '', 'from Sam', 'Netflix', 'high']);
+  assert.deepEqual(inList('queue'), [], 'off the watchlist');
+  assert.deepEqual(inList('rated'), [], 'and not rated');
+  assert.deepEqual(plain(ItemManager.elsewhere('maybe later', []).map(x => x.id)), ['u'], 'still found by search');
+  UndoManager.undo();
+  assert.deepEqual(inList('queue'), ['u'], 'undo puts it back');
+});
