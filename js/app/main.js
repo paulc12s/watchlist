@@ -147,6 +147,8 @@ const Main = {
     setChecked(document.getElementById('paletteChoice'), 'palette', Palette.get());
     setChecked(document.getElementById('schemeChoice'), 'scheme', Appearance.get());
     setChecked(document.getElementById('iconChoice'), 'icon', IconChoice.get());
+    document.getElementById('tmdbKey').value = TMDB.key;
+    document.getElementById('omdbKey').value = OMDb.personalKey;
   },
 
   // Settings → Titles from the old pages: shown only if they saved any here

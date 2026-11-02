@@ -307,7 +307,7 @@
         <input type="checkbox" id="includeSettings" checked>
         <span>Include settings</span>
       </label>
-      <p class="hint">Export saves all your titles to a file: keep it as a backup, or import it in another browser or on another device. Import reads it back, along with files from earlier versions. Imports merge: nothing is removed, a title reviewed or changed more recently in the file takes the file’s version, and anything else only fills in what’s blank here. With <b>Include settings</b> ticked, export also saves your theme, sort orders, review choices and TMDB key (so keep the file private), and import applies any settings a file has. Taste profile for AI copies a summary you can paste into Claude.</p>
+      <p class="hint">Export saves all your titles to a file: keep it as a backup, or import it in another browser or on another device. Import reads it back, along with files from earlier versions. Imports merge: nothing is removed, a title reviewed or changed more recently in the file takes the file’s version, and anything else only fills in what’s blank here. With <b>Include settings</b> ticked, export also saves your theme, sort orders, review choices and OMDb and TMDB keys (so keep the file private), and import applies any settings a file has. Taste profile for AI copies a summary you can paste into Claude.</p>
       <p class="import-error" id="importError" role="alert" hidden></p>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
@@ -361,6 +361,15 @@
         <button type="button" class="button primary" id="tmdbSave">Save</button>
       </div>
       <p class="hint">TV lists in review mode come from TMDB. Get a free key under <a href="https://www.themoviedb.org/settings/api" rel="noopener" target="_blank">Settings → API</a> on themoviedb.org. It’s kept on this device only.</p>
+    </section>
+    <section class="setting">
+      <h3>Film details</h3>
+      <div class="key-row">
+        <input type="password" id="omdbKey" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="8" placeholder="Your OMDb key (optional)" aria-label="OMDb key">
+        <button type="button" class="button primary" id="omdbSave">Save</button>
+      </div>
+      <p class="import-error" id="omdbError" role="alert" hidden></p>
+      <p class="hint">Film details and search come from OMDb, using the app’s shared key unless you add your own. A free key from <a href="https://www.omdbapi.com/apikey.aspx" rel="noopener" target="_blank">omdbapi.com</a> gives you your own 1,000 lookups a day. It’s kept on this device only, and used by Batch upload too. Clear it and save to go back to the app’s key.</p>
     </section>
     <section class="setting">
       <h3>Maintenance</h3>

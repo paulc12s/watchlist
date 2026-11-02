@@ -42,6 +42,7 @@ const CONFIG = {
     // SECURITY NOTE: API keys are visible in client-side code, so anyone can
     // read this key and use up its quota. The worst case is an outage, and
     // js/omdb.js then falls back to the shared demo key. See SECURITY.md.
+    // Anyone can add their own key in Settings instead (js/omdb.js).
     //
     OMDB_KEY: '12dec63b',
     OMDB_FALLBACK_KEY: 'trilogy',

@@ -26,6 +26,7 @@ function loadSettings(globals = {}) {
     ReviewApp: { savedCategoryId: '', savePrefs: () => calls.push(['savePrefs']) },
     ReviewUI: { feedStarted: () => false },
     TMDB: { key: '' },
+    OMDb: { personalKey: '', KEY_SHAPE: /^[0-9a-f]{8}$/i, setPersonalKey(key) { this.personalKey = key; calls.push(['omdbKey', key]); } },
     TitleSearch: { refreshRecent: () => calls.push(['refreshRecent']) },
     ...globals
   });
@@ -121,4 +122,18 @@ test('settings: Include settings is on unless turned off, and remembered', () =>
   const blocked = loadSettings({ localStorage: { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); } } });
   assert.equal(blocked.AppSettings.included(), true, 'storage blocked (private browsing): on');
   blocked.AppSettings.setIncluded(false);
+});
+
+test('settings: an OMDb key comes in only in its exact shape, and a file without one keeps this device’s', () => {
+  const app = loadSettings();
+  assert.equal(app.AppSettings.clean({ omdbKey: ' 12AB34cd ' }).settings.omdbKey, '12AB34cd');
+  for (const bad of ['1234567', '123456789', 'zzzzzzzz', '1234abcd&i=x', 42]) {
+    assert.deepEqual(plain(app.AppSettings.clean({ omdbKey: bad }).skipped), ['omdbKey'], String(bad));
+  }
+  app.OMDb.personalKey = 'aaaabbbb';
+  app.AppSettings.apply({ theme: 'pride' });
+  assert.equal(app.OMDb.personalKey, 'aaaabbbb');
+  app.AppSettings.apply({ omdbKey: 'ccccdddd' });
+  assert.equal(app.OMDb.personalKey, 'ccccdddd');
+  assert.equal(plain(app.AppSettings.collect()).omdbKey, 'ccccdddd', 'exported');
 });

@@ -5,7 +5,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { loadLists, plain } = require('./helpers');
+const { load, SHARED, loadLists, plain } = require('./helpers');
 
 const ids = results => plain(results.map(r => r.imdbID));
 const titles = app => plain(app.ItemManager.getFiltered().map(i => i.title));
@@ -140,6 +140,59 @@ test('OMDb reports a key problem when the fallback key fails too', async () => {
   const app = loadLists();
   app.setFetch(async () => invalidKey);
   await assert.rejects(app.MovieAPI.getDetails('tt0111161'), /Invalid API key/);
+});
+
+// localStorage as the browser has it, for the personal key
+function memoryLocalStorage(seed = {}) {
+  const data = new Map(Object.entries(seed));
+  return {
+    data,
+    getItem: key => (data.has(key) ? data.get(key) : null),
+    setItem: (key, value) => data.set(key, String(value)),
+    removeItem: key => data.delete(key)
+  };
+}
+
+test('OMDb uses your own key instead of the app’s, from this device, falling back to the demo key', async () => {
+  const localStorage = memoryLocalStorage({ omdb_key: 'aaaabbbb' });
+  const app = load([...SHARED, 'js/movie-api.js'], 'CONFIG, Store, OMDb, MovieAPI', { localStorage });
+  assert.equal(app.OMDb.personalKey, 'aaaabbbb');
+  const keysUsed = [];
+  app.setFetch(async url => {
+    const key = new URL(url).searchParams.get('apikey');
+    keysUsed.push(key);
+    return key === 'aaaabbbb' ? overLimit : { status: 200, json: async () => ({ Response: 'True', imdbID: 'tt0111161', Title: 'Shawshank', Type: 'movie' }) };
+  });
+  await app.OMDb.details({ i: 'tt0111161' });
+  assert.deepEqual(plain(keysUsed), ['aaaabbbb', app.CONFIG.API.OMDB_FALLBACK_KEY], 'never the app’s key');
+
+  app.OMDb.setPersonalKey('');
+  assert.equal(localStorage.data.has('omdb_key'), false);
+  assert.deepEqual(plain(app.OMDb.keys), [app.CONFIG.API.OMDB_KEY, app.CONFIG.API.OMDB_FALLBACK_KEY]);
+  app.OMDb.setPersonalKey('ccccdddd');
+  assert.equal(localStorage.data.get('omdb_key'), 'ccccdddd');
+});
+
+test('OMDb ignores a stored key of the wrong shape', () => {
+  const app = load(SHARED, 'CONFIG, Store, OMDb', { localStorage: memoryLocalStorage({ omdb_key: 'x&apikey=y' }) });
+  assert.equal(app.OMDb.personalKey, '');
+  assert.equal(app.OMDb.keys[0], app.CONFIG.API.OMDB_KEY);
+});
+
+test('OMDb checks a key on its own: accepted, over its quota, or rejected', async () => {
+  const app = loadLists();
+  const used = [];
+  for (const [answer, expected] of [
+    [{ status: 200, json: async () => ({ Response: 'True', imdbID: 'tt0111161' }) }, 'ok'],
+    [overLimit, 'limit'],
+    [invalidKey, 'rejected']
+  ]) {
+    app.setFetch(async url => { used.push(new URL(url).searchParams.get('apikey')); return answer; });
+    assert.equal(await app.OMDb.checkKey('aaaabbbb'), expected);
+  }
+  assert.deepEqual(plain(used), ['aaaabbbb', 'aaaabbbb', 'aaaabbbb'], 'no fallback while checking');
+  app.setFetch(async () => { throw new TypeError('offline'); });
+  await assert.rejects(app.OMDb.checkKey('aaaabbbb'), /Could not reach OMDb/);
 });
 
 // ---- Lists ------------------------------------------------------------------------

@@ -22,7 +22,7 @@ const ReviewUI = {
     const ids = ['card', 'stage', 'categoryButton', 'categoryName', 'categoryProgress', 'nextCategory',
       'tasteButton', 'settingsButton', 'toast', 'categorySheet', 'categoryList', 'noteSheet', 'noteFilm',
       'noteText', 'noteSave', 'tasteSheet', 'tasteBody', 'settingsSheet', 'exportBackup', 'importButton',
-      'importFile', 'importError', 'exportAI', 'tmdbKey', 'tmdbSave',
+      'importFile', 'importError', 'exportAI', 'tmdbKey', 'tmdbSave', 'omdbKey', 'omdbSave', 'omdbError',
       'forYouButton', 'forYouSheet', 'forYouBody'];
     ids.forEach(id => { this.els[id] = document.getElementById(id); });
 
@@ -814,8 +814,48 @@ const ReviewUI = {
       button.setAttribute('aria-checked', String(button.dataset.order === Feed.order));
     });
     this.els.tmdbKey.value = TMDB.key;
+    this.els.omdbKey.value = OMDb.personalKey;
+    this.els.omdbError.hidden = true;
     this.els.importError.hidden = true;
     this.els.settingsSheet.showModal();
+  },
+
+  // Checked with OMDb first, so a mistyped key isn't saved and then quietly
+  // replaced by the demo key on every visit. Problems show in the sheet: a
+  // toast would sit behind it
+  async saveOmdbKey() {
+    const key = this.els.omdbKey.value.trim();
+    const button = this.els.omdbSave;
+    const problem = message => {
+      this.els.omdbError.textContent = message;
+      this.els.omdbError.hidden = false;
+    };
+    this.els.omdbError.hidden = true;
+    if (!key) {
+      OMDb.setPersonalKey('');
+      this.els.settingsSheet.close();
+      this.toast('OMDb key removed: using the app’s key', 'check');
+      return;
+    }
+    if (!OMDb.KEY_SHAPE.test(key)) {
+      problem('An OMDb key is 8 characters, like 1a2b3c4d.');
+      return;
+    }
+    button.disabled = true;
+    try {
+      const result = await OMDb.checkKey(key);
+      if (result === 'rejected') {
+        problem('OMDb didn’t accept that key. If it’s new, open the activation link in OMDb’s email first.');
+        return;
+      }
+      OMDb.setPersonalKey(key);
+      this.els.settingsSheet.close();
+      this.toast(result === 'limit' ? 'OMDb key saved (its quota is used up for today)' : 'OMDb key saved on this device', 'check');
+    } catch (error) {
+      problem(`${error.message}, so the key wasn’t saved. Try again.`);
+    } finally {
+      button.disabled = false;
+    }
   },
 
   bindSettings() {
@@ -838,6 +878,8 @@ const ReviewUI = {
       this.toast(TMDB.key ? 'TMDB key saved on this device' : 'TMDB key removed', 'check');
       if (this.feedStarted() && Catalog.isTv(Feed.categoryId)) this.switchCategory(Feed.categoryId, { announce: false });
     });
+
+    this.els.omdbSave.addEventListener('click', () => this.saveOmdbKey());
 
     this.els.exportBackup.addEventListener('click', () => {
       const extra = AppSettings.included() ? { settings: AppSettings.collect() } : {};

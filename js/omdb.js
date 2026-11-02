@@ -2,7 +2,9 @@
 // ============================================================================
 // OMDb: every request to OMDb and every parse of its answers, for all pages
 //
-// Keys: uses the app's own key, and falls back to the shared demo key if OMDb
+// Keys: uses your own key if you've added one in Settings (kept on this
+// device, in localStorage so every page has it before its first request),
+// otherwise the app's. Either falls back to the shared demo key if OMDb
 // rejects it or its daily quota is used up. Once a key fails, the rest of the
 // visit uses the next one, so each failure costs one extra request at most.
 //
@@ -14,10 +16,64 @@
 // ============================================================================
 
 const OMDb = {
-  keys: [CONFIG.API.OMDB_KEY, CONFIG.API.OMDB_FALLBACK_KEY].filter(Boolean),
+  keys: [],
   keyIndex: 0,
+  // Your own key, or '' to use the app's
+  personalKey: '',
+  STORAGE_KEY: 'omdb_key',
+  // OMDb keys are 8 hex characters
+  KEY_SHAPE: /^[0-9a-f]{8}$/i,
   responses: new Map(),
   TIMEOUT_MS: 10000,
+
+  // Switches to your key (or the app's, for ''), for this visit and later ones
+  setPersonalKey(key) {
+    this.useKey(key);
+    try {
+      if (this.personalKey) localStorage.setItem(this.STORAGE_KEY, this.personalKey);
+      else localStorage.removeItem(this.STORAGE_KEY);
+    } catch (error) {
+      // Not remembered; this visit uses it
+    }
+  },
+
+  useKey(key) {
+    this.personalKey = typeof key === 'string' && this.KEY_SHAPE.test(key.trim()) ? key.trim() : '';
+    this.keys = [this.personalKey || CONFIG.API.OMDB_KEY, CONFIG.API.OMDB_FALLBACK_KEY].filter(Boolean);
+    this.keyIndex = 0;
+  },
+
+  loadKey() {
+    try {
+      return typeof localStorage === 'undefined' ? '' : localStorage.getItem(this.STORAGE_KEY) || '';
+    } catch (error) {
+      return '';
+    }
+  },
+
+  // Whether OMDb accepts key, asked directly rather than through the
+  // fallbacks: 'ok', 'limit' (a real key whose quota is used up today) or
+  // 'rejected'. Throws if OMDb can't be reached
+  async checkKey(key) {
+    const url = new URL(CONFIG.API.OMDB_URL);
+    url.searchParams.set('apikey', key);
+    url.searchParams.set('i', 'tt0111161');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT_MS);
+    let response, data;
+    try {
+      response = await fetch(url, { signal: controller.signal });
+      data = await response.json().catch(() => null);
+    } catch (error) {
+      throw new Error(error.name === 'AbortError' ? 'OMDb timed out' : 'Could not reach OMDb');
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (data && data.Response === 'True') return 'ok';
+    if (data && /limit/i.test(data.Error || '')) return 'limit';
+    if (this.isKeyProblem(response, data)) return 'rejected';
+    throw new Error(`OMDb error ${response.status}`);
+  },
 
   // Film or show details: { imdbID, title, year, type, genres, director,
   // writer, actors, plot, runtime, imdbRating, poster }, or null if OMDb has
@@ -154,3 +210,5 @@ const OMDb = {
     return type === 'series' || type === 'episode' ? 'series' : 'movie';
   }
 };
+
+OMDb.useKey(OMDb.loadKey());

@@ -87,4 +87,4 @@ function film(n, fields = {}) {
 // Values built inside a page's context fail deepStrictEqual against local ones
 const plain = value => JSON.parse(JSON.stringify(value));
 
-module.exports = { read, loadLists, loadReview, film, plain };
+module.exports = { read, load, SHARED, loadLists, loadReview, film, plain };

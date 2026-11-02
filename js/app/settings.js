@@ -9,15 +9,17 @@
 //   theme, appearance, appIcon         how the app looks (js/palette.js, js/icon-choice.js)
 //   watchlistSort, ratedSort           the order of Watchlist's Watched... and Rated lists
 //   reviewOrder, reviewList            review mode's order and the list it opens on
-//   tmdbKey                            the TMDB key for TV (the file then holds a
-//                                      credential: keep it private)
+//   tmdbKey                            the TMDB key for TV
+//   omdbKey                            your own OMDb key, if you added one (with
+//                                      either key the file holds a credential:
+//                                      keep it private)
 //
 // A file is untrusted. Only these names are read, each checked on its own
 // against what it may be (a known choice, or a key's exact shape); anything
 // missing, mistyped, unknown or oversized is skipped and the rest still
 // apply. Nothing in the file is ever copied wholesale, so names like
 // "__proto__" do nothing. A file without a TMDB key never removes this
-// device's key.
+// device's key, and the same for OMDb.
 // ============================================================================
 
 const AppSettings = {
@@ -57,7 +59,8 @@ const AppSettings = {
       ratedSort: oneOf(Object.keys(ItemManager.SORTS)),
       reviewOrder: oneOf(REVIEW.ORDERS),
       reviewList: value => (typeof value === 'string' && this.LIST_ID.test(value) ? value : undefined),
-      tmdbKey: value => (typeof value === 'string' && this.TMDB_KEY.test(value.trim()) ? value.trim() : undefined)
+      tmdbKey: value => (typeof value === 'string' && this.TMDB_KEY.test(value.trim()) ? value.trim() : undefined),
+      omdbKey: value => (typeof value === 'string' && OMDb.KEY_SHAPE.test(value.trim()) ? value.trim() : undefined)
     };
   },
 
@@ -86,7 +89,8 @@ const AppSettings = {
       ratedSort: state.rated.sort,
       reviewOrder: Feed.order,
       reviewList: Feed.categoryId || ReviewApp.savedCategoryId || undefined,
-      tmdbKey: TMDB.key || undefined
+      tmdbKey: TMDB.key || undefined,
+      omdbKey: OMDb.personalKey || undefined
     };
     // Only what would pass on the way back in
     return this.clean(settings).settings;
@@ -117,6 +121,8 @@ const AppSettings = {
       TitleSearch.refreshRecent();
       prefs = true;
     }
+    // Unchecked here: a key that has stopped working falls back to the demo key
+    if (has('omdbKey') && settings.omdbKey !== OMDb.personalKey) OMDb.setPersonalKey(settings.omdbKey);
     if (prefs) ReviewApp.savePrefs();
     if (typeof Main !== 'undefined') Main.showSettings();
     return { applied: Object.keys(settings), skipped };
