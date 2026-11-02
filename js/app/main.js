@@ -37,6 +37,11 @@ const Main = {
       setChecked(paletteChoice, 'palette', button.dataset.palette);
     });
 
+    // Include settings in export and import (js/app/settings.js)
+    const includeSettings = document.getElementById('includeSettings');
+    includeSettings.checked = AppSettings.included();
+    includeSettings.addEventListener('change', () => AppSettings.setIncluded(includeSettings.checked));
+
     // Appearance (js/palette.js)
     const schemeChoice = document.getElementById('schemeChoice');
     setChecked(schemeChoice, 'scheme', Appearance.get());
@@ -135,6 +140,13 @@ const Main = {
     } finally {
       button.disabled = false;
     }
+  },
+
+  // Settings controls that show a stored choice, after an import changes it
+  showSettings() {
+    setChecked(document.getElementById('paletteChoice'), 'palette', Palette.get());
+    setChecked(document.getElementById('schemeChoice'), 'scheme', Appearance.get());
+    setChecked(document.getElementById('iconChoice'), 'icon', IconChoice.get());
   },
 
   // Settings → Titles from the old pages: shown only if they saved any here

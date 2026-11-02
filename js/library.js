@@ -309,13 +309,14 @@ const Library = {
     throw new Error('Not a watchlist or ratings export');
   },
 
-  exportText(from) {
-    return Library.fileText(this.titles, from);
+  // extra: more top-level fields for the file, such as the app's settings
+  exportText(from, extra = {}) {
+    return Library.fileText(this.titles, from, extra);
   },
 
   // The export file for any list of titles; also used by batch upload
-  fileText(titles, from) {
-    return JSON.stringify({ app: 'titles', version: 2, from, exportDate: new Date().toISOString(), titles }, null, 2);
+  fileText(titles, from, extra = {}) {
+    return JSON.stringify({ app: 'titles', version: 2, from, exportDate: new Date().toISOString(), ...extra, titles }, null, 2);
   },
 
   // e.g. "watchlist-2026-10-31-1432.json": local date and time, so two

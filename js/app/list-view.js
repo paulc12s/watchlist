@@ -69,6 +69,18 @@ const ListView = {
     els.list.addEventListener('click', event => this.listClick(event));
   },
 
+  // A new order, remembered on this device (Settings import uses it too)
+  setSort(sort) {
+    if (!ItemManager.SORTS[sort]) return;
+    this.state.sort = sort;
+    try {
+      localStorage.setItem(this.sortKey, sort);
+    } catch (error) {
+      // Not remembered; harmless
+    }
+    this.render();
+  },
+
   // Hidden views only note that they're out of date, and catch up when shown
   render() {
     if (this.hidden) {

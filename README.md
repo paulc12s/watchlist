@@ -84,6 +84,7 @@ node tools/eval-similar.js personal ratings-export.json             # how well i
 All titles are stored in one shape (`js/title.js`) through one code path (`js/library.js`). Files carry them between browsers and devices:
 
 - **Export** saves every title as `{ "app": "titles", "version": 2, "titles": [...] }`, named with the local date and time (`titles-2026-10-31-1432.json`)
+- **Settings travel with it** while **Include settings** (beside Export and Import) is ticked, the default; untick it to export titles only and to import titles without a file's settings. Export adds `"settings"`: theme, appearance, app icon, the Watched and Rated sort orders, review order, the list review mode opens on, and the **TMDB key** (so the file holds a credential: keep it private). Import applies them, checking each on its own: a missing, malformed or unknown setting is skipped and the rest still apply, and a file without a TMDB key never removes this device's key. A file of settings and no titles imports too (`js/app/settings.js`)
 - **Import** also reads every file earlier versions wrote: the retired pages' watchlist exports and ratings backups, *Export for Watchlist* and want-to-watch files, and batch uploads
 - **Merging:** a title is matched by IMDb ID, YouTube ID, or its own ID for manual entries. Your review (thumb, stars, notes, rewatch) comes from whichever copy was reviewed more recently; everything else from whichever changed more recently. A copy with no dates (files from before dates were kept) never wins: it only fills in what's blank. Merging isn't an edit, so it doesn't make a title newer. A file never removes a title
 - **Seen and rated are the same thing:** a title you've watched, or given stars or notes, has a thumb (from its stars, otherwise 👍). A title on your list to watch can carry a review and stays on the list
@@ -126,7 +127,8 @@ js/
   undo-manager.js    Undo stack
   batch-upload.js    Batch upload tool
   dom.js             icon(), setChecked() and checked(), used by every mode
-  app/               main (modes, settings), list-view (Watchlist and Rated lists),
+  app/               main (modes, settings), settings (settings in export and import),
+                     list-view (Watchlist and Rated lists),
                      sheets (add and title sheets), old-pages (bring in
                      the retired pages' titles)
   review/            Review mode: config, store (rating rules over the Library), tmdb,

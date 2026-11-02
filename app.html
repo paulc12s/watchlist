@@ -303,7 +303,11 @@
         <button type="button" class="button" id="importButton">Import…</button>
         <button type="button" class="button" id="exportAI">Taste profile for AI</button>
       </div>
-      <p class="hint">Export saves all your titles to a file: keep it as a backup, or import it in another browser or on another device. Import reads it back, along with files from earlier versions. Imports merge: nothing is removed, a title reviewed or changed more recently in the file takes the file’s version, and anything else only fills in what’s blank here. Taste profile for AI copies a summary you can paste into Claude.</p>
+      <label class="check-row">
+        <input type="checkbox" id="includeSettings" checked>
+        <span>Include settings</span>
+      </label>
+      <p class="hint">Export saves all your titles to a file: keep it as a backup, or import it in another browser or on another device. Import reads it back, along with files from earlier versions. Imports merge: nothing is removed, a title reviewed or changed more recently in the file takes the file’s version, and anything else only fills in what’s blank here. With <b>Include settings</b> ticked, export also saves your theme, sort orders, review choices and TMDB key (so keep the file private), and import applies any settings a file has. Taste profile for AI copies a summary you can paste into Claude.</p>
       <p class="import-error" id="importError" role="alert" hidden></p>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
@@ -404,6 +408,7 @@
 <script src="js/app/list-view.js?v=__APP_VERSION__"></script>
 <script src="js/app/sheets.js?v=__APP_VERSION__"></script>
 <script src="js/app/old-pages.js?v=__APP_VERSION__"></script>
+<script src="js/app/settings.js?v=__APP_VERSION__"></script>
 <script src="js/app/main.js?v=__APP_VERSION__"></script>
 </body>
 </html>

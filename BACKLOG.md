@@ -45,6 +45,7 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Settings in export and import (theme, appearance, app icon, sort orders, review order and list, TMDB key), each checked on its own on the way in (js/app/settings.js).
 - Review pass after retiring the classic pages: one search routine for both searches (TitleSearch.searcher), shared icon()/setChecked() (js/dom.js), type and verdict words defined once (Title.TYPE_ICONS, TYPE_NAMES, statusLabel; 👎 reads "Not for me" everywhere), dead code removed (old-format loading in Library.open, routine save statuses, rankOf, setVerdict, exportPrefix, KEY_HELP_URL, .glass), and names matched to what things are (js/review/, ReviewUI, ReviewApp, REVIEW, js/app/sheets.js, tests/lists.test.js and review.test.js).
 - Retired the classic pages: watchlist.html, ratings.html and index.html forward to app.html; their code is removed (ratings.css is now base.css); Settings → Bring in titles from the old pages merges what they saved in this browser.
 - Skips come round again: a skipped title stays to rate (after unseen ones), lists show how many are left to rate, and a pass with only skipped titles left offers to go through them again. The settings button to show skipped titles again is gone.
