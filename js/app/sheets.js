@@ -218,7 +218,7 @@ const UI = {
         <span class="row-title">${result.title}</span>
         <span class="row-meta">${[result.year, Title.TYPE_NAMES[result.type] || 'Film', details.imdbRating && `★ ${Title.formatRating(details.imdbRating)}`].filter(Boolean).join(' · ')}</span>
         ${this.credits(details) && html`<span class="row-meta">${this.credits(details)}</span>`}
-        ${have && html`<span class="tag">Already in your titles</span>`}
+        ${have && html`<span class="tag">${Title.statusLabel(have) || 'In your titles'}</span>`}
       </span>
     </button>`;
   },
@@ -230,8 +230,16 @@ const UI = {
     return [lead && `${details.type === 'series' ? 'By' : 'Dir.'} ${lead}`, names(details.actors, 2)].filter(Boolean).join(' · ');
   },
 
+  // A title you already have opens its own sheet, with your rating and
+  // everything you can do with it, rather than offering to add it again
   async choose(result) {
     const els = this.elements;
+    const have = Library.byImdb(result.imdbID);
+    if (have) {
+      els.addSheet.close();
+      this.openTitle(have);
+      return;
+    }
     try {
       const details = (await MovieAPI.getDetails(result.imdbID)) || result;
       this.add.chosen = details;
