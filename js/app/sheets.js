@@ -302,10 +302,11 @@ const UI = {
     });
     if (!added) return;
     els.addSheet.close();
-    state.filter = 'all';
+    // A title to watch shows in Watchlist whatever chip was on; seen ones go
+    // to Rated. + works from every mode, so the toast says where it went
+    if (!verdict.verdict) state.filter = 'all';
     this.render();
-    // Seen titles go to Rated, not the list to watch
-    ReviewUI.toast(verdict.verdict ? `Added ${fields.title} to Rated` : `Added ${fields.title}`, verdict.verdict ? `thumb-${verdict.verdict}` : 'check');
+    ReviewUI.toast(verdict.verdict ? `Added ${fields.title} to Rated` : `Added ${fields.title} to your watchlist`, verdict.verdict ? `thumb-${verdict.verdict}` : 'check');
   },
 
   // ---- A title's sheet: review and edit in one place -------------------------------

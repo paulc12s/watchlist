@@ -176,9 +176,10 @@ const Main = {
       tab.setAttribute('aria-selected', String(tab.dataset.mode === mode));
     });
     for (const [name, id] of Object.entries(this.PANELS)) document.getElementById(id).hidden = name !== mode;
-    document.getElementById('addButton').hidden = mode !== 'watchlist';
     document.body.dataset.mode = mode;
     ReviewUI.paused = !review;
+    // Undo sits where review mode's rating buttons are, so it goes there
+    if (review) UI.elements.undoBar.classList.remove('visible');
     UI.showView(review ? null : mode);
     try {
       localStorage.setItem(this.MODE_KEY, mode);
