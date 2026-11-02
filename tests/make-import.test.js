@@ -66,12 +66,12 @@ test('make-import: a reviewed list becomes rated titles the app imports unchange
   const byTitle = Object.fromEntries(data.titles.map(t => [t.title, t]));
   assert.deepEqual(plain([byTitle.Dune.verdict, byTitle.Dune.stars, byTitle.Dune.want, byTitle.Dune.reviewDate.slice(0, 10)]), ['up', 4, false, '2024-03-01']);
   assert.deepEqual(plain([byTitle.Cats.verdict, byTitle.Cats.stars]), ['down', 2], 'two stars and no thumb: 👎');
-  assert.deepEqual(plain([byTitle.Arrival.verdict, byTitle.Arrival.reviewDate]), ['up', ''], 'no rating: watched, under Not rated');
+  assert.deepEqual(plain([byTitle.Arrival.verdict, byTitle.Arrival.reviewDate]), ['up', ''], 'no rating: watched, which counts as 👍');
 
   const fresh = loadLists();
   const result = plain(fresh.Library.import(data));
   assert.equal(result.added, 3, JSON.stringify(result));
-  assert.ok(fresh.Title.isUnrated(fresh.Library.all().find(t => t.title === 'Arrival')));
+  assert.ok(fresh.ItemManager.LISTS.rated(fresh.Library.all().find(t => t.title === 'Arrival')), 'in Rated like any 👍');
 });
 
 test('make-import: lookups fill details, try the year either side, and come from the cache next time', async () => {
@@ -251,7 +251,7 @@ test('make-import: the summary says what happened to every title', () => {
   };
   const text = summary('reviewed', report, 7, 'out.json', { lookup: true, interactive: false });
   for (const line of [
-    'Converted 7 of 9 titles (1 ❤️ · 4 👍 · 1 👎 · 2 not interested · 1 not rated) → out.json',
+    'Converted 7 of 9 titles (1 ❤️ · 4 👍 · 1 👎 · 2 not interested · 1 with no rating, so 👍) → out.json',
     'Matched on OMDb: 5 (1 chosen by you)',
     '  The Office → The Office (2005, series) · also: The Office (2001, series)',
     'run with -i to choose',

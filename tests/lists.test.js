@@ -221,8 +221,8 @@ test('getFiltered: priority and type chips, quick search, and titles only review
   state.filter = 'rewatch';
   assert.deepEqual(titles(app), ['Show']);
   state.filter = 'all';
-  state.list = 'unrated';
-  assert.deepEqual(titles(app), ['Seen'], 'watched with only the default 👍; the skip stays hidden');
+  state.list = 'rated';
+  assert.ok(titles(app).includes('Seen'), 'marked watched in an old file: a 👍 like any other');
   state.list = 'queue';
   state.quickSearch = 'now';
   assert.deepEqual(titles(app), ['Now Playing']);
@@ -241,7 +241,7 @@ test('Rated lists every rated title, narrows by verdict, and sorts', () => {
   const { state, ItemManager } = app;
   const sorted = sort => plain(ItemManager.sorted(ItemManager.getFiltered(), sort).map(t => t.title));
   state.list = 'rated';
-  assert.deepEqual(sorted('recent'), ['Zeta', 'beta', 'Gamma', 'Alpha'], 'rated, even if still on the list; not skips or unrated');
+  assert.deepEqual(sorted('recent'), ['Zeta', 'beta', 'Gamma', 'Alpha'], 'rated, even if still on the list; not skips');
   assert.deepEqual(sorted('rating'), ['beta', 'Alpha', 'Zeta', 'Gamma'], '❤️, 👍, 3★, 👎');
   assert.deepEqual(sorted('title'), ['Alpha', 'beta', 'Gamma', 'Zeta'], 'ignoring case');
   assert.deepEqual(sorted('newest'), ['beta', 'Zeta', 'Gamma', 'Alpha']);
@@ -266,29 +266,18 @@ test('Rated lists every rated title, narrows by verdict, and sorts', () => {
   state.quickSearch = '';
 });
 
-test('Not rated: watched titles with only the default 👍; rating one moves it to Rated', () => {
+test('a 👍 counts the same with or without a review date', () => {
   const app = withTitles([
     { id: 'w', title: 'Watched long ago', watched: true },
     { id: 'r', title: 'Rated', want: false, verdict: 'up', reviewDate: '2026-01-01T00:00:00.000Z' },
     { id: 's', title: 'Starred, undated', want: false, verdict: 'up', stars: 4 }
   ]);
-  const { ItemManager, UndoManager, Library, Title } = app;
-  const list = name => plain(ItemManager.getFiltered({ list: name, filter: 'all', quickSearch: '', verdict: 'all' }).map(t => t.title));
-  assert.deepEqual(list('unrated'), ['Watched long ago'], 'stars count as a rating even without a date');
-  assert.deepEqual(list('rated'), ['Rated', 'Starred, undated']);
-
-  ItemManager.rateWatched('w', 'up');
-  const w = Library.get('w');
-  assert.deepEqual(plain([w.verdict, w.want, Title.isUnrated(w)]), ['up', false, false], '👍 on the default 👍 still counts');
-  assert.ok(w.reviewDate);
-  assert.deepEqual(list('unrated'), []);
-  UndoManager.undo();
-  assert.deepEqual(list('unrated'), ['Watched long ago'], 'undo puts it back');
-
-  ItemManager.rateWatched('w', 'love');
-  assert.deepEqual(plain([w.verdict, w.stars]), ['up', 5]);
-  ItemManager.rateWatched('w', 'down');
-  assert.equal(w.verdict, 'down');
+  const { ItemManager, Library, Title } = app;
+  const list = verdict => plain(ItemManager.getFiltered({ list: 'rated', filter: 'all', quickSearch: '', verdict }).map(t => t.title));
+  assert.deepEqual(list('all'), ['Watched long ago', 'Rated', 'Starred, undated']);
+  assert.deepEqual(list('up'), ['Watched long ago', 'Rated', 'Starred, undated']);
+  assert.equal(Title.statusLabel(Library.get('w')), 'Liked');
+  assert.deepEqual(plain(ItemManager.sorted(Library.all(), 'recent').map(t => t.id)).slice(0, 1), ['r'], 'dated first in Recently rated; undated still listed');
 });
 
 test('tags: one label however typed, a chip per name with its count', () => {
@@ -479,3 +468,56 @@ test('a title can be added as already seen, with its thumb', () => {
   app.state.list = 'rated';
   assert.deepEqual(plain(app.ItemManager.getFiltered().map(i => i.title)), ['Arrival'], 'in Rated, not the list to watch');
 });
+
+// ---- Searching your titles ------------------------------------------------------
+
+function searchable() {
+  const app = load([...SHARED, 'js/state.js', 'js/movie-api.js', 'js/item-manager.js', 'js/review/config.js', 'js/review/title-search.js'],
+    'CONFIG, state, Title, Store, Library, MovieAPI, ItemManager, TitleSearch', { UI: { render() {}, setStatus() {} } });
+  app.Library.load([
+    { id: 'a', imdbID: 'tt4633694', title: 'Spider-Man: Into the Spider-Verse', year: 2018, type: 'movie', verdict: 'up', want: false, reviewDate: '2026-01-03' },
+    { id: 'b', imdbID: 'tt0211915', title: 'Amélie', year: 2001, type: 'movie', want: true },
+    { id: 'c', imdbID: 'tt2543164', title: 'Arrival', year: 2016, type: 'movie', verdict: 'up', want: false, stars: 4, reviewDate: '2026-01-01' },
+    { id: 'd', title: 'Home Movie', year: 2020, type: 'movie', verdict: 'down', want: false, reviewDate: '2026-01-02' }
+  ]);
+  return app;
+}
+const found = (app, query, view = {}) => plain(app.ItemManager.getFiltered({ list: 'rated', filter: 'all', verdict: 'all', ...view, quickSearch: query }).map(t => t.title));
+
+test('list search ignores case, accents and punctuation, and takes a year', () => {
+  const app = searchable();
+  assert.deepEqual(found(app, 'spiderman'), ['Spider-Man: Into the Spider-Verse']);
+  assert.deepEqual(found(app, 'spider verse'), ['Spider-Man: Into the Spider-Verse']);
+  assert.deepEqual(found(app, 'amelie', { list: 'queue' }), ['Amélie']);
+  assert.deepEqual(found(app, 'arrival 2016'), ['Arrival']);
+  assert.deepEqual(found(app, 'arrival 1999'), []);
+  assert.deepEqual(found(app, 'tt2543164'), ['Arrival']);
+});
+
+test('list search forgives a typo only when nothing matches exactly', () => {
+  const app = searchable();
+  assert.deepEqual(found(app, 'arival'), ['Arrival']);
+  assert.deepEqual(found(app, 'arr'), ['Arrival'], 'an exact match keeps near misses out');
+});
+
+test('a search finds your titles outside the list being searched', () => {
+  const app = searchable();
+  // Watchlist's search: the rated film is elsewhere
+  const shown = app.ItemManager.getFiltered({ list: 'queue', filter: 'all', quickSearch: 'arrival' });
+  assert.equal(shown.length, 0);
+  assert.deepEqual(plain(app.ItemManager.elsewhere('arrival', shown).map(t => t.id)), ['c']);
+  // Rated, narrowed to 👎: the liked film is still found
+  const down = app.ItemManager.getFiltered({ list: 'rated', verdict: 'down', filter: 'all', quickSearch: 'arrival' });
+  assert.deepEqual(plain(app.ItemManager.elsewhere('arrival', down).map(t => t.id)), ['c']);
+});
+
+test('suggestions include your titles without an IMDb ID, and know which title they are', () => {
+  const app = searchable();
+  const [home] = app.TitleSearch.suggest('home movie');
+  assert.equal(home.id, 'd');
+  assert.equal(app.TitleSearch.owned(home).title, 'Home Movie');
+  assert.equal(app.TitleSearch.owned({ imdbID: 'tt2543164' }).id, 'c');
+  assert.equal(app.TitleSearch.owned({ imdbID: 'tt9999999' }), undefined);
+});
+
+

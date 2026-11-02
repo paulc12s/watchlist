@@ -32,9 +32,7 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 Three modes, switched with **Watchlist | Rated | Review** at the top, all on the same titles, so a thumb given in one shows in the others straight away. Titles are kept in the app's database (`TitlesDB`).
 
 - **Watchlist mode** — just what you want to watch, grouped by priority, with a search box and filter chips (priority, type, rewatch, platform, tag), each showing how many titles it covers. Tap ❤️, 👍 or 👎 once you've watched a title and it moves to Rated
-- **Rated mode** — two lists, each sortable by recently rated, your rating, title, year or IMDb rating (remembered on the device):
-  - *Rated*: every title with a rating of your own, including ones still on your list to watch, as compact rows with your verdict as an icon (❤️, 👍 or 👎, plus stars if you gave 1–4). Narrow it to ❤️, 👍 or 👎; tap a row to change the rating
-  - *Not rated*: titles marked watched without a rating (they carry a default 👍), with ❤️ / 👍 / 👎 buttons to rate each in one tap, which moves it to Rated
+- **Rated mode** — every title you've rated, including ones still on your list to watch, as compact rows with your verdict as an icon (❤️, 👍 or 👎, plus stars if you gave 1–4). Narrow it to ❤️, 👍 or 👎, and sort it by recently rated, your rating, title, year or IMDb rating (remembered on the device); tap a row to change the rating. A title marked watched in an older file counts as 👍
 
   Each mode keeps its own search and filters, so switching doesn't lose your place
 - **Tags and platforms** — each is stored in one spelling, on every add, edit and import (`Library.labelName`): "art", "ART" and "#art" are saved as the spelling already in use; a new one is saved as typed, without # or extra spaces. The fields suggest labels already in use. A type, platform or tag with the same name (YouTube) is a single chip

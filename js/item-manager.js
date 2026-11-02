@@ -81,23 +81,6 @@ const ItemManager = {
     UndoManager.push(unlove ? 'Watched: 👍' : 'Watched: ❤️', { type: 'edit', data: { id, previous } });
   },
 
-  // Rating a title that was only marked watched (Rated → Not rated):
-  // ❤️, 👍 or 👎 becomes your own rating, dated, so it moves to Rated
-  rateWatched(id, choice) {
-    const item = Library.get(id);
-    if (!item || !['love', 'up', 'down'].includes(choice)) return;
-    const previous = { ...item };
-    const changes = choice === 'love' ? { verdict: 'up', stars: Title.LOVED_STARS } : { verdict: choice };
-    Library.change(item, { ...changes, want: false });
-    // 👍 on a default 👍 changes nothing, so date it as a rating here
-    if (!item.reviewDate) {
-      item.reviewDate = new Date().toISOString();
-      item.updatedDate = item.reviewDate;
-      Library.changed();
-    }
-    UI.render();
-    UndoManager.push(`Rated: ${{ love: '❤️', up: '👍', down: '👎' }[choice]}`, { type: 'edit', data: { id, previous } });
-  },
 
   delete(id) {
     const item = Library.get(id);
@@ -114,10 +97,8 @@ const ItemManager = {
     up: t => Title.thumb(t) === 'up',
     down: t => Title.thumb(t) === 'down',
     loved: t => Title.isLoved(t),
-    // Everything you've rated, watched or still on the list
-    rated: t => Title.isSeen(t) && !Title.isUnrated(t),
-    // Watched, with only the default 👍
-    unrated: t => Title.isUnrated(t)
+    // Everything you've rated, watched or still on the list, dated or not
+    rated: t => Title.isSeen(t)
   },
 
   // Orders for every list but the queue (which groups by priority)
@@ -150,10 +131,9 @@ const ItemManager = {
   // the watchlist's is the global state, the Rated view keeps its own
   getFiltered(view = state) {
     const { filter, list, quickSearch } = view;
-    const query = quickSearch.toLowerCase();
     const inList = this.LISTS[list] || this.LISTS.queue;
 
-    const matchesSearch = (i) => !query || i.title.toLowerCase().includes(query);
+    const matchesSearch = quickSearch ? this.searchTest(quickSearch) : () => true;
     // Rated narrows further by your verdict: ❤️, 👍 (includes ❤️) or 👎
     const byVerdict = list === 'rated' && ['loved', 'up', 'down'].includes(view.verdict) ? this.LISTS[view.verdict] : null;
     const matchesVerdict = (i) => !byVerdict || byVerdict(i);
@@ -161,6 +141,38 @@ const ItemManager = {
     const matchesSecondaryFilter = this.chipTest(filter) || (() => true);
 
     return Library.all().filter(i => inList(i) && matchesVerdict(i) && matchesSecondaryFilter(i) && matchesSearch(i));
+  },
+
+  // ---- Searching your titles ------------------------------------------------
+  // What's typed in a list's search matches a title's words in order,
+  // ignoring case, accents and punctuation ("spiderman" finds Spider-Man),
+  // with a year or an IMDb link narrowing it. Only if none of your titles
+  // match that way are typos forgiven (TitleSearch's matching), so a near
+  // miss never crowds out the title you meant.
+  searchTest(query) {
+    const parsed = MovieAPI.parseQuery(query);
+    if (parsed.imdbID) return t => t.imdbID === parsed.imdbID;
+    const year = parsed.year ? Number(parsed.year) : null;
+    const text = MovieAPI.normalizeTitle(parsed.title || query);
+    if (!text) return t => t.title.toLowerCase().includes(query.toLowerCase());
+    const squashed = text.replace(/ /g, '');
+    const strict = t => {
+      if (year && Number(t.year) !== year) return false;
+      const name = MovieAPI.normalizeTitle(t.title);
+      return name.includes(text) || name.replace(/ /g, '').includes(squashed);
+    };
+    if (typeof TitleSearch === 'undefined' || Library.all().some(strict)) return strict;
+    const typed = text.split(' ');
+    return t => (!year || Number(t.year) === year) &&
+      TitleSearch.score(typed, { words: MovieAPI.normalizeTitle(t.title).split(' ').filter(Boolean) }) > 0;
+  },
+
+  // Your titles matching a search that a view doesn't show (another list,
+  // or hidden by its tabs, verdicts or chips), most recently rated first
+  elsewhere(query, shown) {
+    const test = this.searchTest(query);
+    const inView = new Set(shown);
+    return this.sorted(Library.all().filter(t => !inView.has(t) && test(t)), 'recent').slice(0, 20);
   },
 
   // ---- Chips ---------------------------------------------------------------------

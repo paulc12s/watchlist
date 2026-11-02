@@ -14,7 +14,8 @@
 //             offer again), 'pass' (not seen, and not interested) or '' (not
 //             seen). Seen and rated are the same thing
 //   stars, review, rewatch                           the rest of your review
-//   reviewDate   when the review last changed
+//   reviewDate   when the review last changed ('' if unknown, e.g. a title
+//                marked watched in an old file: its 👍 counts all the same)
 //   updatedDate  when anything last changed ('' if never, e.g. an old file)
 //   guessPct  where the recommender ranked it when you first rated it
 //
@@ -64,12 +65,6 @@ const Title = {
   statusLabel(t) {
     if (this.isLoved(t)) return 'Loved';
     return { up: 'Liked', down: 'Not for me', pass: 'Not interested', skip: 'Skipped' }[t.verdict] || (t.want ? 'On your list' : '');
-  },
-
-  // Watched, but never rated: the 👍 is only the default a watched title
-  // gets (see sanitize). A rating of your own always carries a review date.
-  isUnrated(t) {
-    return this.isSeen(t) && !t.reviewDate && !t.stars && !t.review && !t.rewatch;
   },
 
   // ❤️ is shorthand for five stars: seen, and loved

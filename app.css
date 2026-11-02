@@ -153,22 +153,22 @@
 
 /* ---- Watchlist mode ---- */
 
+/* Only the list scrolls. The search, tabs and chips sit above it with no
+   background of their own, so a palette's glow runs on unbroken under the
+   mode bar (a sticky header painted in --bg showed as a box with an edge),
+   and the list fades in under them instead */
 .watchlist-panel {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding: 0 14px calc(var(--safe-bottom) + 96px);
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px;
 }
 
 .list-tools {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 4px 0 10px;
-  background: linear-gradient(180deg, var(--bg) 82%, transparent);
+  padding: 4px 0 6px;
 }
 
 .list-tabs button {
@@ -224,9 +224,22 @@
 }
 
 .title-list {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -14px;
+  padding: 8px 14px calc(var(--safe-bottom) + 96px);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 14px);
+  mask-image: linear-gradient(180deg, transparent, #000 14px);
+}
+
+.title-list > * {
+  flex: none;
 }
 
 .title-row {
@@ -754,6 +767,17 @@
   white-space: nowrap;
 }
 
+.found-row .found-status {
+  align-self: center;
+  margin-right: 4px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.list-note {
+  margin: 12px 4px 0;
+}
+
 .title-list:has(.rated-row) {
   gap: 4px;
 }
@@ -858,22 +882,6 @@
 .swatch-pride { background: linear-gradient(90deg, #e40303, #ff8c00, #ffed00, #008026, #24408e, #732982); }
 .swatch-desert { background: linear-gradient(90deg, #f8e2c4, #f2a46b 45%, #a84a17 75%, #ff8a75); }
 .swatch-aurora { background: linear-gradient(90deg, #5eeac0, #2cc79c 45%, #4e6bd8 70%, #c99bff); }
-
-/* Rated → Not rated: rate a watched title in one tap */
-.quick-rate {
-  display: flex;
-  gap: 4px;
-}
-
-.quick-rate .thumb {
-  width: 34px;
-  height: 34px;
-}
-
-.quick-rate .thumb .icon {
-  width: 16px;
-  height: 16px;
-}
 
 /* How many titles each chip stands for */
 .chip .count {

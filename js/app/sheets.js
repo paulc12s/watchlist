@@ -31,7 +31,7 @@ const UI = {
         ids: { search: 'listSearch', tabs: 'listTabs', options: 'listOptions', chips: 'filterChips', list: 'titleList' }
       }),
       rated: ListView.create({
-        name: 'rated', state: state.rated, tabs: [['rated', 'Rated'], ['unrated', 'Not rated']], verdicts: true, compact: true,
+        name: 'rated', state: state.rated, tabs: [['rated', 'Rated']], verdicts: true, compact: true,
         sortKey: 'rated_sort',
         ids: { search: 'ratedSearch', tabs: 'ratedTabs', options: 'ratedOptions', chips: 'ratedChips', list: 'ratedList' }
       })
@@ -176,6 +176,8 @@ const UI = {
   // A suggestion may need its IMDb ID looked up before its details load
   async chooseFound(found) {
     if (!found) return;
+    const have = TitleSearch.owned(found);
+    if (have) return this.openOwned(have);
     if (found.imdbID) return this.choose(found);
     try {
       const imdbID = await TitleSearch.resolve(found);
@@ -211,7 +213,7 @@ const UI = {
 
   resultHTML(result, index) {
     const details = MovieAPI.detailsCache.get(result.imdbID) || result;
-    const have = result.imdbID && Library.byImdb(result.imdbID);
+    const have = TitleSearch.owned(result);
     return html`<button type="button" class="result" data-result="${index}">
       ${result.poster ? html`<img src="${result.poster}" alt="" loading="lazy">` : html`<span class="poster-blank">${icon(Title.TYPE_ICONS[result.type] || 'film')}</span>`}
       <span class="result-text">
@@ -235,11 +237,7 @@ const UI = {
   async choose(result) {
     const els = this.elements;
     const have = Library.byImdb(result.imdbID);
-    if (have) {
-      els.addSheet.close();
-      this.openTitle(have);
-      return;
-    }
+    if (have) return this.openOwned(have);
     try {
       const details = (await MovieAPI.getDetails(result.imdbID)) || result;
       this.add.chosen = details;
@@ -257,6 +255,11 @@ const UI = {
     } catch (error) {
       ReviewUI.toast(error.message);
     }
+  },
+
+  openOwned(t) {
+    this.elements.addSheet.close();
+    this.openTitle(t);
   },
 
   chosenHTML(t) {

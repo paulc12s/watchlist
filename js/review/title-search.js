@@ -116,9 +116,10 @@ const TitleSearch = {
       ids.forEach(id => seen.add(id));
       index.push({ ...entry, source, popularity, words });
     };
+    // Yours carry their id, so picking one opens it even without an IMDb ID
     for (const t of Library.all()) {
-      if (t.type === 'youtube' || !t.imdbID) continue;
-      add({ imdbID: t.imdbID, title: t.title, year: t.year, type: t.type, poster: t.poster }, 'yours', 1e9);
+      if (t.type === 'youtube') continue;
+      add({ id: t.id, imdbID: t.imdbID || undefined, title: t.title, year: t.year, type: t.type, poster: t.poster }, 'yours', 1e9);
     }
     for (const r of recent) add(r, 'recent', r.popularity);
     for (const f of films) add({ imdbID: f.imdbID, title: f.title, year: f.year, type: 'movie' }, 'lists', f.count || 0);
@@ -246,6 +247,12 @@ const TitleSearch = {
         }, delay);
       }
     };
+  },
+
+  // Your title a suggestion or search result is, if it's one of yours
+  owned(found) {
+    if (!found) return undefined;
+    return (found.id && Library.get(found.id)) || Library.byImdb(found.imdbID);
   },
 
   // The IMDb ID for a suggestion, looking it up if the suggestion came

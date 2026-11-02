@@ -10,8 +10,7 @@ const state = {
   quickSearch: '',
   verdict: 'all',
   sort: 'recent',
-  // Rated mode keeps its own: list is 'rated' or 'unrated' (watched, no
-  // rating of your own); verdict narrows Rated to ❤️, 👍 or 👎
+  // Rated mode keeps its own; verdict narrows it to ❤️, 👍 or 👎
   rated: { list: 'rated', filter: 'all', quickSearch: '', verdict: 'all', sort: 'recent' },
   undoStack: []
 };

@@ -233,12 +233,12 @@ const ReviewUI = {
   // state: 'short' (keep typing), 'searching', 'done', or an error message
   renderTitleResults(query, suggestions, results, state) {
     this.titleSearch.rows = [...suggestions, ...results];
-    const status = imdbID => {
-      const entry = imdbID && Library.byImdb(imdbID);
-      return entry ? Title.statusLabel(entry) : '';
+    const status = found => {
+      const entry = TitleSearch.owned(found);
+      return entry ? Title.statusLabel(entry) || 'In your titles' : '';
     };
     const row = (r, i) => {
-      const mark = status(r.imdbID);
+      const mark = status(r);
       return html`
         <li><button type="button" class="film-row" data-found="${i}">
           ${r.poster ? html`<img src="${r.poster}" alt="" loading="lazy">` : html`<span class="thumb"></span>`}
@@ -263,8 +263,17 @@ const ReviewUI = {
             : note(state)}`;
   },
 
+  // A title you already have opens its sheet, as from +; anything else is
+  // dealt as the next card
   async pickTitle(found) {
     if (!found) return;
+    const openOwned = t => {
+      this.els.categorySheet.close();
+      this.clearTitleSearch();
+      UI.openTitle(t);
+    };
+    const have = TitleSearch.owned(found);
+    if (have) return openOwned(have);
     let imdbID = found.imdbID;
     if (!imdbID) {
       this.toast(`Finding ${found.title}…`);
@@ -274,6 +283,7 @@ const ReviewUI = {
         return this.toast(error.message);
       }
       if (!imdbID) return this.toast(`Couldn’t find ${found.title} on IMDb`);
+      if (Library.byImdb(imdbID)) return openOwned(Library.byImdb(imdbID));
     }
     MovieInfo.expected.set(imdbID, found.type === 'series' ? 'series' : 'movie');
     this.els.categorySheet.close();

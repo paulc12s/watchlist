@@ -39,8 +39,8 @@
 // top score is five stars, which the app counts as ❤️; 4.5 or 9/10 is four.
 // Stars with no thumb: 1-2 stars 👎, otherwise 👍 · Not interested
 // (haven't seen it, don't want to): "not interested", 🚫, or 0 as Netflix's
-// ratings write it. Not "pass" or "skip", which could mean either. No rating: watched, with the default 👍 (it shows under Rated →
-// Not rated). Rewatch: a rewatch column, or 🔁 / "rewatch" in the rating.
+// ratings write it. Not "pass" or "skip", which could mean either. No rating: watched, which counts as 👍
+// (undated, as the file gives no date). Rewatch: a rewatch column, or 🔁 / "rewatch" in the rating.
 //
 // Unclear titles: a name without a year that several known films or shows
 // share (another one with 1,000+ IMDb votes, or 100+ TMDB votes, and 2%+ of the best-known one's:
@@ -797,7 +797,7 @@ function summary(kind, report, count, out, { lookup, interactive, type = '', own
   };
   const r = report.ratings;
   const tally = kind === 'reviewed'
-    ? ` (${[[r.loved, '❤️'], [r.up, '👍'], [r.down, '👎'], [r.notInterested, 'not interested'], [r.unrated, 'not rated']].filter(([n]) => n).map(([n, what]) => `${n} ${what}`).join(' · ')})`
+    ? ` (${[[r.loved, '❤️'], [r.up, '👍'], [r.down, '👎'], [r.notInterested, 'not interested'], [r.unrated, 'with no rating, so 👍']].filter(([n]) => n).map(([n, what]) => `${n} ${what}`).join(' · ')})`
     : '';
   const of = report.stopped ? `titles from the first ${report.stopped.done} of ${report.rows} rows` : `of ${report.rows} titles`;
   lines.push(`Converted ${count} ${of}${count ? tally : ''} → ${out}`);
