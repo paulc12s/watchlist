@@ -101,7 +101,7 @@
 .shell {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100lvh;
   max-width: 720px;
   margin: 0 auto;
 }
@@ -148,7 +148,7 @@
   width: 100%;
   padding-top: 0;
   /* Never closer than 16px to the bottom edge, home indicator or not */
-  padding-bottom: max(16px, calc(var(--safe-bottom) + 8px));
+  padding-bottom: calc(max(16px, calc(var(--safe-bottom) + 8px)) + var(--toolbar-room));
 }
 
 /* ---- Watchlist mode ---- */
@@ -233,9 +233,10 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   margin: 0 -14px;
-  padding: 8px 14px calc(var(--safe-bottom) + 96px);
-  -webkit-mask-image: linear-gradient(180deg, transparent, #000 14px);
-  mask-image: linear-gradient(180deg, transparent, #000 14px);
+  padding: 8px 14px calc(var(--safe-bottom) + var(--toolbar-room) + 96px);
+  /* Rows fade in under the chips, and out under Safari's toolbar */
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 14px, #000 calc(100% - var(--toolbar-room)), transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 14px, #000 calc(100% - var(--toolbar-room)), transparent);
 }
 
 .title-list > * {
@@ -657,6 +658,51 @@
 .pill .icon {
   width: 16px;
   height: 16px;
+}
+
+/* On your watchlist or not: one bookmark button in the add sheet and a
+   title's sheet, filled when the title is on it. Both labels share one grid
+   cell, so changing between them never changes the button's size */
+.want-button {
+  min-height: 38px;
+  border-color: var(--accent-edge);
+  color: var(--ink);
+}
+
+.want-button .icon {
+  color: var(--accent);
+}
+
+.want-button[data-on="true"] {
+  background: var(--accent-soft);
+}
+
+.want-button[data-on="true"] .icon {
+  fill: currentColor;
+}
+
+.want-button .swap {
+  display: inline-grid;
+}
+
+.want-button .swap > span {
+  grid-area: 1 / 1;
+}
+
+.want-button[data-on="true"] .when-off,
+.want-button:not([data-on="true"]) .when-on {
+  visibility: hidden;
+}
+
+/* The add sheet: ❤️ 👍 👎 for one you've seen, the bookmark for one to watch */
+.add-actions {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.seen-thumbs {
+  display: flex;
+  gap: 6px;
 }
 
 .pill[aria-pressed="true"] {

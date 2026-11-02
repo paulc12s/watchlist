@@ -18,7 +18,7 @@ const UI = {
     const ids = ['addButton', 'undoBar', 'undoMessage', 'undoButton',
       'tagOptions', 'platformOptions', 'addSheet', 'addModes', 'addSearch', 'addType', 'addResults', 'manualTitle',
       'manualType', 'manualGenre', 'youtubeUrl', 'youtubeTitle', 'addOptions', 'addChosen', 'addPriority', 'addTag',
-      'addPlatform', 'addSeenUp', 'addSeenDown', 'addToList', 'titleSheet', 'titleName', 'titleDetails', 'titleThumbs',
+      'addPlatform', 'addSeenLove', 'addSeenUp', 'addSeenDown', 'addToList', 'titleSheet', 'titleName', 'titleDetails', 'titleThumbs',
       'titleWant', 'titleRewatch', 'titleStars', 'titleNotes', 'titlePriority', 'titleTag', 'titlePlatform',
       'titleDelete', 'titleWeb', 'titleSave'];
     ids.forEach(id => { this.elements[id] = document.getElementById(id); });
@@ -118,6 +118,7 @@ const UI = {
       if (button) setChecked(els.addPriority, 'priority', button.dataset.priority);
     });
     els.addToList.addEventListener('click', () => this.addChosen({}));
+    els.addSeenLove.addEventListener('click', () => this.addChosen({ verdict: 'up', stars: Title.LOVED_STARS, want: false }));
     els.addSeenUp.addEventListener('click', () => this.addChosen({ verdict: 'up', want: false }));
     els.addSeenDown.addEventListener('click', () => this.addChosen({ verdict: 'down', want: false }));
   },
@@ -317,7 +318,8 @@ const UI = {
     // to Rated. + works from every mode, so the toast says where it went
     if (!verdict.verdict) state.filter = 'all';
     this.render();
-    ReviewUI.toast(verdict.verdict ? `Added ${fields.title} to Rated` : `Added ${fields.title} to your watchlist`, verdict.verdict ? `thumb-${verdict.verdict}` : 'check');
+    const iconName = !verdict.verdict ? 'want' : verdict.stars === Title.LOVED_STARS ? 'heart' : `thumb-${verdict.verdict}`;
+    ReviewUI.toast(verdict.verdict ? `Added ${fields.title} to Rated` : `Added ${fields.title} to your watchlist`, iconName);
   },
 
   // ---- A title's sheet: review and edit in one place -------------------------------
@@ -395,6 +397,7 @@ const UI = {
     setChecked(els.titleThumbs, 'thumb',
       draft.verdict === 'up' && draft.stars === Title.LOVED_STARS ? 'love' : draft.verdict);
     els.titleWant.setAttribute('aria-pressed', String(draft.want));
+    els.titleWant.dataset.on = String(draft.want);
     els.titleRewatch.setAttribute('aria-pressed', String(draft.rewatch));
     els.titleStars.querySelectorAll('[data-stars]').forEach(button => {
       const value = Number(button.dataset.stars);

@@ -112,7 +112,8 @@
 }
 
 :root[data-palette] body {
-  background: var(--backdrop), var(--bg);
+  /* The glow fades to plain --bg under the toolbar, the colour Safari paints below the page */
+  background: linear-gradient(to top, var(--bg), transparent calc(var(--toolbar-room) * 2)), var(--backdrop), var(--bg);
   background-attachment: fixed;
 }
 
@@ -220,15 +221,33 @@
 html,
 body {
   margin: 0;
-  height: 100%;
   background: var(--bg);
   color: var(--ink);
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   /* No pull-to-refresh or rubber-banding fighting the swipes */
-  overflow: hidden;
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Safari's floating toolbar (iOS 26 on) draws the page beneath itself only
+   as far as the page reaches, and a page exactly the height of the space
+   above the toolbar (100dvh) ends in a hard edge with empty colour below.
+   So the body is the large viewport's height (100lvh), still clipping its
+   own overflow; the 100lvh - 100dvh it gains, the strip under the toolbar,
+   is --toolbar-room, kept clear of controls and faded into the background.
+   Everywhere else lvh = dvh, and --toolbar-room is 0 */
+html {
+  height: 100%;
+}
+
+body {
+  height: 100lvh;
+  overflow: hidden;
+}
+
+:root {
+  --toolbar-room: calc(100lvh - 100dvh);
 }
 
 button {

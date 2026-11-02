@@ -237,10 +237,13 @@
         <input type="text" id="addTag" list="tagOptions" placeholder="Tag" maxlength="100" aria-label="Tag">
         <input type="text" id="addPlatform" list="platformOptions" placeholder="Where to watch" maxlength="100" aria-label="Where to watch">
       </div>
-      <div class="sheet-actions">
-        <button type="button" class="button" id="addSeenUp" title="Already seen it, liked it"><svg class="icon" aria-hidden="true"><use href="#i-thumb-up"/></svg>Seen</button>
-        <button type="button" class="button" id="addSeenDown" title="Already seen it, not for me"><svg class="icon" aria-hidden="true"><use href="#i-thumb-down"/></svg>Seen</button>
-        <button type="button" class="button primary" id="addToList"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Add to watch</button>
+      <div class="sheet-actions add-actions">
+        <div class="seen-thumbs" role="group" aria-label="Already seen it? Rate it">
+          <button type="button" class="thumb love" id="addSeenLove" title="Seen it: loved it" aria-label="Seen it: loved it"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg></button>
+          <button type="button" class="thumb up" id="addSeenUp" title="Seen it: liked it" aria-label="Seen it: liked it"><svg class="icon" aria-hidden="true"><use href="#i-thumb-up"/></svg></button>
+          <button type="button" class="thumb down" id="addSeenDown" title="Seen it: not for me" aria-label="Seen it: not for me"><svg class="icon" aria-hidden="true"><use href="#i-thumb-down"/></svg></button>
+        </div>
+        <button type="button" class="pill want-button" id="addToList" data-on="false" aria-label="Add to watchlist"><svg class="icon" aria-hidden="true"><use href="#i-want"/></svg><span class="swap" aria-hidden="true"><span class="when-on">On watchlist</span><span class="when-off">Add to watch</span></span></button>
       </div>
     </div>
   </div>
@@ -260,7 +263,7 @@
       <button type="button" role="radio" data-thumb="down"><svg class="icon" aria-hidden="true"><use href="#i-thumb-down"/></svg>Not for me</button>
     </div>
     <div class="toggle-row">
-      <button type="button" class="pill" id="titleWant" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-want"/></svg>On my list to watch</button>
+      <button type="button" class="pill want-button" id="titleWant" data-on="false" aria-pressed="false" aria-label="On my watchlist"><svg class="icon" aria-hidden="true"><use href="#i-want"/></svg><span class="swap" aria-hidden="true"><span class="when-on">On watchlist</span><span class="when-off">Add to watch</span></span></button>
       <button type="button" class="pill" id="titleRewatch" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-rewatch"/></svg>Would rewatch</button>
     </div>
     <div class="star-row" id="titleStars" role="radiogroup" aria-label="Your rating">
