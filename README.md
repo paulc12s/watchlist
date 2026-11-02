@@ -90,6 +90,16 @@ All titles are stored in one shape (`js/title.js`) through one code path (`js/li
 - **Seen and rated are the same thing:** a title you've watched, or given stars or notes, has a thumb (from its stars, otherwise 👍). A title on your list to watch can carry a review and stays on the list
 - **Each browser and address keeps its own data.** `localhost` and the published site, Safari and Chrome, and different devices don't share; export and import to move between them
 - **Batch upload** (`batch-upload.html`) looks up a list of titles and writes a file to import
+- **From the command line**, `tools/make-import.js` turns a plain list or a CSV into a file to import, either titles to watch or titles you've seen with ratings. IMDb's and Letterboxd's CSV exports work as they are. Each title is looked up on OMDb (cached in `tools/.cache/`, so running again costs no requests; set `OMDB_KEY` to use your own key) and goes through the app's own checks, so the file imports like an export. Ratings can be 👍/👎/❤️, words (up, down, love), *not interested* (or `0`, as Netflix writes it), 1–5 stars (`4`, `4/5`, `★★★★`) or out of ten (`8/10`); only a full top score is five stars (❤️). It ends with a summary: how many titles were converted and matched, and which were ambiguous, not found, left out or failed. A name without a year that several known titles share ("The Office", "Crash") keeps the best-known match, and one whose closest match has another name or is obscure is listed as unsure; with `-i` it shows the top three (year, director, cast, plot, IMDb votes) and asks, and does the same with the closest search results for a title not found. Shops' edition words come off titles first ("Gladiator: Extended Edition", ": Season 1"); a name written twice (Scarface and its remake) takes the next title of that name. Answers are remembered (`--ask-again` forgets them). With `--tmdb-key KEY` (or `TMDB_KEY`) titles are looked up on TMDB instead: its search results carry vote counts, so a title costs about 2 requests rather than OMDb's 2–5, with no daily limit; OMDb is asked only about titles TMDB has no clear match for (IMDb's search finds "Seven", which TMDB calls "Se7en"). Names match however they're written: "The" or not ("Hunger Games"), number words and numerals ("Two Guns" is "2 Guns", "Hangover 2" is "The Hangover Part II"), punctuation ("WALL-E"), capitals for words as an unsure match ("MI Ghost Protocol") — but the name exactly as written wins when a known title has it ("Nine" isn't "9", "Heat" isn't "The Heat"). An OMDb run stops after 100 requests (a free key allows about 1,000 a day, and the app on your phone shares the app's key), writes the titles done so far and says how to carry on: the same command again picks up from the cache; `--no-limit` goes on until OMDb's quota runs out, which also ends the run cleanly; `OMDB_KEY` uses only your own key. `tests/make-import-cli.test.js` runs the command end to end against a fake OMDb and TMDB (`tests/fixtures/fake-services.js`), so its limits, stops and file format are tested without any requests. The options and formats are at the top of the script
+
+  ```
+  node tools/make-import.js watchlist to-watch.txt               # Dune 2021 / Severance (TV) / tt0111161
+  node tools/make-import.js reviewed ratings.csv -o seen.json    # Title,Year,Rating[,Date,Notes,...]
+  node tools/make-import.js reviewed imdb-ratings.csv            # IMDb or Letterboxd export
+  node tools/make-import.js reviewed ratings.csv -i              # choose between same-named titles
+  node tools/make-import.js reviewed ratings.csv --tmdb-key KEY  # look up on TMDB: fewer requests, no daily limit
+  node tools/make-import.js reviewed list.txt --no-lookup        # "Arrival, 👍" — no OMDb requests
+  ```
 
 ### Keeping your data safe
 
@@ -139,7 +149,8 @@ data/similar.json    Similar-films data for recommendations
 data/awards.json     Award lists, fetched the first time one is opened
 tools/               build-categories.js (MovieLens → lists), oscars.json,
                      build-similar.js + eval-similar.js (recommender data and tests),
-                     build-awards.js (award lists), build-icons.py
+                     build-awards.js (award lists), build-icons.py,
+                     make-import.js (a list or CSV → a file to import)
 ```
 
 ## Licence

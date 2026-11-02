@@ -6,3 +6,6 @@
 /for-watchlist-*.json
 /titles-*.json
 .DS_Store
+/tools/.cache/
+# Full personal ratings, for local testing only (tests/fixtures/ratings-sample.csv is the shared one)
+/data/test ratings.csv
