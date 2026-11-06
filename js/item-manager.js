@@ -168,11 +168,13 @@ const ItemManager = {
   },
 
   // Your titles matching a search that a view doesn't show (another list,
-  // or hidden by its tabs, verdicts or chips), most recently rated first
+  // or hidden by its tabs, verdicts or chips), most recently rated first.
+  // A title you skipped in review stays out, unless it's on your list to watch
   elsewhere(query, shown) {
     const test = this.searchTest(query);
     const inView = new Set(shown);
-    return this.sorted(Library.all().filter(t => !inView.has(t) && test(t)), 'recent').slice(0, 20);
+    const skipped = t => t.verdict === 'skip' && !t.want;
+    return this.sorted(Library.all().filter(t => !inView.has(t) && !skipped(t) && test(t)), 'recent').slice(0, 20);
   },
 
   // ---- Chips ---------------------------------------------------------------------
@@ -186,6 +188,10 @@ const ItemManager = {
   chipTest(key) {
     if (key === 'all') return () => true;
     if (key === 'rewatch') return t => t.rewatch;
+    if (key === 'recent') {
+      const recent = new Set(this.recentlyAdded());
+      return t => recent.has(t);
+    }
     if (key.startsWith('priority:')) return t => Title.displayPriority(t) === key.slice(9);
     if (key.startsWith('label:')) {
       const name = key.slice(6);
@@ -216,6 +222,7 @@ const ItemManager = {
       if (count) chips.push({ key, label, count });
     };
     if (priorities) {
+      add('recent', 'Recently added');
       for (const p of CONFIG.PRIORITIES) add(`priority:${p}`, p === 'watching' ? 'Watching now' : CONFIG.PRIORITY_LABELS[p]);
     }
     for (const label of Object.values(this.TYPE_LABELS)) add(`label:${label.toLowerCase()}`, label);
@@ -225,6 +232,27 @@ const ItemManager = {
       for (const [key, { label }] of [...Library.labels(field, titles)].sort(byName)) add(`label:${key}`, label);
     }
     return chips;
+  },
+
+  // The newest titles on your list to watch. The Library keeps titles newest
+  // first (new ones go to the top, on adding and importing), and files keep that order
+  RECENT_COUNT: 20,
+  recentlyAdded() {
+    return Library.all().filter(this.LISTS.queue).slice(0, this.RECENT_COUNT);
+  },
+
+  // Whether what's typed in a list's search is part of a chip's name
+  chipMatches(chip, query) {
+    const text = MovieAPI.normalizeTitle(query);
+    return Boolean(text) && chip.key !== 'all' && MovieAPI.normalizeTitle(chip.label).includes(text);
+  },
+
+  // The chips to show for what's typed: the ones it matches, plus any filter
+  // that's on, so you can see it and turn it off. If it matches none, it's only
+  // a search for titles, and every chip stays
+  narrowChips(chips, query, active) {
+    if (!chips.some(chip => this.chipMatches(chip, query))) return chips;
+    return chips.filter(chip => this.chipMatches(chip, query) || (chip.key === active && active !== 'all'));
   },
 
   // Titles this page shows in any list

@@ -27,6 +27,7 @@ const ListView = {
     const { els, state: s } = this;
     els.search.addEventListener('input', () => {
       s.quickSearch = els.search.value.trim();
+      this.drawChips();
       this.renderList();
     });
     if (els.tabs) {
@@ -62,7 +63,15 @@ const ListView = {
     els.chips.addEventListener('click', event => {
       const chip = event.target.closest('[data-filter]');
       if (!chip) return;
-      s.filter = s.filter === chip.dataset.filter ? 'all' : chip.dataset.filter;
+      const key = chip.dataset.filter;
+      // A chip found by typing its name: the text did its job, and left in the
+      // search it would look for that name in titles too
+      const found = (this.chipList || []).find(c => c.key === key);
+      if (s.filter !== key && found && ItemManager.chipMatches(found, s.quickSearch)) {
+        s.quickSearch = '';
+        els.search.value = '';
+      }
+      s.filter = s.filter === key ? 'all' : key;
       this.render();
     });
     els.list.addEventListener('click', event => this.listClick(event));
@@ -149,8 +158,19 @@ const ListView = {
     const chips = ItemManager.chips(titles, { priorities: s.list === 'queue' });
     // A filter whose titles have all gone falls back to All
     if (!chips.some(chip => chip.key === s.filter)) s.filter = 'all';
-    // Re-drawing keeps the row where it was scrolled, so a chip far along stays in view
-    const scrolled = this.els.chips.scrollLeft;
+    this.chipList = chips;
+    this.drawChips();
+  },
+
+  // The chips, narrowed by what's typed in the search. Typing only redraws
+  // these from the list above, without counting the titles again
+  drawChips() {
+    const s = this.state;
+    const all = this.chipList || [];
+    const chips = ItemManager.narrowChips(all, s.quickSearch, s.filter);
+    // Re-drawing keeps the row where it was scrolled, so a chip far along stays
+    // in view; a narrowed row starts from its first chip
+    const scrolled = chips.length < all.length ? 0 : this.els.chips.scrollLeft;
     this.els.chips.innerHTML = html`${chips.map(({ key, label, count }) =>
       html`<button type="button" class="chip" data-filter="${key}" aria-pressed="${String(s.filter === key)}">${label}<span class="count">${count}</span></button>`)}`;
     this.els.chips.scrollLeft = scrolled;
@@ -184,7 +204,10 @@ const ListView = {
       return;
     }
 
-    if (s.list === 'queue') {
+    if (s.filter === 'recent') {
+      // Newest first, the Library's own order, rather than by priority
+      list.innerHTML = html`<h2 class="group-label">Recently added</h2>${titles.map(t => this.rowHTML(t, names))}${othersHTML}`;
+    } else if (s.list === 'queue') {
       // Grouped by priority, in the order CONFIG.PRIORITIES gives
       const groups = CONFIG.PRIORITIES.map(p => [p, titles.filter(t => Title.displayPriority(t) === p)]).filter(([, g]) => g.length);
       list.innerHTML = html`${groups.map(([p, group]) => html`

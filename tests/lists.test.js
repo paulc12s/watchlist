@@ -463,6 +463,61 @@ test('❤️ means watched, 👍 and five stars; tapping it again leaves just th
   assert.deepEqual(titles(app), ['A', 'B']);
 });
 
+test('search narrows the chips to those it matches; with no match they all stay', () => {
+  const { ItemManager } = withTitles([
+    { id: 'a', title: 'A', want: true, tags: ['Sci fi', 'Martial arts', 'Art'], platform: 'Disney+' },
+    { id: 'b', title: 'B', want: true, tags: ['family'] }
+  ]);
+  const chips = ItemManager.chips(ItemManager.shown());
+  const narrow = (query, active = 'all') => plain(ItemManager.narrowChips(chips, query, active).map(c => c.label));
+  const every = plain(chips.map(c => c.label));
+  assert.deepEqual(narrow(''), every);
+  assert.deepEqual(narrow('ART'), ['Art', 'Martial arts'], 'any part of the name, any capitals');
+  assert.deepEqual(narrow('sci'), ['Sci fi']);
+  assert.deepEqual(narrow('disney'), ['Disney+'], 'punctuation ignored');
+  assert.deepEqual(narrow('zzz'), every, 'no match: all of them');
+  assert.deepEqual(narrow('zzz', 'label:family'), every);
+  assert.deepEqual(narrow('sci', 'label:family'), ['family', 'Sci fi'], 'a filter that is on stays');
+  assert.deepEqual(narrow('all'), every, 'All itself is never a match');
+});
+
+test('Recently added: the last 20 on your list, newest first, on the Watchlist only', () => {
+  const app = withTitles(Array.from({ length: 30 }, (_, i) => ({ id: `t${i}`, title: `T${i}`, want: i !== 2, verdict: i === 2 ? 'up' : '' })));
+  const { ItemManager, Library } = app;
+  const view = { list: 'queue', filter: 'recent', quickSearch: '' };
+  const expected = Array.from({ length: 21 }, (_, i) => `t${i}`).filter(id => id !== 't2');
+  assert.deepEqual(plain(ItemManager.getFiltered(view).map(t => t.id)), expected, 'twenty, leaving out one already watched');
+  const chip = list => plain(ItemManager.chips(list, { priorities: true }).find(c => c.key === 'recent'));
+  assert.deepEqual(chip(ItemManager.getFiltered({ list: 'queue', filter: 'all', quickSearch: '' })), { key: 'recent', label: 'Recently added', count: 20 });
+  assert.equal(ItemManager.chips(ItemManager.shown()).some(c => c.key === 'recent'), false, 'not on Rated');
+
+  ItemManager.add({ title: 'Brand new' });
+  const now = ItemManager.getFiltered(view);
+  assert.equal(now[0].title, 'Brand new', 'a new title goes first');
+  assert.equal(now.length, 20);
+  assert.equal(now.some(t => t.id === 't20'), false, 'and the oldest drops off');
+  assert.deepEqual(plain(ItemManager.getFiltered({ ...view, quickSearch: 'brand' }).map(t => t.title)), ['Brand new'], 'search narrows it');
+
+  // The order survives a file, so another device agrees
+  const other = loadLists().Library;
+  other.import(JSON.parse(Library.exportText('test')));
+  assert.deepEqual(plain(other.all().slice(0, 3).map(t => t.title)), plain(Library.all().slice(0, 3).map(t => t.title)));
+});
+
+test('searching leaves out titles skipped in review, unless they are on your list', () => {
+  const app = withTitles([
+    { id: 'skip', title: 'Dune Skipped', verdict: 'skip' },
+    { id: 'listed', title: 'Dune Listed', verdict: 'skip', want: true },
+    { id: 'pass', title: 'Dune Passed', verdict: 'pass' },
+    { id: 'seen', title: 'Dune Seen', verdict: 'up' }
+  ]);
+  const { ItemManager } = app;
+  assert.deepEqual(plain(ItemManager.getFiltered({ list: 'queue', filter: 'all', quickSearch: 'dune' }).map(t => t.id)), ['listed']);
+  const found = shown => plain(ItemManager.elsewhere('dune', shown).map(t => t.id)).sort();
+  assert.deepEqual(found(ItemManager.getFiltered({ list: 'queue', filter: 'all', quickSearch: 'dune' })), ['pass', 'seen']);
+  assert.deepEqual(found([]), ['listed', 'pass', 'seen'], 'from another view, one on your list is still found');
+});
+
 test('a title rated elsewhere and still on the list keeps its review date when you mark it watched', () => {
   const app = withTitles([{ id: 'a', title: 'A', want: true, verdict: 'up', reviewDate: '2026-01-01T00:00:00.000Z' }]);
   app.ItemManager.rate('a', 'up');

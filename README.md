@@ -31,7 +31,7 @@ Installed copies (such as an iPhone home-screen icon) check `version.json` on la
 
 Three modes, switched with **Watchlist | Rated | Review** at the top, all on the same titles, so a thumb given in one shows in the others straight away. Titles are kept in the app's database (`TitlesDB`).
 
-- **Watchlist mode** — just what you want to watch, grouped by priority, with a search box and filter chips (priority, type, rewatch, platform, tag), each showing how many titles it covers. Tap ❤️, 👍 or 👎 once you've watched a title and it moves to Rated
+- **Watchlist mode** — just what you want to watch, grouped by priority, with a search box and filter chips (priority, type, rewatch, platform, tag), each showing how many titles it covers. The search box also narrows the chips to those whose names match what you type (all of them stay if none match); tapping a chip found that way clears the text and applies the filter. **Recently added** shows the last 20 titles added to your list, newest first. Tap ❤️, 👍 or 👎 once you've watched a title and it moves to Rated
 - **Rated mode** — every title you've rated, including ones still on your list to watch, as compact rows with your verdict as an icon (❤️, 👍 or 👎, plus stars if you gave 1–4). Narrow it to ❤️, 👍 or 👎, and sort it by recently rated, your rating, title, year or IMDb rating (remembered on the device); tap a row to change the rating. A title marked watched in an older file counts as 👍
 
   Each mode keeps its own search and filters, so switching doesn't lose your place
