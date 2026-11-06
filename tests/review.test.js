@@ -7,7 +7,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-const { read, loadReview, film, plain } = require('./helpers');
+const { load, SHARED, read, loadReview, film, plain } = require('./helpers');
 
 test('swipes record verdicts; thumbs clear "want" and stamp when rated', () => {
   const { Ratings } = loadReview();
@@ -468,6 +468,222 @@ test('film cards ask the shared OMDb client; titles it can’t find count as mis
   const info = await app.MovieInfo.fetch('tt0000001');
   assert.deepEqual(plain([info.title, info.year, info.imdbRating, info.type]), ['Alpha', 1984, 7, 'movie']);
   assert.equal((await app.MovieInfo.fetch('tt0000002')).missing, true);
+});
+
+// A title OMDb has wrong: IMDb's tt5782552 is Growth of the Soil (2026), OMDb's record says Alpha Hotel (2017)
+function staleFilm(app) {
+  const tmdbMovie = { id: 77, title: 'Growth of the Soil', release_date: '2026-10-27', poster_path: '/growth.jpg', media_type: 'movie', popularity: 3 };
+  app.setFetch(async url => {
+    const u = new URL(url);
+    const reply = body => ({ ok: true, status: 200, json: async () => body });
+    if (u.hostname === 'www.wikidata.org') return reply({ query: { search: [] }, search: [] });
+    if (u.hostname.includes('omdb')) {
+      if (u.searchParams.get('i') === 'tt5782552') return reply({ Response: 'True', imdbID: 'tt5782552', Title: 'Alpha Hotel', Year: '2017', Type: 'movie', Poster: 'N/A' });
+      if (u.searchParams.get('i') === 'tt0000009') return reply({ Response: 'True', imdbID: 'tt0000009', Title: 'Fresh', Year: '2000', Type: 'movie', Poster: 'https://m.media-amazon.com/images/fresh.jpg' });
+      if (u.searchParams.get('i')) return reply({ Response: 'False', Error: 'Incorrect IMDb ID.' });
+      if (u.searchParams.get('s') && !u.searchParams.get('y')) return reply({ Response: 'True', totalResults: '1', Search: [{ Title: 'Growth of the Soil', Year: '2021', imdbID: 'tt14040534', Type: 'movie', Poster: 'N/A' }] });
+      if (u.searchParams.get('t')) return reply({ Response: 'True', Title: 'Growth of the Soil', Year: '2021', imdbID: 'tt14040534', Type: 'movie', Poster: 'N/A' });
+      return reply({ Response: 'False', Error: 'Movie not found!' });
+    }
+    if (u.pathname.endsWith('/search/multi')) return reply({ results: [tmdbMovie, { id: 8, title: 'Growth of the Soil', release_date: '2021-01-01', media_type: 'movie' }, { id: 9, name: 'A person', media_type: 'person' }] });
+    if (u.pathname.endsWith('/find/tt5782552')) return reply({ movie_results: [tmdbMovie], tv_results: [] });
+    if (u.pathname.endsWith('/find/tt0000008')) return reply({ movie_results: [{ id: 5, title: 'Only TMDB', poster_path: '/only.jpg' }], tv_results: [] });
+    if (u.pathname.includes('/find/')) return reply({ movie_results: [], tv_results: [] });
+    if (u.pathname.endsWith('/movie/77')) return reply({ ...tmdbMovie, imdb_id: 'tt5782552', overview: 'Isak.', genres: [{ name: 'Drama' }], runtime: 100, credits: { crew: [{ job: 'Director', name: 'Someone' }, { job: 'Grip', name: 'No' }], cast: [{ name: 'Herbert Nordrum' }] } });
+    return { ok: false, status: 404, json: async () => ({}) };
+  });
+  return app;
+}
+
+test('TMDB finds what OMDb lacks; without a key, OMDb alone', async () => {
+  const app = staleFilm(loadReview());
+  const { MovieAPI, TitleSearch, TMDB } = app;
+  const { results } = await MovieAPI.search('growth of the soil');
+  assert.deepEqual(plain(results.map(r => r.imdbID)), ['tt14040534'], 'OMDb only has the short');
+  assert.equal((await TitleSearch.withMore('growth of the soil', '', results)).length, 1, 'no key, nothing more');
+
+  TMDB.key = 'k';
+  const all = await TitleSearch.withMore('growth of the soil', '', results);
+  assert.deepEqual(plain(all.map(r => [r.title, Number(r.year), r.tmdb || r.imdbID])),
+    [['Growth of the Soil', 2021, 'tt14040534'], ['Growth of the Soil', 2026, 'movie:77']], 'the same film isn’t listed twice; no people');
+  assert.deepEqual(plain((await TitleSearch.withMore('growth of the soil 2026', '', [])).map(r => r.year)), [2026], 'a year narrows it');
+  assert.equal((await TitleSearch.withMore('growth of the soil', 'series', [])).length, 0, 'and so does a type');
+});
+
+test('an IMDb link OMDb has wrong shows TMDB’s film, and its details are TMDB’s', async () => {
+  const app = staleFilm(loadReview());
+  const { MovieAPI, TitleSearch, TMDB } = app;
+  const { results } = await MovieAPI.search('https://www.imdb.com/title/tt5782552');
+  assert.equal(results[0].title, 'Alpha Hotel');
+  TMDB.key = 'k';
+  const [found] = await TitleSearch.withMore('https://www.imdb.com/title/tt5782552', '', results);
+  assert.deepEqual(plain([found.title, found.imdbID, found.tmdb]), ['Growth of the Soil', 'tt5782552', 'movie:77']);
+  const details = await TitleSearch.details(found);
+  assert.deepEqual(plain([details.title, details.year, details.imdbID, details.director, details.actors, details.runtime, details.poster]),
+    ['Growth of the Soil', 2026, 'tt5782552', 'Someone', 'Herbert Nordrum', '100 min', 'https://image.tmdb.org/t/p/w780/growth.jpg']);
+  const right = await TitleSearch.withMore('tt0000009', '', [{ imdbID: 'tt0000009', title: 'Fresh', year: 2000 }]);
+  assert.equal(right[0].tmdb, undefined, 'one TMDB has nothing on stays OMDb’s');
+});
+
+// Wikidata and Wikipedia as they answer for the 2026 film
+function wikiStub(app, { imageHost = 'upload.wikimedia.org' } = {}) {
+  const entity = {
+    labels: { en: { value: 'Growth of the Soil' } }, descriptions: { en: { value: '2026 film by Hans Petter Moland' } },
+    claims: { P345: [{ mainsnak: { datavalue: { value: 'tt5782552' } } }], P577: [{ mainsnak: { datavalue: { value: { time: '+2026-10-27T00:00:00Z' } } } }] },
+    sitelinks: { enwiki: { title: 'Growth of the Soil (2026 film)' } }
+  };
+  const asked = [];
+  app.setFetch(async url => {
+    const u = new URL(url);
+    const get = name => u.searchParams.get(name);
+    asked.push(u.hostname);
+    const reply = body => ({ ok: true, status: 200, json: async () => body });
+    if (u.hostname === 'www.wikidata.org') {
+      if (get('list') === 'search') return reply({ query: { search: get('srsearch').endsWith('tt5782552') ? [{ title: 'Q140681805' }] : [] } });
+      if (get('action') === 'wbsearchentities') return reply({ search: [{ id: 'Q2266122', description: 'novel by Knut Hamsun' }, { id: 'Q140681805', description: '2026 film by Hans Petter Moland' }, { id: 'bad id', description: 'film' }] });
+      return reply({ entities: { Q140681805: entity } });
+    }
+    if (u.hostname === 'en.wikipedia.org') {
+      assert.equal(get('pilicense'), 'any', 'posters are non-free images, which the lookup leaves out otherwise');
+      return reply({ query: { pages: { 1: { title: 'Growth of the Soil (2026 film)', extract: 'A Norwegian drama.', thumbnail: { source: `https://${imageHost}/wikipedia/en/f/f3/Growth.jpg?utm_source=x` } } } } });
+    }
+    if (u.searchParams.get('i')) return reply({ Response: 'True', imdbID: 'tt5782552', Title: 'Alpha Hotel', Year: '2017', Type: 'movie', Poster: 'N/A' });
+    if (u.searchParams.get('s') && !u.searchParams.get('y')) return reply({ Response: 'True', totalResults: '1', Search: [{ Title: 'Growth of the Soil', Year: '2021', imdbID: 'tt14040534', Type: 'movie', Poster: 'N/A' }] });
+    return reply({ Response: 'False', Error: 'Movie not found!' });
+  });
+  return asked;
+}
+
+test('with no key, Wikidata finds the film OMDb lacks, with its poster, and a link OMDb has wrong', async () => {
+  const app = loadReview();
+  wikiStub(app);
+  const { MovieAPI, TitleSearch } = app;
+  const { results } = await MovieAPI.search('growth of the soil');
+  const all = await TitleSearch.withMore('growth of the soil', '', results);
+  assert.deepEqual(plain(all.map(r => [Number(r.year), r.imdbID])), [[2021, 'tt14040534'], [2026, 'tt5782552']], 'the novel and bad IDs left out');
+  assert.equal(all[1].poster, 'https://upload.wikimedia.org/wikipedia/en/f/f3/Growth.jpg');
+
+  const details = await TitleSearch.details(all[1]);
+  assert.deepEqual(plain([details.title, details.year, details.director, details.plot, details.imdbID]),
+    ['Growth of the Soil', 2026, 'Hans Petter Moland', 'A Norwegian drama.', 'tt5782552'], 'not OMDb’s Alpha Hotel');
+
+  const link = 'https://www.imdb.com/title/tt5782552/';
+  const fromOmdb = await MovieAPI.search(link);
+  const fixed = await TitleSearch.withMore(link, '', fromOmdb.results);
+  assert.deepEqual(plain(fixed.map(r => r.title)), ['Growth of the Soil']);
+  assert.equal((await TitleSearch.withMore('tt0000001', '', [{ imdbID: 'tt0000001', title: 'Kept' }]))[0].title, 'Kept', 'Wikidata has nothing to say');
+});
+
+test('the same film from Wikipedia and TMDB is one row, with the best of each', async () => {
+  const { TitleSearch, TMDB, Wikipedia } = loadReview();
+  TMDB.key = 'k';
+  const wikiFilm = { wiki: 'Q1', imdbID: 'tt0011440', title: 'Growth of the Soil', year: 1921, type: 'movie', poster: '', plot: 'Silent.' };
+  Wikipedia.search = async () => [wikiFilm];
+  TMDB.request = async () => ({ results: [{ id: 36126, title: 'Growth of the Soil', release_date: '1921-01-01', poster_path: '/old.jpg', media_type: 'movie' }] });
+  const omdbRow = { imdbID: 'tt1', title: 'Growth of the Soil', year: '2021', type: 'movie', poster: '' };
+  const all = await TitleSearch.withMore('growth of the soil', '', [omdbRow]);
+  assert.equal(all.length, 2);
+  assert.equal(all[1].poster, 'https://image.tmdb.org/t/p/w185/old.jpg', 'TMDB’s poster on Wikipedia’s row');
+  assert.equal(all[1].tmdb, 'movie:36126', 'and the way to TMDB’s details');
+  assert.equal(wikiFilm.poster, '', 'what came from a source is left as it was');
+  assert.equal(omdbRow.poster, '');
+});
+
+test('a picked film keeps the poster found with it, not OMDb’s; with TMDB, its fuller details', async () => {
+  const { TitleSearch, TMDB, MovieAPI } = loadReview();
+  MovieAPI.getDetails = async () => ({ imdbID: 'tt0011440', title: 'Markens grøde', year: 1921, poster: 'https://m.media-amazon.com/dead.jpg', actors: 'OMDb cast' });
+  const found = { wiki: 'Q1', imdbID: 'tt0011440', title: 'Growth of the Soil', year: 1921, poster: 'https://upload.wikimedia.org/a.jpg' };
+  const details = await TitleSearch.details(found);
+  assert.deepEqual(plain([details.title, details.actors, details.poster]), ['Markens grøde', 'OMDb cast', 'https://upload.wikimedia.org/a.jpg']);
+
+  MovieAPI.getDetails = async () => ({ imdbID: 'tt5782552', title: 'Alpha Hotel', year: 2017, poster: '' });
+  const wrong = { wiki: 'Q2', imdbID: 'tt5782552', title: 'Growth of the Soil', year: 2026, poster: '', plot: 'From Wikipedia.' };
+  assert.equal((await TitleSearch.details(wrong)).plot, 'From Wikipedia.', 'no key: Wikipedia’s');
+  TMDB.titleDetails = async () => ({ imdbID: 'tt5782552', title: 'Growth of the Soil', year: 2026, actors: 'Herbert Nordrum', poster: '', plot: '' });
+  const full = await TitleSearch.details({ ...wrong, tmdb: 'movie:1' });
+  assert.deepEqual(plain([full.actors, full.plot]), ['Herbert Nordrum', 'From Wikipedia.'], 'a key adds the cast');
+  TMDB.titleDetails = async () => { throw new Error('TMDB down'); };
+  assert.equal((await TitleSearch.details({ ...wrong, tmdb: 'movie:1' })).plot, 'From Wikipedia.', 'and failing doesn’t lose the film');
+});
+
+test('Wikipedia: answers are untrusted, and a failure leaves OMDb’s results', async () => {
+  const app = loadReview();
+  const { Wikipedia, TitleSearch } = app;
+  assert.equal(Wikipedia.imageUrl('https://evil.example/x.jpg'), '');
+  assert.equal(Wikipedia.imageUrl('https://upload.wikimedia.org/a"onerror=b.jpg'), '');
+  assert.equal(Wikipedia.imageUrl('https://upload.wikimedia.org/a/b.jpg?utm=1'), 'https://upload.wikimedia.org/a/b.jpg');
+  assert.equal(Wikipedia.imageUrl(5), '');
+  const entity = { labels: { en: { value: 'T' } }, descriptions: { en: { value: 7 } }, claims: { P345: [{ mainsnak: { datavalue: { value: 'nm123' } } }] } };
+  assert.equal(Wikipedia.parseEntity(entity, 'Q1'), null, 'an IMDb ID must be a title’s');
+  assert.equal(Wikipedia.parseEntity(null, 'Q1'), null);
+  wikiStub(app, { imageHost: 'evil.example' });
+  assert.equal((await Wikipedia.byImdb('tt5782552')).poster, '');
+  app.setFetch(async () => { throw new Error('offline'); });
+  const kept = [{ imdbID: 'tt1', title: 'Kept' }];
+  assert.deepEqual(plain(await TitleSearch.withMore('kept', '', kept)), plain(kept));
+});
+
+test('sameTitle: a name or a year in common; neither is another film', () => {
+  const { MovieAPI } = loadReview();
+  assert.equal(MovieAPI.sameTitle({ title: 'Amélie!', year: 2001 }, { title: 'amelie', year: null }), true);
+  assert.equal(MovieAPI.sameTitle({ title: 'Markens grøde', year: '1921' }, { title: 'Growth of the Soil', year: 1921 }), true);
+  assert.equal(MovieAPI.sameTitle({ title: 'Alpha Hotel', year: 2017 }, { title: 'Growth of the Soil', year: 2026 }), false);
+  assert.equal(MovieAPI.sameTitle({ title: 'A' }, { title: 'B' }), false);
+});
+
+test('posters: a replacement from OMDb, then Wikipedia, then TMDB, kept only if it loads; dates stay; empty handed waits a week', async () => {
+  const dead = 'https://m.media-amazon.com/images/dead.jpg';
+  const stored = new Map();
+  const missingImages = new Set();
+  class Image {
+    set src(url) { setTimeout(() => (missingImages.has(url) ? this.onerror() : this.onload()), 0); }
+  }
+  const localStorage = { getItem: key => (stored.has(key) ? stored.get(key) : null), setItem: (key, value) => stored.set(key, value) };
+  const app = staleFilm(load(
+    [...SHARED, 'js/movie-api.js', 'js/review/config.js', 'js/review/tmdb.js', 'js/review/title-search.js', 'js/wikipedia.js', 'js/posters.js'],
+    'Library, Store, Posters, TMDB, MovieAPI', { Image, localStorage }
+  ));
+  const { Library, Posters, TMDB } = app;
+  const OLD = '2020-01-01T00:00:00.000Z';
+  Library.load([
+    { id: 'a', title: 'Fresh', imdbID: 'tt0000009', poster: dead, want: true, updatedDate: OLD },
+    { id: 'b', title: 'Only TMDB', imdbID: 'tt0000008', want: true },
+    { id: 'c', title: 'Growth of the Soil', imdbID: 'tt5782552', want: true },
+    { id: 'd', title: 'Nothing anywhere', imdbID: 'tt0000007', want: true },
+    { id: 'e', title: 'By hand', want: true }
+  ]);
+  const settled = async () => {
+    await new Promise(resolve => setTimeout(resolve, 5));
+    for (let i = 0; i < 100 && (Posters.running || Posters.queue.length); i++) await new Promise(resolve => setTimeout(resolve, 5));
+  };
+  Posters.repair(Library.get('a'));
+  await settled();
+  assert.equal(Library.get('a').poster, 'https://m.media-amazon.com/images/fresh.jpg', 'OMDb has a newer one');
+  assert.equal(Library.get('a').updatedDate, OLD, 'not an edit');
+
+  // Without a key: OMDb's wrong film mustn't supply a poster, and nothing is found
+  Posters.sweep();
+  await settled();
+  assert.deepEqual(plain(['b', 'c', 'd'].map(id => Library.get(id).poster)), ['', '', '']);
+  assert.equal(Posters.checkedLately('d'), true, 'not asked again for a while');
+  assert.equal(Posters.checkedLately('e'), false, 'without an IMDb ID there is nothing to ask');
+
+  // A key: TMDB fills in what it has, and a picture that won't load isn't kept
+  TMDB.key = 'k';
+  missingImages.add('https://image.tmdb.org/t/p/w500/growth.jpg');
+  Posters.asked.clear();
+  Posters.saveChecks({});
+  Posters.sweep();
+  await settled();
+  assert.equal(Library.get('b').poster, 'https://image.tmdb.org/t/p/w500/only.jpg');
+  assert.equal(Library.get('c').poster, '', 'it wouldn’t load');
+  assert.equal(Library.get('d').poster, '');
+});
+
+test('TMDB film details: non-strings dropped, posters only from TMDB paths, IMDb IDs checked', () => {
+  const { TMDB } = loadReview();
+  const film = TMDB.parseMovie({ id: 'x', title: { evil: 1 }, imdb_id: 'nm123', poster_path: '/../x" onerror="alert(1)', genres: [null, { name: 3 }, { name: 'Drama' }], credits: { crew: 'no', cast: [null, { name: 5 }] }, runtime: -1 });
+  assert.deepEqual(plain([film.title, film.imdbID, film.poster, film.genres, film.director, film.actors, film.runtime, film.tmdbId]), ['', '', '', ['Drama'], '', '', '', null]);
 });
 
 test('TMDB show details: non-strings dropped, lengths capped, posters only from TMDB paths', () => {

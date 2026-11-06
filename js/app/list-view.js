@@ -228,7 +228,7 @@ const ListView = {
     return html`
       <article class="title-row rated-row found-row" data-id="${t.id}">
         <button type="button" class="row-poster" data-action="web" aria-label="${t.type === 'youtube' ? 'Watch' : 'Search the web for'} ${t.title}">
-          ${t.poster ? html`<img src="${t.poster}" alt="" loading="lazy">` : icon(typeIcon, 'tiny')}
+          ${posterHTML(t)}
         </button>
         <button type="button" class="row-main" data-action="open" aria-label="${t.title}: ${status}. Details and review">
           <span class="row-title">${t.title}</span>
@@ -247,7 +247,7 @@ const ListView = {
     return html`
       <article class="title-row" data-id="${t.id}">
         <button type="button" class="row-poster" data-action="web" aria-label="${t.type === 'youtube' ? 'Watch' : 'Search the web for'} ${t.title}">
-          ${t.poster ? html`<img src="${t.poster}" alt="" loading="lazy">` : icon(typeIcon)}
+          ${posterHTML(t)}
         </button>
         <button type="button" class="row-main" data-action="open" aria-label="${t.title}: details and review">
           <span class="row-title">${t.title}</span>
@@ -282,7 +282,7 @@ const ListView = {
     return html`
       <article class="title-row rated-row" data-id="${t.id}">
         <button type="button" class="row-poster" data-action="web" aria-label="${t.type === 'youtube' ? 'Watch' : 'Search the web for'} ${t.title}">
-          ${t.poster ? html`<img src="${t.poster}" alt="" loading="lazy">` : icon(typeIcon, 'tiny')}
+          ${posterHTML(t)}
         </button>
         <button type="button" class="row-main" data-action="open" aria-label="${t.title}: ${verdict}. Details and review">
           <span class="row-title">${t.title}</span>

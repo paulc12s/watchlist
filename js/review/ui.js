@@ -376,7 +376,7 @@ const ReviewUI = {
     this.els.card.className = `card${info ? '' : ' loading'}`;
     this.els.card.innerHTML = html`
       ${info && info.poster
-        ? html`<img class="poster" src="${info.poster}" alt="" draggable="false">`
+        ? html`<img class="poster" src="${info.poster}" alt="" draggable="false" data-card="${film.title}">`
         : html`<div class="poster placeholder"><span>${film.title}</span></div>`}
       <div class="stamp stamp-up">${icon('thumb-up')}<span>Like</span></div>
       <div class="stamp stamp-down">${icon('thumb-down')}<span>Nope</span></div>
@@ -882,6 +882,7 @@ const ReviewUI = {
 
     this.els.tmdbSave.addEventListener('click', () => {
       TMDB.key = this.els.tmdbKey.value.trim();
+      Posters.recheck();
       ReviewApp.savePrefs();
       TitleSearch.refreshRecent();
       this.els.settingsSheet.close();

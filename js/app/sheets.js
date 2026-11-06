@@ -168,8 +168,10 @@ const UI = {
         : 'No matches. Check the spelling, add the year, or add it by hand.';
     this.renderResults(message);
     if (state !== 'done') return;
-    // Director and cast for the top results, to tell same-named titles apart
-    results.slice(0, CONFIG.SEARCH.DETAIL_PREFETCH).forEach(result => {
+    // Director and cast for the top results, to tell same-named titles apart;
+    // and posters for suggestions, which the bundled film lists don't have
+    const unpictured = suggestions.filter(s => !s.poster).slice(0, CONFIG.SEARCH.DETAIL_PREFETCH);
+    [...unpictured, ...results.slice(0, CONFIG.SEARCH.DETAIL_PREFETCH)].filter(result => result.imdbID).forEach(result => {
       MovieAPI.getDetails(result.imdbID).then(() => { if (this.add.results === results && !this.add.chosen) this.renderResults(); }).catch(() => {});
     });
   },
@@ -201,22 +203,26 @@ const UI = {
     // With nothing from OMDb, the suggestions are the best guess at what you meant
     const didYouMean = state === 'done' && !results.length && suggestions.length;
     const footer = state === 'short' ? html`<p class="hint">Keep typing to search everything…</p>`
-      : state === 'searching' ? html`<p class="hint">Searching OMDb…</p>`
+      : state === 'searching' ? html`<p class="hint">Searching…</p>`
         : (state === 'done' ? !all.length : state) && emptyMessage ? html`<p class="hint">${emptyMessage}</p>` : '';
+    const missing = state === 'done' && !all.length && !TMDB.hasKey() && html`<p class="hint">Still not here? A free TMDB key in Settings searches more titles, or add it by hand.</p>`;
     const rows = list => list.map(result => this.resultHTML(result, all.indexOf(result)));
     els.addResults.innerHTML = html`
       ${suggestions.length > 0 && label(didYouMean ? 'Did you mean' : 'Suggestions')}
       ${rows(suggestions)}
       ${results.length > 0 && suggestions.length > 0 && label('More results')}
       ${rows(results)}
-      ${footer}`;
+      ${footer}
+      ${missing}`;
   },
 
   resultHTML(result, index) {
-    const details = MovieAPI.detailsCache.get(result.imdbID) || result;
+    // OMDb's details only if they're this film: its record for an ID can be another's
+    const looked = MovieAPI.detailsCache.get(result.imdbID);
+    const details = looked && MovieAPI.sameTitle(looked, result) ? looked : result;
     const have = TitleSearch.owned(result);
     return html`<button type="button" class="result" data-result="${index}">
-      ${result.poster ? html`<img src="${result.poster}" alt="" loading="lazy">` : html`<span class="poster-blank">${icon(Title.TYPE_ICONS[result.type] || 'film')}</span>`}
+      ${posterHTML({ ...result, poster: result.poster || details.poster })}
       <span class="result-text">
         <span class="row-title">${result.title}</span>
         <span class="row-meta">${[result.year, Title.TYPE_NAMES[result.type] || 'Film', details.imdbRating && `★ ${Title.formatRating(details.imdbRating)}`].filter(Boolean).join(' · ')}</span>
@@ -240,7 +246,7 @@ const UI = {
     const have = Library.byImdb(result.imdbID);
     if (have) return this.openOwned(have);
     try {
-      const details = (await MovieAPI.getDetails(result.imdbID)) || result;
+      const details = (await TitleSearch.details(result)) || result;
       this.add.chosen = details;
       els.addChosen.innerHTML = this.chosenHTML(details);
       els.addResults.innerHTML = html`<button type="button" class="link-button" data-back>${icon('back', 'tiny')}Other results</button>`;
@@ -266,7 +272,7 @@ const UI = {
   chosenHTML(t) {
     const genres = Array.isArray(t.genres) ? t.genres.join(', ') : '';
     return html`
-      ${t.poster ? html`<img src="${t.poster}" alt="">` : html`<span class="poster-blank">${icon(Title.TYPE_ICONS[t.type])}</span>`}
+      ${posterHTML(t)}
       <div>
         <p class="row-title">${t.title}${t.year ? ` (${t.year})` : ''}</p>
         <p class="row-meta">${[Title.TYPE_NAMES[t.type], genres, t.imdbRating && `★ ${Title.formatRating(t.imdbRating)}`].filter(Boolean).join(' · ')}</p>
@@ -313,6 +319,7 @@ const UI = {
       ...verdict
     });
     if (!added) return;
+    if (!fields.poster) Posters.repair(Library.byImdb(fields.imdbID));
     els.addSheet.close();
     // A title to watch shows in Watchlist whatever chip was on; seen ones go
     // to Rated. + works from every mode, so the toast says where it went
@@ -382,6 +389,7 @@ const UI = {
       draft: { verdict: Title.thumb(t), want: t.want, rewatch: t.rewatch, stars: t.stars, priority: Title.displayPriority(t) }
     };
     els.titleName.textContent = t.title;
+    els.titleDetails.dataset.id = t.id;
     els.titleDetails.innerHTML = this.chosenHTML(t);
     els.titleNotes.value = t.review;
     // In their usual spelling, so saving tidies an odd one

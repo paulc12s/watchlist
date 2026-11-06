@@ -278,6 +278,36 @@
   color: var(--ink-3);
 }
 
+/* A title with no picture to show: its name, on the poster's shape */
+.poster-card {
+  padding: 3px;
+  color: var(--ink-2);
+  font-size: 0.56rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.poster-card span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+
+.row-poster .poster-card {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: none;
+}
+
+.chosen .poster-card {
+  padding: 6px;
+  font-size: 0.72rem;
+}
+
 .row-poster img,
 .result img,
 .chosen img {

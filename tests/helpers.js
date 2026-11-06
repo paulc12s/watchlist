@@ -62,8 +62,8 @@ function loadReview() {
   const app = load(
     [...SHARED, 'js/movie-api.js', 'js/review/config.js', 'js/review/store.js', 'js/review/tmdb.js', 'js/review/catalog.js',
       'js/review/taste.js', 'js/review/feed.js', 'js/review/recommend.js', 'js/review/tvrecs.js', 'js/review/foryou.js',
-      'js/review/title-search.js', 'js/review/app.js'],
-    'CONFIG, Title, Store, Library, OMDb, MovieAPI, Ratings, Catalog, MovieInfo, Taste, Feed, TMDB, Recommender, TvRecs, Guesses, ReviewApp, TitleSearch'
+      'js/wikipedia.js', 'js/review/title-search.js', 'js/review/app.js'],
+    'CONFIG, Title, Store, Library, OMDb, MovieAPI, Ratings, Catalog, MovieInfo, Taste, Feed, TMDB, Recommender, TvRecs, Guesses, ReviewApp, TitleSearch, Wikipedia'
   );
   app.Catalog.use({
     movies: {

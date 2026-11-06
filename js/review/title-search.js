@@ -21,6 +21,7 @@
 const TitleSearch = {
   RECENT_KEY: 'recent_titles_v1',
   RECENT_MAX_AGE_MS: 7 * 24 * 60 * 60 * 1000,
+  MORE_RESULTS: 6,
   RECENT_LISTS: [
     ['/trending/all/week', 3], ['/movie/now_playing', 2], ['/movie/popular', 3],
     ['/movie/upcoming', 1], ['/tv/popular', 3], ['/tv/on_the_air', 1]
@@ -239,14 +240,86 @@ const TitleSearch = {
           try {
             const { results, tooMany } = await MovieAPI.search(query, type);
             if (mine !== seq) return;
-            const shown = new Set(suggestions.map(r => r.imdbID).filter(Boolean));
-            update({ query, suggestions, results: results.filter(r => r.imdbID && !shown.has(r.imdbID)), state: 'done', tooMany });
+            const shown = new Set(suggestions.flatMap(r => [r.imdbID, r.tmdb]).filter(Boolean));
+            const fresh = list => list.filter(r => (r.imdbID || r.tmdb) && !shown.has(r.imdbID) && !shown.has(r.tmdb));
+            // OMDb's at once; the slower sources add to them
+            update({ query, suggestions, results: fresh(results), state: 'searching', tooMany });
+            const all = await this.withMore(query, type, results);
+            if (mine !== seq) return;
+            update({ query, suggestions, results: fresh(all), state: 'done', tooMany });
           } catch (error) {
             if (mine === seq) update({ query, suggestions, results: [], state: error.message });
           }
         }, delay);
       }
     };
+  },
+
+  // OMDb's results plus what Wikipedia, and TMDB with a key, add. OMDb is
+  // missing many titles, and can hold an out-of-date record for an IMDb ID (a
+  // film of another name), so for an IMDb link an answer that disagrees
+  // replaces it. A problem with either just leaves what the others found.
+  async withMore(query, type, results) {
+    const { imdbID, title, year } = MovieAPI.parseQuery(query);
+    const hasTmdb = typeof TMDB !== 'undefined' && TMDB.hasKey();
+    const attempt = async ask => {
+      try {
+        return await ask();
+      } catch (error) {
+        console.warn('Search source failed:', error.message);
+        return null;
+      }
+    };
+    if (imdbID) {
+      const found = await attempt(() => Wikipedia.byImdb(imdbID)) || (hasTmdb ? await attempt(() => TMDB.find(imdbID)) : null);
+      return found && !(results[0] && MovieAPI.sameTitle(results[0], found)) ? [found] : results;
+    }
+    const [wiki, tmdb] = await Promise.all([
+      attempt(() => Wikipedia.search(title)),
+      hasTmdb ? attempt(() => TMDB.request('/search/multi', { query: title })) : null
+    ]);
+    const fromTmdb = (tmdb && Array.isArray(tmdb.results) ? tmdb.results : []).map(item => this.parseTmdb(item, item && item.media_type)).filter(Boolean);
+    const same = r => `${this.normalize(r.title)}|${parseInt(r.year, 10) || ''}`;
+    const known = new Map();
+    const remember = r => [r.imdbID, same(r)].filter(Boolean).forEach(id => known.set(id, r));
+    const all = results.map(r => ({ ...r }));
+    all.forEach(remember);
+    const words = this.normalize(title).split(' ').filter(Boolean);
+    let added = 0;
+    for (const r of [...(wiki || []), ...fromTmdb]) {
+      if ((type && r.type !== type) || (year && r.year !== Number(year))) continue;
+      if (!words.every(word => this.normalize(r.title).split(' ').includes(word))) continue;
+      const twin = known.get(r.imdbID) || known.get(same(r));
+      if (twin) {
+        // The same film from two sources is one row, with the best of each
+        if (!twin.poster) twin.poster = r.poster;
+        if (r.tmdb && twin.wiki) twin.tmdb = r.tmdb;
+      } else if (added < this.MORE_RESULTS) {
+        added++;
+        const row = { ...r };
+        remember(row);
+        all.push(row);
+      }
+    }
+    return all;
+  },
+
+  // Details for a picked result. One from Wikipedia or TMDB may be a title OMDb
+  // has wrong or not at all: OMDb's details are used only if they're that film
+  async details(found) {
+    if (!found.tmdb && !found.wiki) return MovieAPI.getDetails(found.imdbID);
+    let omdb = null;
+    try {
+      omdb = await MovieAPI.getDetails(found.imdbID);
+    } catch (error) {
+      // The source's own will do
+    }
+    // The poster found with the result: OMDb's may be one that's been taken
+    // down. TMDB's search gives thumbnails, too small to keep
+    if (omdb && MovieAPI.sameTitle(omdb, found)) return { ...omdb, poster: (found.poster || '').replace('/w185/', '/w500/') || omdb.poster };
+    const tmdb = found.tmdb ? await TMDB.titleDetails(found.tmdb).catch(() => null) : null;
+    if (tmdb) return { ...tmdb, imdbID: tmdb.imdbID || found.imdbID, poster: tmdb.poster || found.poster, plot: tmdb.plot || found.plot || '' };
+    return found.wiki ? found : omdb;
   },
 
   // Your title a suggestion or search result is, if it's one of yours

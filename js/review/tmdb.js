@@ -1,6 +1,6 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// TMDB client, for TV
+// TMDB client, for TV, and for titles and posters OMDb is missing
 // Browses TV lists and fetches show details from themoviedb.org with the key
 // you enter in Settings (kept on this device only). Shows are keyed
 // "tv:<TMDB id>" until their details give an IMDb ID, which is what ratings
@@ -69,6 +69,48 @@ const TMDB = {
     const id = key.slice(TV_KEY_PREFIX.length);
     const data = await this.request(`/tv/${encodeURIComponent(id)}`, { append_to_response: 'external_ids,aggregate_credits' });
     return data ? this.parse(data) : { missing: true };
+  },
+
+  // The title TMDB has under an IMDb ID, as a search entry; null if none
+  async find(imdbID) {
+    const data = await this.request(`/find/${encodeURIComponent(imdbID)}`, { external_source: 'imdb_id' });
+    const list = media => (data && Array.isArray(data[`${media}_results`]) ? data[`${media}_results`] : []);
+    const movie = list('movie')[0], show = list('tv')[0];
+    const entry = TitleSearch.parseTmdb(movie || show, movie ? 'movie' : 'tv');
+    return entry ? { ...entry, imdbID, poster: entry.poster.replace('/w185/', '/w500/') } : null;
+  },
+
+  // Full details for a search entry's key ('movie:603' or 'tv:1396')
+  async titleDetails(key) {
+    if (key.startsWith(TV_KEY_PREFIX)) {
+      const show = await this.details(key);
+      return show.missing ? null : show;
+    }
+    const id = key.slice(key.indexOf(':') + 1);
+    const data = await this.request(`/movie/${encodeURIComponent(id)}`, { append_to_response: 'credits,external_ids' });
+    return data ? this.parseMovie(data) : null;
+  },
+
+  // A film, in the shape of OMDb's details. Untrusted, like parse below
+  parseMovie(data) {
+    const text = (value, max) => (typeof value === 'string' ? value.substring(0, max) : '');
+    const people = list => (Array.isArray(list) ? list : []).filter(Boolean);
+    const credits = data.credits || {};
+    const imdbID = [data.imdb_id, data.external_ids && data.external_ids.imdb_id].find(id => /^tt\d{7,10}$/.test(id || '')) || '';
+    return {
+      imdbID,
+      tmdbId: Number.isInteger(data.id) ? data.id : null,
+      title: text(data.title, 500),
+      year: yearOf(data.release_date),
+      type: 'movie',
+      genres: people(data.genres).map(g => text(g.name, 40)).filter(Boolean),
+      director: people(credits.crew).filter(c => c.job === 'Director').map(c => text(c.name, 100)).filter(Boolean).join(', '),
+      actors: people(credits.cast).slice(0, 3).map(c => text(c.name, 100)).filter(Boolean).join(', '),
+      plot: text(data.overview, 1000),
+      runtime: Number.isInteger(data.runtime) && data.runtime > 0 ? `${data.runtime} min` : '',
+      imdbRating: null,
+      poster: typeof data.poster_path === 'string' && /^\/[\w.-]+$/.test(data.poster_path) ? TMDB_CONFIG.IMAGE_URL + data.poster_path : ''
+    };
   },
 
   // Into the same shape OMDb details take for films (see OMDb.parseDetails)

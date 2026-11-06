@@ -20,6 +20,7 @@ const Main = {
   async init() {
     // The ratings UI owns the sheets every mode shares: settings (export,
     // import), notes, lists, taste. Its feed waits for review mode.
+    Posters.init();
     ReviewUI.init();
     UI.init();
 
@@ -81,6 +82,7 @@ const Main = {
     await ItemManager.load(CONFIG.STORAGE.APP);
     await ReviewApp.loadPrefs();
     TitleSearch.init();
+    Posters.sweep();
     this.offerOldPages();
 
     let saved = '';

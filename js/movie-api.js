@@ -135,6 +135,15 @@ const MovieAPI = {
     return 0;
   },
 
+  // Whether two records are the same film: the same name, or (a translated
+  // name, say) the same year. OMDb's record for an IMDb ID can be out of date
+  // and describe another film entirely, which fails both
+  sameTitle(a, b) {
+    const year = t => parseInt(t.year, 10) || null;
+    return this.normalizeTitle(a.title || '') === this.normalizeTitle(b.title || '') ||
+      (year(a) !== null && year(a) === year(b));
+  },
+
   normalizeTitle(title) {
     return title
       .normalize('NFD')
