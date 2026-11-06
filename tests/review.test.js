@@ -77,7 +77,7 @@ test('catalog treats films found by title as done once rated, and passes over se
   MovieInfo.cache.set('tt0000003', film(3, { type: 'series' }));
   assert.equal(Catalog.remaining('two'), 0);
   assert.equal(Catalog.nextId('two'), 'mix', 'the mix of everything follows the last list');
-  assert.equal(Catalog.nextId('mix'), 'awards-best-picture', 'then the award lists, not fetched yet');
+  assert.equal(Catalog.nextId('mix'), 'critics-nyt-movies', 'then the critics’ and award lists, not fetched yet');
   assert.equal(JSON.stringify(Catalog.basics('title:Delta (2025)')), '{"title":"Delta","year":2025,"genres":[],"tags":[],"likeRate":null,"crowdCount":0}');
 });
 
@@ -806,7 +806,7 @@ test('award lists: listed where the yearly Best Picture lists were, fetched only
     ]
   });
   assert.deepEqual(plain(Catalog.categories.filter(c => c.media === 'film').map(c => c.id)),
-    ['popular', 'awards-best-picture', 'awards-acting', 'awards-craft', 'awards-international', 'awards-documentary', 'awards-animated',
+    ['popular', 'critics-nyt-movies', 'critics-nyt-tv', 'critics-letterboxd-21st', 'awards-best-picture', 'awards-acting', 'awards-craft', 'awards-international', 'awards-documentary', 'awards-animated',
       'awards-globes-tv', 'awards-festivals', 'awards-sight-sound', 'drama', 'mix']);
   assert.equal(Catalog.get('awards-acting').loaded, false);
 
@@ -830,6 +830,67 @@ test('award lists: listed where the yearly Best Picture lists were, fetched only
   assert.equal(Catalog.basics('tt0000001').title, 'Alpha', 'titles already known keep their details');
   assert.equal(MovieInfo.expectedType('tt7654321'), 'series', 'shows are dealt as shows, without a TMDB key');
   assert.equal(Catalog.remaining('awards-globes-tv'), 1);
+});
+
+test('data/critics.json matches the lists the page names, in rank order, every title identified', () => {
+  const data = JSON.parse(read('data/critics.json'));
+  const config = read('js/review/config.js');
+  const names = [...config.matchAll(/id: '(critics-[a-z0-9-]+)'/g)].map(m => m[1]);
+  assert.deepEqual(names, data.lists.map(l => l.id), 'the page names every list in the file, in the same order');
+  for (const list of data.lists) {
+    assert.ok(list.keys.length >= 20, `${list.id} has titles`);
+    assert.equal(new Set(list.keys).size, list.keys.length, `${list.id} repeats nothing`);
+    for (const key of list.keys) {
+      assert.match(key, /^tt\d{7,10}$/, `${key}: every title has an IMDb ID`);
+      assert.ok(Array.isArray(data.titles[key]) && data.titles[key][0], `${key} has a title`);
+    }
+  }
+  const letterboxd = data.lists.find(l => l.id === 'critics-letterboxd-21st');
+  assert.equal(letterboxd.keys.length, 100);
+  const named = rank => data.titles[letterboxd.keys[rank - 1]].slice(0, 2);
+  assert.deepEqual(plain([named(1), named(58), named(100)]), [['Morvern Callar', 2002], ['Silence', 2016], ['Magic Mike XXL', 2015]]);
+  assert.equal(data.titles.tt4263482[0], 'The Witch', 'Eggers’s, not the other film of that name');
+  assert.equal(data.titles.tt10551102[2], 'series', 'an episode on IMDb, so a film list would pass it over');
+
+  const ranked = (id, rank) => data.titles[data.lists.find(l => l.id === id).keys[rank - 1]];
+  assert.deepEqual(plain(ranked('critics-nyt-movies', 1)), ['Parasite', 2019, 'movie']);
+  assert.deepEqual(plain(ranked('critics-nyt-movies', 100)), ['Superbad', 2007, 'movie']);
+  assert.deepEqual(plain(ranked('critics-nyt-tv', 1)), ['Breaking Bad', 2008, 'series']);
+  assert.deepEqual(plain(ranked('critics-nyt-tv', 100)), ['Scandal', 2012, 'series']);
+  for (const id of ['critics-nyt-movies', 'critics-nyt-tv']) assert.equal(data.lists.find(l => l.id === id).keys.length, 100);
+});
+
+test('build-lists reads a list file or text copied from a page, in order, each title once', () => {
+  const { parseList } = require('../tools/build-lists.js');
+  const copied = 'Poster for Morvern Callar (2002)\n1\nMorvern Callar2002\nRead Review\nPoster for No Country for Old Men (2007)\n2\nNo Country for Old Men2007\nShow Reviews\n';
+  assert.deepEqual(parseList(copied).map(t => [t.title, t.year]), [['Morvern Callar', 2002], ['No Country for Old Men', 2007]]);
+  const plainList = '1. Spring, Summer, Fall, Winter... and Spring (2003)\n2) Silence (2016) tt0490215\nnot a title\n\nSilence (2016)\n';
+  assert.deepEqual(parseList(plainList), [
+    { title: 'Spring, Summer, Fall, Winter... and Spring', year: 2003, imdbID: '' },
+    { title: 'Silence', year: 2016, imdbID: 'tt0490215' }
+  ]);
+  assert.deepEqual(parseList('Lovers Rock (2020) tt10551102 series'), [{ title: 'Lovers Rock', year: 2020, imdbID: 'tt10551102', type: 'series' }]);
+});
+
+test('a whole list: every title in order, with where you stand; ones it doesn’t expect left out', () => {
+  const { Catalog, MovieInfo, Library, Title } = loadReview();
+  Library.load([
+    { title: 'Loved', imdbID: 'tt0000001', verdict: 'up', stars: 5, poster: 'https://x/l.jpg' },
+    { title: 'Liked', imdbID: 'tt0000002', verdict: 'up' },
+    { title: 'Nope', imdbID: 'tt0000003', verdict: 'down', stars: 1 },
+    { title: 'Listed', imdbID: 'tt0000004', want: true },
+    { title: 'Skipped', imdbID: 'tt0000005', verdict: 'skip' }
+  ]);
+  const keys = ['tt0000001', 'tt0000002', 'tt0000003', 'tt0000004', 'tt0000005', 'tt0000006', 'tt0000007', 'title:Unseen (2020)'];
+  Catalog.use({ movies: Object.fromEntries(keys.map(k => [k, [k, 2000, '']])), categories: [{ id: 'one', group: 'G', name: 'One', keys }] });
+  MovieInfo.cache.set('tt0000006', { imdbID: 'tt0000006', type: 'movie', poster: 'https://x/six.jpg' });
+  MovieInfo.cache.set('tt0000007', { imdbID: 'tt0000007', type: 'series' });
+  const rows = Catalog.listRows('one');
+  assert.deepEqual(plain(rows.map(r => [r.rank, r.entry ? Title.statusLabel(r.entry) : ''])),
+    [[1, 'Loved'], [2, 'Liked'], [3, 'Not for me'], [4, 'On your list'], [5, 'Skipped'], [6, ''], [8, '']], 'a series in a film list is left out; ranks stay');
+  assert.equal(rows[0].poster, 'https://x/l.jpg');
+  assert.equal(rows[5].poster, 'https://x/six.jpg', 'a poster already looked up');
+  assert.deepEqual(plain(Catalog.listSummary(rows)), { total: 7, rated: 3, loved: 1, up: 1, down: 1 });
 });
 
 test('data/awards.json matches the award lists the page names', () => {

@@ -19,7 +19,7 @@ const ReviewUI = {
   toastTimer: null,
 
   init() {
-    const ids = ['card', 'stage', 'categoryButton', 'categoryName', 'categoryProgress', 'nextCategory',
+    const ids = ['card', 'stage', 'categoryButton', 'categoryName', 'categoryProgress', 'viewList', 'listSheet', 'listTitle', 'listSummary', 'listRows', 'listBody',
       'tasteButton', 'settingsButton', 'toast', 'categorySheet', 'categoryList', 'noteSheet', 'noteFilm',
       'noteText', 'noteSave', 'tasteSheet', 'tasteBody', 'settingsSheet', 'exportBackup', 'importButton',
       'importFile', 'importError', 'exportAI', 'tmdbKey', 'tmdbSave', 'omdbKey', 'omdbSave', 'omdbError',
@@ -35,7 +35,11 @@ const ReviewUI = {
     });
 
     this.els.categoryButton.addEventListener('click', () => this.openCategories());
-    this.els.nextCategory.addEventListener('click', () => this.switchCategory(Catalog.nextId(Feed.categoryId)));
+    this.els.viewList.addEventListener('click', () => this.openListView());
+    this.els.listRows.addEventListener('click', event => {
+      const row = event.target.closest('[data-list-key]');
+      if (row) this.pickFromList(row.dataset.listKey);
+    });
     this.els.tasteButton.addEventListener('click', () => this.openTaste());
     this.els.forYouButton.addEventListener('click', () => ForYou.open());
     ForYou.bind();
@@ -102,7 +106,7 @@ const ReviewUI = {
         return this.renderMessage('Couldn’t load this list', error.message, /key/i.test(error.message));
       }
       if (seq !== this.renderSeq) return; // Another list was chosen meanwhile
-    } else if (category.awards && !category.loaded) {
+    } else if (category.listFile && !category.loaded) {
       const seq = ++this.renderSeq;
       this.renderMessage(category.name, 'Loading the list…');
       try {
@@ -129,6 +133,7 @@ const ReviewUI = {
       <div class="info">
         <h1 class="title">You’ve finished “${category.name}”</h1>
         <p class="meta">Every title in it is rated, passed on or on your list to watch.</p>
+        <button type="button" class="button" data-action="view-list">See how you rated them</button>
         ${nextId && html`<button type="button" class="button primary" data-action="next-list">Next list: ${Catalog.get(nextId).name}</button>`}
       </div>`;
   },
@@ -159,6 +164,119 @@ const ReviewUI = {
     this.els.categoryName.textContent = category.name;
     const left = Catalog.remaining(category.id);
     this.els.categoryProgress.textContent = left ? `${left} of ${total} to rate` : `All ${total} rated`;
+    if (this.els.listSheet.open) this.renderListView();
+  },
+
+  // ---- The whole list ---------------------------------------------------------
+  // Every title in the current list, in order, with how you rated it. A row
+  // opens your title's sheet, or deals a title you haven't got as the next
+  // card. Posters that aren't known yet are looked up as rows come on screen,
+  // so a long list doesn't spend OMDb's quota on rows nobody scrolls to.
+
+  openListView() {
+    this.els.listTitle.textContent = Catalog.get(Feed.categoryId).name;
+    this.renderListView();
+    this.els.listSheet.showModal();
+    this.els.listBody.scrollTop = 0;
+    this.watchListRows();
+  },
+
+  renderListView() {
+    const rows = Catalog.listRows(Feed.categoryId);
+    const { total, rated, loved, up, down } = Catalog.listSummary(rows);
+    const tally = (count, iconName, label) => count > 0 && html`<span class="list-tally" aria-label="${count} ${label}">${icon(iconName, 'tiny')}${count}</span>`;
+    this.els.listSummary.innerHTML = html`<span>${rated} of ${total} rated</span>
+      ${tally(loved, 'heart', 'loved')}${tally(up, 'thumb-up', 'liked')}${tally(down, 'thumb-down', 'not for me')}`;
+    const scrolled = this.els.listBody.scrollTop;
+    this.els.listRows.innerHTML = rows.length
+      ? html`${rows.map(row => this.listRowHTML(row))}`
+      : html`<li class="hint">Nothing in this list yet.</li>`;
+    this.els.listBody.scrollTop = scrolled;
+    if (this.els.listSheet.open) this.watchListRows();
+  },
+
+  // Your verdict in the words and icons every mode uses; '' for none of those
+  LIST_STATUS: { Loved: ['heart', 'loved'], Liked: ['thumb-up', 'up'], 'Not for me': ['thumb-down', 'down'],
+    'On your list': ['want', 'want'], 'Not interested': ['pass', 'other'], Skipped: ['skip', 'other'] },
+
+  listRowHTML({ key, rank, title, year, entry, poster }) {
+    const status = entry ? Title.statusLabel(entry) : '';
+    const [iconName, tone] = this.LIST_STATUS[status] || [];
+    const picture = Posters.usable(poster, Posters.picture({ imdbID: MovieInfo.imdbID(key) }));
+    const stars = entry && entry.stars > 0 && !Title.isLoved(entry) ? `${entry.stars}★` : '';
+    return html`
+      <li><button type="button" class="film-row list-row" data-list-key="${key}" aria-label="${rank}. ${title}: ${status || 'not rated'}">
+        <span class="list-rank">${rank}</span>
+        ${picture ? html`<img src="${picture}" alt="" loading="lazy">` : html`<span class="thumb"></span>`}
+        <span class="film-text">
+          <span class="film-title">${title}${year && ` (${year})`}</span>
+          <span class="list-status ${tone || 'none'}">${iconName && icon(iconName, 'tiny')}${status || 'Not rated'}${stars && ` · ${stars}`}</span>
+        </span>
+      </button></li>`;
+  },
+
+  // Rows without a poster get theirs as they come on screen
+  watchListRows() {
+    if (this.listObserver) this.listObserver.disconnect();
+    const seq = this.listSeq = (this.listSeq || 0) + 1;
+    const waiting = [];
+    let running = 0;
+    const next = () => {
+      while (running < REVIEW.LIST_VIEW_LOOKUPS && waiting.length && seq === this.listSeq && this.els.listSheet.open) {
+        running++;
+        this.fillListRow(waiting.shift()).finally(() => {
+          running--;
+          next();
+        });
+      }
+    };
+    this.listObserver = new IntersectionObserver(entries => {
+      for (const { isIntersecting, target } of entries) {
+        if (!isIntersecting) continue;
+        this.listObserver.unobserve(target);
+        waiting.push(target.dataset.listKey);
+      }
+      next();
+    }, { root: this.els.listBody, rootMargin: REVIEW.LIST_VIEW_MARGIN });
+    this.els.listRows.querySelectorAll('[data-list-key]').forEach(row => {
+      if (row.querySelector('.thumb')) this.listObserver.observe(row);
+    });
+  },
+
+  // Details for one row, from OMDb or what's kept; Wikipedia or TMDB if OMDb
+  // has no poster it can show. Trouble just leaves the row as it is
+  async fillListRow(key) {
+    try {
+      const info = await MovieInfo.fetch(key);
+      const imdbID = info && info.imdbID;
+      if (imdbID && !Posters.usable(info.poster, Posters.picture({ imdbID }))) await Posters.lookup({ imdbID });
+    } catch (error) {
+      return;
+    }
+    this.redrawListRow(key);
+  },
+
+  // A row's poster failed to load: look for another
+  listPosterFailed(key) {
+    const imdbID = MovieInfo.imdbID(key);
+    if (imdbID) Posters.lookup({ imdbID }).then(url => { if (url) this.redrawListRow(key); });
+  },
+
+  redrawListRow(key) {
+    if (!this.els.listSheet.open) return;
+    const row = this.els.listRows.querySelector(`[data-list-key="${CSS.escape(key)}"]`);
+    const data = Catalog.listRows(Feed.categoryId).find(r => r.key === key);
+    if (!row) return;
+    if (data) row.closest('li').outerHTML = this.listRowHTML(data);
+    else row.closest('li').remove();
+  },
+
+  pickFromList(key) {
+    const imdbID = MovieInfo.imdbID(key);
+    const entry = imdbID && Library.byImdb(imdbID);
+    if (entry) return UI.openTitle(entry);
+    this.els.listSheet.close();
+    this.jumpTo(key);
   },
 
   openCategories() {
@@ -476,6 +594,7 @@ const ReviewUI = {
     if (action === 'settings') return this.openSettings();
     if (action === 'retry') return this.show(key);
     if (action === 'next-list') return this.switchCategory(Catalog.nextId(Feed.categoryId));
+    if (action === 'view-list') return this.openListView();
     if (action === 'go-again') {
       Feed.start(Feed.categoryId);
       return this.advance();

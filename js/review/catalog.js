@@ -106,34 +106,37 @@ const Catalog = {
       note: 'Every list shuffled together', keys: Object.keys(this.movies)
     };
     // The award lists stand where the yearly Best Picture lists were
-    const awards = AWARD_LISTS.map(list => ({ ...list, group: 'Awards', media: 'film', awards: true, keys: [], loaded: false }));
+    const fromFile = (lists, group, listFile) => lists.map(list => ({ ...list, group, media: 'film', listFile, keys: [], loaded: false }));
+    const critics = fromFile(CRITIC_LISTS, 'Critics', REVIEW.CRITICS_URL);
+    const awards = fromFile(AWARD_LISTS, 'Awards', REVIEW.AWARDS_URL);
     const listed = data.categories || [];
     const at = listed.findIndex(c => c.group === 'Oscars');
     const films = [...listed.filter(c => c.group !== 'Oscars'), mix].map(category => ({ ...category, media: 'film', loaded: true }));
-    films.splice(at === -1 ? films.length : at, 0, ...awards);
+    films.splice(at === -1 ? films.length : at, 0, ...critics, ...awards);
     const tv = TV_LISTS.map(list => ({ ...list, media: 'tv', keys: [], loaded: false }));
     this.categories = [...films, ...tv];
   },
 
-  // data/awards.json, fetched once, the first time an award list is opened
-  awardsData: null,
-  loadAwards() {
-    if (!this.awardsData) {
-      this.awardsData = fetch(REVIEW.AWARDS_URL)
+  // A list's data file (data/awards.json, data/critics.json), fetched once,
+  // the first time one of its lists is opened
+  listFiles: new Map(),
+  loadListFile(url) {
+    if (!this.listFiles.has(url)) {
+      this.listFiles.set(url, fetch(url)
         .then(response => {
-          if (!response.ok) throw new Error('Could not load the award lists');
+          if (!response.ok) throw new Error('Could not load this list');
           return response.json();
         })
         .catch(error => {
-          this.awardsData = null; // Try again next time
+          this.listFiles.delete(url); // Try again next time
           throw error;
-        });
+        }));
     }
-    return this.awardsData;
+    return this.listFiles.get(url);
   },
 
-  async prepareAwards(category) {
-    const data = await this.loadAwards();
+  async prepareFromFile(category) {
+    const data = await this.loadListFile(category.listFile);
     const list = (data.lists || []).find(l => l.id === category.id);
     const titles = data.titles || {};
     category.keys = [];
@@ -165,8 +168,8 @@ const Catalog = {
   // TV lists: from the week-old snapshot if there is one, otherwise from TMDB
   async prepare(id) {
     const category = this.get(id);
-    if (category.awards) {
-      if (!category.loaded) await this.prepareAwards(category);
+    if (category.listFile) {
+      if (!category.loaded) await this.prepareFromFile(category);
       return;
     }
     if (category.media !== 'tv') return;
@@ -240,6 +243,28 @@ const Catalog = {
   // How many titles in a list are still to rate (skipped ones included)
   remaining(id) {
     return this.get(id).keys.filter(key => !this.isDone(key)).length;
+  },
+
+  // Everything in a list, in its order, with where you stand on each. Titles
+  // whose details say they aren't what the list expected are left out
+  listRows(id) {
+    return this.get(id).keys.flatMap((key, index) => {
+      const info = MovieInfo.get(key);
+      if (info && !MovieInfo.isUsable(info, key)) return [];
+      const { title, year } = this.basics(key);
+      const imdbID = MovieInfo.imdbID(key);
+      const entry = (imdbID && Library.byImdb(imdbID)) || null;
+      return [{ key, rank: index + 1, title, year, entry, poster: (entry && entry.poster) || (info && info.poster) || '' }];
+    });
+  },
+
+  // How many of those rows you've rated, and how
+  listSummary(rows) {
+    const count = test => rows.filter(({ entry }) => entry && test(entry)).length;
+    return {
+      total: rows.length, rated: count(t => Title.isSeen(t)), loved: count(t => Title.isLoved(t)),
+      up: count(t => Title.thumb(t) === 'up' && !Title.isLoved(t)), down: count(t => Title.thumb(t) === 'down')
+    };
   },
 
   // Keys to deal, in list order or shuffled (the mix always is): titles you

@@ -522,6 +522,66 @@
   border-radius: 5px;
 }
 
+/* ---- A whole list, in review mode ---- */
+
+.list-summary {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 0 18px 10px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+
+.list-tally {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.list-rank {
+  flex: none;
+  width: 26px;
+  color: var(--ink-3);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.list-row .film-title {
+  display: block;
+}
+
+.list-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 550;
+  color: var(--ink-2);
+}
+
+.list-status.none {
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.list-status.loved {
+  color: var(--love);
+}
+
+.list-status.up,
+.list-status.want {
+  color: var(--accent);
+}
+
+.list-status.down {
+  color: var(--danger);
+}
+
 /* ---- Add and title sheets ---- */
 
 .sheet input[type="text"],

@@ -44,6 +44,8 @@ const Posters = {
     img.replaceWith(this.standIn(img));
     if (row) this.repair(Library.get(row.dataset.id));
     if (img.closest('.result')) UI.fillPictures();
+    const listed = img.closest('[data-list-key]');
+    if (listed) ReviewUI.listPosterFailed(listed.dataset.listKey);
   },
 
   // The first of these addresses that isn't known to be broken, or ''

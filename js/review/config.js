@@ -16,6 +16,12 @@ const REVIEW = {
   CATEGORIES_URL: 'data/categories.json',
   // Award lists (tools/build-awards.js), fetched the first time one is opened
   AWARDS_URL: 'data/awards.json',
+  // Critics' rankings (tools/build-lists.js), the same way
+  CRITICS_URL: 'data/critics.json',
+  // Rows of a whole list that look up details at once (posters), and how far
+  // ahead of the screen they start
+  LIST_VIEW_LOOKUPS: 2,
+  LIST_VIEW_MARGIN: '200px',
   SIMILAR_URL: 'data/similar.json',
   ORDERS: ['ranked', 'shuffled', 'learn'],
   // Films or shows with a thumb before For you has much to go on
@@ -58,6 +64,14 @@ const TMDB_CONFIG = {
 // one is opened. They replace the yearly Best Picture lists in
 // data/categories.json (group "Oscars"), which the build reads instead.
 // ============================================================================
+
+// Critics' ranked lists: names here, titles in data/critics.json, built by
+// tools/build-lists.js from the text files in tools/lists/
+const CRITIC_LISTS = [
+  { id: 'critics-nyt-movies', name: 'NYT: best movies of the 21st century', note: 'The New York Times top 100, in rank order', type: 'movie' },
+  { id: 'critics-nyt-tv', name: 'NYT: best TV shows of the 21st century', note: 'The New York Times top 100, in rank order. No TMDB key needed', type: 'series' },
+  { id: 'critics-letterboxd-21st', name: 'Letterboxd: top 100 of the 21st century', note: 'Brian Formo’s ranking, in order', type: 'movie' }
+];
 
 const AWARD_LISTS = [
   { id: 'awards-best-picture', name: 'Best Picture nominees', note: 'Oscar nominees from the last 10 ceremonies, newest first', type: 'movie' },
