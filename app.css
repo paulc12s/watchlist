@@ -633,11 +633,6 @@
 .tag-field {
   position: relative;
   margin-top: 12px;
-  scroll-margin-top: 8px;
-}
-
-.sheet-body.tag-room {
-  padding-bottom: 70vh;
 }
 
 .sheet .platform-field {
@@ -773,6 +768,115 @@
 
 .tag-menu[hidden] {
   display: none;
+}
+
+.tag-done {
+  display: none;
+}
+
+/* Entering tags on a phone (js/app/tag-input.js): the sheet fits the space
+   above the keyboard, with the title at the top, the button at the bottom and
+   the suggestions between, so nothing moves or leaves the screen as you type */
+.sheet.tag-focus {
+  position: fixed;
+  inset: var(--visible-top, 0px) 0 auto;
+  height: var(--visible-height, 100dvh);
+  max-height: none;
+  margin: 0 auto;
+  padding-top: var(--safe-top);
+  border-radius: 0;
+}
+
+.sheet.tag-focus::before {
+  display: none;
+}
+
+.sheet.tag-focus .sheet-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 10px;
+}
+
+.sheet.tag-focus .add-options {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 0;
+}
+
+.sheet.tag-focus .sheet-body > :not(.chosen, .tag-field, .sheet-actions, .add-options, .add-pane:not([data-pane="search"])),
+.sheet.tag-focus .add-options > :not(.chosen, .tag-field, .sheet-actions),
+.sheet.tag-focus #titleDelete,
+.sheet.tag-focus #titleWeb {
+  display: none;
+}
+
+.sheet.tag-focus .add-pane {
+  flex: none;
+  margin-top: 0;
+}
+
+.sheet.tag-focus .chosen {
+  flex: none;
+  grid-template-columns: 44px 1fr;
+  gap: 10px;
+}
+
+.sheet.tag-focus .chosen > img,
+.sheet.tag-focus .chosen .poster-blank {
+  width: 44px;
+}
+
+.sheet.tag-focus .chosen .plot {
+  display: none;
+}
+
+.sheet.tag-focus .tag-field {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 150px;
+  margin-top: 10px;
+}
+
+.sheet.tag-focus .tag-box {
+  flex: none;
+  overflow-y: auto;
+  max-height: 124px;
+}
+
+.sheet.tag-focus .tag-menu {
+  position: static;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  margin-top: 6px;
+  box-shadow: none;
+}
+
+.sheet.tag-focus .tag-done {
+  display: block;
+  flex: none;
+  padding: 6px 10px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sheet.tag-focus .sheet-actions {
+  flex: none;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.sheet.tag-focus .add-actions {
+  justify-content: space-between;
 }
 
 .tag-option {

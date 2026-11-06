@@ -13,6 +13,12 @@
 // use are read once when the sheet opens, a key only searches that short list
 // and redraws the menu, and a chip is added or removed on its own. Nothing is
 // stored until the sheet saves, through values().
+//
+// On a phone the keyboard leaves too little room for a whole sheet, so while
+// the field has focus the sheet fits the space above the keyboard and shows
+// only the title, the field, its suggestions and the button to save
+// (.tag-focus in app.css). Scrolling can't do this: the title and the button
+// can't both stay on screen.
 // ============================================================================
 
 const TagInput = {
@@ -59,8 +65,10 @@ const TagInput = {
           <input type="text" placeholder="Add a tag" aria-label="Add a tag" role="combobox" aria-autocomplete="list"
             aria-expanded="false" aria-controls="${menuId}" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
         </span>
+        <button type="button" class="tag-done">Done</button>
       </div>
       <ul class="tag-menu" id="${menuId}" role="listbox" aria-label="Tag suggestions" hidden></ul>`;
+    this.sheet = this.root.closest('dialog');
     this.sheetBody = this.root.closest('.sheet-body');
     this.box = this.root.querySelector('.tag-box');
     this.entry = this.root.querySelector('.tag-entry');
@@ -69,8 +77,17 @@ const TagInput = {
     this.ghostTyped = this.root.querySelector('.tag-ghost-typed');
     this.ghostRest = this.root.querySelector('.tag-ghost-rest');
 
-    this.input.addEventListener('focus', () => this.refresh());
-    this.input.addEventListener('blur', () => this.closeMenu());
+    this.input.addEventListener('focus', () => {
+      this.enterFocus();
+      this.refresh();
+    });
+    this.input.addEventListener('blur', () => {
+      this.closeMenu();
+      // After the tap that took the focus has landed, so the layout doesn't
+      // change under it
+      clearTimeout(this.leaveTimer);
+      this.leaveTimer = setTimeout(() => this.leaveFocus(), 200);
+    });
     // Android keyboards compose every word: suggest throughout, act on commas after
     this.input.addEventListener('input', event => {
       if (event.isComposing) this.refresh();
@@ -81,7 +98,10 @@ const TagInput = {
 
     this.box.addEventListener('click', event => {
       const remove = event.target.closest('.tag-remove');
-      if (remove) this.remove(remove.closest('.tag-chip'));
+      if (event.target.closest('.tag-done')) {
+        this.accept();
+        this.input.blur();
+      } else if (remove) this.remove(remove.closest('.tag-chip'));
       else if (!event.target.closest('.tag-chip')) this.input.focus();
     });
     // Tapping these keeps the focus and the keyboard where they are
@@ -105,7 +125,7 @@ const TagInput = {
     this.tags = [];
     this.chosen = new Set();
     this.input.value = '';
-    this.sheetBody.classList.remove('tag-room');
+    this.leaveFocus();
     this.add(tags);
     this.closeMenu();
     this.updateGhost();
@@ -223,6 +243,44 @@ const TagInput = {
     if (chip) chip.classList.remove('armed');
   },
 
+  // ---- Fitting above a phone's keyboard ----------------------------------------
+
+  enterFocus() {
+    clearTimeout(this.leaveTimer);
+    if (this.focused || !window.matchMedia('(pointer: coarse)').matches) return;
+    this.focused = true;
+    this.scrolled = this.sheetBody.scrollTop;
+    this.sheet.classList.add('tag-focus');
+    this.sheetBody.scrollTop = 0;
+    this.fit();
+    if (!window.visualViewport) return;
+    this.fitter = () => this.fit();
+    window.visualViewport.addEventListener('resize', this.fitter);
+    window.visualViewport.addEventListener('scroll', this.fitter);
+  },
+
+  // The space the keyboard leaves
+  fit() {
+    const view = window.visualViewport;
+    if (!view) return;
+    this.sheet.style.setProperty('--visible-top', `${view.offsetTop}px`);
+    this.sheet.style.setProperty('--visible-height', `${view.height}px`);
+  },
+
+  leaveFocus() {
+    clearTimeout(this.leaveTimer);
+    if (!this.focused) return;
+    this.focused = false;
+    if (this.fitter) {
+      window.visualViewport.removeEventListener('resize', this.fitter);
+      window.visualViewport.removeEventListener('scroll', this.fitter);
+    }
+    this.sheet.classList.remove('tag-focus');
+    this.sheetBody.scrollTop = this.scrolled;
+    // The app never scrolls the page itself; undo any shift iOS made for the keyboard
+    window.scrollTo(0, 0);
+  },
+
   // ---- The menu ---------------------------------------------------------------
 
   refresh() {
@@ -247,15 +305,7 @@ const TagInput = {
     this.input.setAttribute('aria-expanded', 'true');
     this.showActive();
     if (!opening) return;
-    if (window.matchMedia('(pointer: coarse)').matches) {
-      // A phone's keyboard covers the sheet's lower half, so the field goes to
-      // the top. That takes room to scroll, kept until the sheet next opens:
-      // taking it away as the field loses focus would move Save from under a tap
-      this.sheetBody.classList.add('tag-room');
-      this.root.scrollIntoView({ block: 'start' });
-    } else {
-      this.menu.scrollIntoView({ block: 'nearest' });
-    }
+    if (!this.focused) this.menu.scrollIntoView({ block: 'nearest' });
   },
 
   closeMenu() {
