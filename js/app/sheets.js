@@ -13,6 +13,8 @@ const UI = {
   views: {},
   add: { mode: 'search', type: '', chosen: null, results: [], suggestions: [], state: '', searcher: null },
   editing: null,
+  // How far down the search rows go looking for pictures
+  PICTURE_ROWS: 8,
 
   init() {
     const ids = ['addButton', 'undoBar', 'undoMessage', 'undoButton',
@@ -168,12 +170,27 @@ const UI = {
         : 'No matches. Check the spelling, add the year, or add it by hand.';
     this.renderResults(message);
     if (state !== 'done') return;
+    this.fillPictures();
     // Director and cast for the top results, to tell same-named titles apart;
     // and posters for suggestions, which the bundled film lists don't have
     const unpictured = suggestions.filter(s => !s.poster).slice(0, CONFIG.SEARCH.DETAIL_PREFETCH);
     [...unpictured, ...results.slice(0, CONFIG.SEARCH.DETAIL_PREFETCH)].filter(result => result.imdbID).forEach(result => {
       MovieAPI.getDetails(result.imdbID).then(() => { if (this.add.results === results && !this.add.chosen) this.renderResults(); }).catch(() => {});
     });
+  },
+
+  // Rows with no picture to show look for one, and show it when it's found
+  fillPictures() {
+    const { suggestions, results } = this.add;
+    const rows = [...suggestions, ...results].slice(0, this.PICTURE_ROWS);
+    for (const row of rows) {
+      const looked = MovieAPI.detailsCache.get(row.imdbID);
+      const known = looked && MovieAPI.sameTitle(looked, row) ? looked.poster : '';
+      if (Posters.usable(row.poster, known, Posters.picture(row))) continue;
+      Posters.lookup(row).then(url => {
+        if (url && this.add.results === results && !this.add.chosen) this.renderResults();
+      });
+    }
   },
 
   // A suggestion may need its IMDb ID looked up before its details load
@@ -222,7 +239,7 @@ const UI = {
     const details = looked && MovieAPI.sameTitle(looked, result) ? looked : result;
     const have = TitleSearch.owned(result);
     return html`<button type="button" class="result" data-result="${index}">
-      ${posterHTML({ ...result, poster: result.poster || details.poster })}
+      ${posterHTML({ ...result, poster: Posters.usable(result.poster, details.poster, Posters.picture(result)) })}
       <span class="result-text">
         <span class="row-title">${result.title}</span>
         <span class="row-meta">${[result.year, Title.TYPE_NAMES[result.type] || 'Film', details.imdbRating && `★ ${Title.formatRating(details.imdbRating)}`].filter(Boolean).join(' · ')}</span>
@@ -246,7 +263,8 @@ const UI = {
     const have = Library.byImdb(result.imdbID);
     if (have) return this.openOwned(have);
     try {
-      const details = (await TitleSearch.details(result)) || result;
+      const found = (await TitleSearch.details(result)) || result;
+      const details = { ...found, poster: Posters.usable(found.poster, result.poster, Posters.picture(result)) };
       this.add.chosen = details;
       els.addChosen.innerHTML = this.chosenHTML(details);
       els.addResults.innerHTML = html`<button type="button" class="link-button" data-back>${icon('back', 'tiny')}Other results</button>`;

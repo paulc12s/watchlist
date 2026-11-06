@@ -8,6 +8,8 @@
 //     the title (posterHTML draws the same card for a title with no poster).
 //   - A title you have then gets a replacement: from OMDb, then Wikipedia,
 //     then TMDB if this device has a key. It's only kept once it has loaded.
+//   - A search row with no picture to show looks for one the same way, so a
+//     row shows what picking it would (lookup). What it finds is kept for the visit.
 //
 // Lookups spend OMDb's daily quota, so they run a few at a time, and a title
 // nothing could be found for isn't asked about again for a week. Filling in a
@@ -26,6 +28,9 @@ const Posters = {
   // Images that failed this visit: redrawing a list goes straight to the card,
   // without asking for them again. Saved addresses stay, as the failure may pass
   broken: new Set(),
+  // What lookup found, by IMDb ID or TMDB key
+  pictures: new Map(),
+  lookups: new Map(),
 
   // Image errors don't bubble, but they can be caught on the way down
   init() {
@@ -38,6 +43,48 @@ const Posters = {
     const row = img.closest('[data-id]');
     img.replaceWith(this.standIn(img));
     if (row) this.repair(Library.get(row.dataset.id));
+    if (img.closest('.result')) UI.fillPictures();
+  },
+
+  // The first of these addresses that isn't known to be broken, or ''
+  usable(...urls) {
+    return urls.find(url => url && !this.broken.has(url)) || '';
+  },
+
+  // The picture lookup found for a search result, or ''
+  picture(found) {
+    return this.pictures.get(found.imdbID || found.tmdb) || '';
+  },
+
+  // Finds a picture for a search result that has none. Resolves to its address, or ''
+  lookup(found) {
+    const id = found.imdbID || found.tmdb;
+    if (!id) return Promise.resolve('');
+    if (!this.lookups.has(id)) {
+      this.lookups.set(id, this.lookFor(found).then(url => {
+        this.pictures.set(id, url);
+        return url;
+      }));
+    }
+    return this.lookups.get(id);
+  },
+
+  async lookFor(found) {
+    const hasTmdb = typeof TMDB !== 'undefined' && TMDB.hasKey();
+    const sources = [
+      found.imdbID && (async () => ((await Wikipedia.byImdb(found.imdbID)) || {}).poster),
+      found.imdbID && hasTmdb && (async () => ((await TMDB.find(found.imdbID)) || {}).poster),
+      !found.imdbID && found.tmdb && hasTmdb && (async () => ((await TMDB.titleDetails(found.tmdb)) || {}).poster)
+    ].filter(Boolean);
+    for (const source of sources) {
+      try {
+        const url = await source();
+        if (this.usable(url) && await this.loads(url)) return url;
+      } catch (error) {
+        // The next source may answer
+      }
+    }
+    return '';
   },
 
   // What takes a failed image's place, in the style of where it was
@@ -67,6 +114,8 @@ const Posters = {
   // A new TMDB key can find what OMDb couldn't
   recheck() {
     this.asked.clear();
+    this.lookups.clear();
+    this.pictures.clear();
     this.saveChecks({});
     this.sweep();
     UI.render();

@@ -680,6 +680,46 @@ test('posters: a replacement from OMDb, then Wikipedia, then TMDB, kept only if 
   assert.equal(Library.get('d').poster, '');
 });
 
+test('a search result with no picture looks for one once, and skips any that won’t load', async () => {
+  const bad = new Set();
+  class Image {
+    set src(url) { setTimeout(() => (bad.has(url) ? this.onerror() : this.onload()), 0); }
+  }
+  const app = load(
+    [...SHARED, 'js/movie-api.js', 'js/review/config.js', 'js/review/tmdb.js', 'js/review/title-search.js', 'js/wikipedia.js', 'js/posters.js'],
+    'Posters, TMDB, Wikipedia, Store', { Image }
+  );
+  const { Posters, TMDB, Wikipedia } = app;
+  let wikiAsks = 0;
+  Wikipedia.byImdb = async () => { wikiAsks++; return { poster: 'https://upload.wikimedia.org/w.jpg' }; };
+  TMDB.find = async () => ({ poster: 'https://image.tmdb.org/t/p/w500/f.jpg' });
+  TMDB.titleDetails = async () => ({ poster: 'https://image.tmdb.org/t/p/w780/d.jpg' });
+
+  const row = { imdbID: 'tt0000001', title: 'A' };
+  assert.equal(await Posters.lookup(row), 'https://upload.wikimedia.org/w.jpg');
+  await Posters.lookup(row);
+  assert.equal(wikiAsks, 1, 'asked once a visit');
+  assert.equal(Posters.picture(row), 'https://upload.wikimedia.org/w.jpg');
+
+  // A trending title with no poster saved and no IMDb ID yet, on this device with a key
+  const trending = { tmdb: 'movie:1', title: 'B', poster: '' };
+  assert.equal(await Posters.lookup(trending), '', 'without a key there is no way to ask');
+  Posters.lookups.clear();
+  TMDB.key = 'k';
+  assert.equal(await Posters.lookup(trending), 'https://image.tmdb.org/t/p/w780/d.jpg');
+
+  bad.add('https://upload.wikimedia.org/w.jpg');
+  assert.equal(await Posters.lookup({ imdbID: 'tt0000002', title: 'C' }), 'https://image.tmdb.org/t/p/w500/f.jpg', 'the next source');
+  Wikipedia.byImdb = async () => { throw new Error('offline'); };
+  TMDB.find = async () => null;
+  assert.equal(await Posters.lookup({ imdbID: 'tt0000003', title: 'D' }), '');
+  assert.equal(await Posters.lookup({ title: 'No IDs' }), '');
+
+  Posters.broken.add('https://x/dead.jpg');
+  assert.equal(Posters.usable('', 'https://x/dead.jpg', 'https://x/good.jpg'), 'https://x/good.jpg');
+  assert.equal(Posters.usable('', 'https://x/dead.jpg'), '');
+});
+
 test('TMDB film details: non-strings dropped, posters only from TMDB paths, IMDb IDs checked', () => {
   const { TMDB } = loadReview();
   const film = TMDB.parseMovie({ id: 'x', title: { evil: 1 }, imdb_id: 'nm123', poster_path: '/../x" onerror="alert(1)', genres: [null, { name: 3 }, { name: 'Drama' }], credits: { crew: 'no', cast: [null, { name: 5 }] }, runtime: -1 });
