@@ -253,3 +253,15 @@ test('make-import CLI: usage mistakes exit with an error and write nothing', () 
   }
   assert.ok(!fs.existsSync(box.file('list-import.json')));
 });
+
+test('make-import CLI: a Tags column can hold several, separated by commas', () => {
+  const box = sandbox();
+  const csv = box.write('tagged.csv', 'Title,Year,Rating,Tags\nArrival,2016,4,"Sci fi, from Sam, #Sci Fi"\nDune,2021,5,family\n');
+  const run = box.run(['reviewed', csv, '-o', 'out.json', '--key', FAKE_KEY]);
+  assert.equal(run.code, 0, run.err);
+  const data = box.read('out.json');
+  assertImportable(data, 'reviewed');
+  const tagsOf = name => data.titles.find(t => t.title.startsWith(name)).tags;
+  assert.deepEqual(tagsOf('Arrival'), ['Sci fi', 'from Sam']);
+  assert.deepEqual(tagsOf('Dune'), ['family']);
+});

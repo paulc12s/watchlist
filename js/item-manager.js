@@ -189,18 +189,30 @@ const ItemManager = {
     if (key.startsWith('priority:')) return t => Title.displayPriority(t) === key.slice(9);
     if (key.startsWith('label:')) {
       const name = key.slice(6);
-      const lower = value => Title.cleanLabel(value).toLowerCase();
-      return t => (this.TYPE_LABELS[t.type] || '').toLowerCase() === name || lower(t.platform) === name || lower(t.tag) === name;
+      return t => this.labelKeys(t).includes(name);
     }
     return null;
   },
 
-  // Chips for a list of titles: [{ key, label, count }], each label once
+  // Every name a title's label chips go by: its type, platform and tags
+  labelKeys(t) {
+    return [this.TYPE_LABELS[t.type], t.platform, ...t.tags].map(value => Title.cleanLabel(value).toLowerCase()).filter(Boolean);
+  },
+
+  // Chips for a list of titles: [{ key, label, count }], each label once.
+  // Label counts come from one pass over the titles, so more tags don't mean
+  // another pass per chip
   chips(titles, { priorities = false } = {}) {
+    const labelCounts = new Map();
+    for (const t of titles) {
+      for (const name of new Set(this.labelKeys(t))) labelCounts.set(name, (labelCounts.get(name) || 0) + 1);
+    }
     const chips = [{ key: 'all', label: 'All', count: titles.length }];
+    const seen = new Set(['all']);
     const add = (key, label) => {
-      if (chips.some(chip => chip.key === key)) return;
-      const count = titles.filter(this.chipTest(key)).length;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const count = key.startsWith('label:') ? labelCounts.get(key.slice(6)) || 0 : titles.filter(this.chipTest(key)).length;
       if (count) chips.push({ key, label, count });
     };
     if (priorities) {

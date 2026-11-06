@@ -35,7 +35,8 @@ Three modes, switched with **Watchlist | Rated | Review** at the top, all on the
 - **Rated mode** — every title you've rated, including ones still on your list to watch, as compact rows with your verdict as an icon (❤️, 👍 or 👎, plus stars if you gave 1–4). Narrow it to ❤️, 👍 or 👎, and sort it by recently rated, your rating, title, year or IMDb rating (remembered on the device); tap a row to change the rating. A title marked watched in an older file counts as 👍
 
   Each mode keeps its own search and filters, so switching doesn't lose your place
-- **Tags and platforms** — each is stored in one spelling, on every add, edit and import (`Library.labelName`): "art", "ART" and "#art" are saved as the spelling already in use; a new one is saved as typed, without # or extra spaces. The fields suggest labels already in use. A type, platform or tag with the same name (YouTube) is a single chip
+- **Tags and platforms** — a title has any number of tags and one platform. Each is stored in one spelling, on every add, edit and import (`Library.labelName`): "art", "ART" and "#art" are saved as the spelling already in use; a new one is saved as typed, without # or extra spaces. A type, platform or tag with the same name (YouTube) is a single chip
+- **The tag field** (`js/app/tag-input.js`) — each tag is a chip you can remove; a new tag has a dashed outline until it's saved. Suggestions appear as you type, most used first, and the rest of the top match shows in grey. Enter, Tab or a comma takes the highlighted suggestion, and the right arrow finishes the word. Pasting "a, b, c" adds all three, exactly as written. Backspace in an empty field picks the last chip, then removes it. In files, `tags` is a list; imports and CSVs can also give comma-separated text, and a file's old single `tag` still reads
 - **Run cleanup** (Settings → Maintenance) — tidies data saved before that rule: every tag and platform rewritten in one spelling (one with capitals wins, so "Art" over "art"), titles re-checked and repaired, duplicates merged, IDs made unique. Then it reads back what's saved on the device and checks it matches what you see, and reports storage use. Dates stay as they are, and nothing is deleted
 - **Adding** — **+** in the top bar, in every mode, opens a sheet: search OMDb (with year, type, or an IMDb link), add by hand, or add a YouTube video; then add it to watch, or as already seen with 👍 or 👎
 - **Theme** (Settings) — Basic (the default look), or Pastel, Metal, Pride, Desert or Aurora, which colour the whole app: a tinted background with a two-colour glow, tinted glass, borders and sheets, and selected tabs and chips filled with the theme's colours. Each has a light and a dark version. Kept per browser (`js/palette.js`). A theme sets a handful of `--p-*` values in `base.css`; every tint is mixed from those, and text is checked at 4.5:1 contrast or better on the tinted surfaces
@@ -135,7 +136,7 @@ js/
   undo-manager.js    Undo stack
   batch-upload.js    Batch upload tool
   dom.js             icon(), setChecked() and checked(), used by every mode
-  app/               main (modes, settings), settings (settings in export and import),
+  app/               main (modes, settings), settings (settings in export and import), tag-input (the tag field),
                      list-view (Watchlist and Rated lists),
                      sheets (add and title sheets), old-pages (bring in
                      the retired pages' titles)

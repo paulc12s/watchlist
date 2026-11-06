@@ -231,7 +231,7 @@ const ListView = {
           <span class="row-meta">${icon(typeIcon, 'tiny')}${meta.join(' · ')}</span>
           <span class="row-tags">
             ${t.platform && t.type !== 'youtube' && html`<span class="tag">${name('platform', t.platform)}</span>`}
-            ${t.tag && html`<span class="tag">${name('tag', t.tag)}</span>`}
+            ${t.tags.map(tag => html`<span class="tag">${name('tag', tag)}</span>`)}
             ${t.stars > 0 && !Title.isLoved(t) && html`<span class="tag tag-stars" aria-label="${t.stars} stars">${'★'.repeat(t.stars)}</span>`}
             ${t.rewatch && html`<span class="tag">${icon('rewatch', 'tiny')}Rewatch</span>`}
             ${!watched && thumb && html`<span class="tag">${icon(`thumb-${thumb}`, 'tiny')}Rated, still to watch</span>`}

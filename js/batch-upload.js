@@ -136,7 +136,7 @@ function addItem(details) {
     ...details,
     want: true,
     priority: BatchUI.defaultPriority.value,
-    tag: BatchUI.defaultTag.value.trim(),
+    tags: BatchUI.defaultTag.value,
     platform: details.type === 'youtube' ? 'YouTube' : BatchUI.defaultPlatform.value.trim()
   });
 
@@ -230,7 +230,7 @@ function renderResults() {
           </div>
           <div class="result-meta">
             Priority: ${CONFIG.PRIORITY_LABELS[item.priority] || item.priority}
-            ${item.tag && ` • Tag: ${item.tag}`}
+            ${item.tags.length > 0 && ` • Tags: ${item.tags.join(', ')}`}
             ${item.platform && ` • ${item.platform}`}
           </div>
         </div>

@@ -628,11 +628,184 @@
   color: var(--ink-2);
 }
 
-.field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+/* Tags: each one a chip in a box that looks like a text field, with the
+   suggestions over what's below, so nothing moves as you type */
+.tag-field {
+  position: relative;
   margin-top: 12px;
+  scroll-margin-top: 8px;
+}
+
+.sheet-body.tag-room {
+  padding-bottom: 70vh;
+}
+
+.sheet .platform-field {
+  margin-top: 12px;
+}
+
+.tag-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 7px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--well);
+  cursor: text;
+}
+
+.tag-box:focus-within {
+  border-color: var(--accent-edge);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 30px;
+  padding-left: 11px;
+  border: 1px solid var(--accent-edge);
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 550;
+  cursor: default;
+}
+
+/* Not used on any title yet: outlined until it's saved */
+.tag-chip.is-new {
+  border-style: dashed;
+  background: transparent;
+}
+
+/* Backspace once to pick the last chip, again to remove it */
+.tag-chip.armed {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-edge);
+}
+
+.tag-chip-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tag-remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.tag-remove:hover {
+  color: var(--ink);
+}
+
+.tag-remove .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.tag-entry {
+  position: relative;
+  flex: 1 1 96px;
+  min-width: 96px;
+}
+
+.tag-entry[hidden] {
+  display: none;
+}
+
+.sheet .tag-entry input[type="text"] {
+  position: relative;
+  padding: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* The rest of the top suggestion, drawn just behind what you've typed */
+.tag-ghost {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  padding: 4px;
+  color: var(--ink-3);
+  font-size: 16px;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.tag-ghost-typed {
+  visibility: hidden;
+}
+
+.tag-menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  overflow-y: auto;
+  max-height: 232px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  list-style: none;
+}
+
+.tag-menu[hidden] {
+  display: none;
+}
+
+.tag-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.tag-option[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+
+.tag-option-name {
+  overflow: hidden;
+  flex: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tag-option .count {
+  flex: none;
+  color: var(--ink-3);
+  font-size: 0.8rem;
+}
+
+.tag-option.is-new {
+  color: var(--accent);
+  font-weight: 550;
 }
 
 .toggle-row {
@@ -750,13 +923,6 @@
 @media (max-width: 500px) {
   .mode-switch button .icon {
     display: none;
-  }
-}
-
-@media (max-width: 420px) {
-
-  .field-row {
-    grid-template-columns: 1fr;
   }
 }
 

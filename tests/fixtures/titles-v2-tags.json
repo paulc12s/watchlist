@@ -1,0 +1,100 @@
+{
+  "app": "titles",
+  "version": 2,
+  "from": "app",
+  "exportDate": "2026-11-06T10:00:00.000Z",
+  "titles": [
+    {
+      "id": "fixture-1",
+      "title": "Arrival",
+      "type": "movie",
+      "year": 2016,
+      "imdbID": "tt2543164",
+      "youtubeID": "",
+      "tmdbId": null,
+      "genres": [
+        "Drama",
+        "Sci-Fi"
+      ],
+      "director": "",
+      "actors": "",
+      "plot": "",
+      "poster": "",
+      "imdbRating": 7.9,
+      "duration": "",
+      "priority": "high",
+      "tags": [
+        "Sci fi",
+        "from Sam",
+        "rainy day"
+      ],
+      "platform": "Netflix",
+      "want": true,
+      "verdict": "",
+      "stars": 0,
+      "review": "",
+      "rewatch": false,
+      "reviewDate": "",
+      "updatedDate": "2026-11-06T10:00:00.000Z",
+      "guessPct": null
+    },
+    {
+      "id": "fixture-2",
+      "title": "Paddington 2",
+      "type": "movie",
+      "year": 2017,
+      "imdbID": "tt4468740",
+      "youtubeID": "",
+      "tmdbId": null,
+      "genres": [
+        "Comedy"
+      ],
+      "director": "",
+      "actors": "",
+      "plot": "",
+      "poster": "",
+      "imdbRating": null,
+      "duration": "",
+      "priority": "medium",
+      "tags": [
+        "family"
+      ],
+      "platform": "",
+      "want": false,
+      "verdict": "up",
+      "stars": 5,
+      "review": "",
+      "rewatch": false,
+      "reviewDate": "2026-11-05T10:00:00.000Z",
+      "updatedDate": "2026-11-05T10:00:00.000Z",
+      "guessPct": null
+    },
+    {
+      "id": "fixture-3",
+      "title": "Untagged",
+      "type": "series",
+      "year": null,
+      "imdbID": "",
+      "youtubeID": "",
+      "tmdbId": null,
+      "genres": [],
+      "director": "",
+      "actors": "",
+      "plot": "",
+      "poster": "",
+      "imdbRating": null,
+      "duration": "",
+      "priority": "",
+      "tags": [],
+      "platform": "",
+      "want": true,
+      "verdict": "",
+      "stars": 0,
+      "review": "",
+      "rewatch": false,
+      "reviewDate": "",
+      "updatedDate": "2026-11-04T10:00:00.000Z",
+      "guessPct": null
+    }
+  ]
+}

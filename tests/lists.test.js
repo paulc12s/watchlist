@@ -291,7 +291,7 @@ test('tags: one label however typed, a chip per name with its count', () => {
     { id: 'g', title: 'G', want: true, platform: 'netflix' }
   ]);
   const { ItemManager, Library, Title } = app;
-  assert.equal(Library.get('c').tag, 'art', 'a leading # is dropped when stored');
+  assert.deepEqual(plain(Library.get('c').tags), ['art'], 'a leading # is dropped when stored');
   assert.equal(Title.cleanLabel('  #Sci   fi '), 'Sci fi');
 
   const chips = plain(ItemManager.chips(ItemManager.shown()).map(c => `${c.label} ${c.count}`));
@@ -308,6 +308,71 @@ test('tags: one label however typed, a chip per name with its count', () => {
   assert.equal(Library.labelName('platform', 'disney+'), 'Disney+', 'or the known platform');
 });
 
+test('several tags: a chip for each, counted once per title, and any one filters', () => {
+  const app = withTitles([
+    { id: 'a', title: 'A', want: true, tags: ['art', 'family'] },
+    { id: 'b', title: 'B', want: true, tags: 'Family, sci fi' },
+    { id: 'c', title: 'C', want: true, tag: 'art' },
+    { id: 'd', title: 'D', want: true, type: 'youtube', tags: ['YouTube', 'art'], platform: 'YouTube' }
+  ]);
+  const { ItemManager, Library } = app;
+  const chips = plain(ItemManager.chips(ItemManager.shown()).map(c => `${c.label} ${c.count}`));
+  assert.deepEqual(chips, ['All 4', 'Films 3', 'YouTube 1', 'art 3', 'Family 2', 'sci fi 1'], 'YouTube as type, platform and tag counts once');
+  const only = key => plain(ItemManager.getFiltered({ list: 'queue', filter: key, quickSearch: '' }).map(t => t.id));
+  assert.deepEqual(only('label:family'), ['a', 'b']);
+  assert.deepEqual(only('label:art'), ['a', 'c', 'd']);
+  assert.equal(Library.labels('tag').get('art').count, 3);
+  assert.equal(Library.labels('tag', Library.all(), Library.get('c')).get('art').count, 2, 'leaving out the one being edited');
+});
+
+test('undo brings back all of a title\'s tags', () => {
+  const app = withTitles([{ id: 'a', title: 'A', want: true, tags: ['art', 'family'] }]);
+  const { ItemManager, Library, UndoManager } = app;
+  ItemManager.update('a', { tags: ['art'] });
+  UndoManager.undo();
+  assert.deepEqual(plain(Library.get('a').tags), ['art', 'family']);
+});
+
+test('tag field suggests: the tag, then starting with it, then within words; Enter only takes a start', () => {
+  const { TagInput } = load([...SHARED, 'js/app/tag-input.js'], 'TagInput, Store');
+  const tag = (label, count) => ({ label, key: label.toLowerCase(), count });
+  const catalog = [tag('Martial arts', 9), tag('Artsy', 5), tag('Art', 2), tag('Smart', 2), tag('Family', 1)];
+  const suggest = (typed, chosen = []) => {
+    const { options, active } = TagInput.suggest(typed, catalog, new Set(chosen));
+    return { labels: options.map(o => (o.isNew ? `new:${o.label}` : o.label)), active: active === -1 ? null : options[active].label };
+  };
+  assert.deepEqual(plain(suggest('art')), { labels: ['Art', 'Artsy', 'Martial arts', 'Smart'], active: 'Art' }, 'nothing new: it exists');
+  assert.deepEqual(plain(suggest('ARTS')), { labels: ['Artsy', 'Martial arts', 'new:ARTS'], active: 'Artsy' });
+  assert.deepEqual(plain(suggest('mart')), { labels: ['Martial arts', 'Smart', 'new:mart'], active: 'Martial arts' });
+  assert.deepEqual(plain(suggest('rts')), { labels: ['Martial arts', 'Artsy', 'new:rts'], active: 'rts' }, 'within a word is offered, not taken');
+  assert.deepEqual(plain(suggest('zzz')), { labels: ['new:zzz'], active: 'zzz' });
+  assert.deepEqual(plain(suggest('')), { labels: ['Martial arts', 'Artsy', 'Art', 'Smart', 'Family'], active: null }, 'most used, nothing to take');
+  assert.deepEqual(plain(suggest('', ['art', 'family'])).labels, ['Martial arts', 'Artsy', 'Smart'], 'not the ones already on');
+  assert.deepEqual(plain(suggest('art', ['art'])), { labels: ['Artsy', 'Martial arts', 'Smart'], active: 'Artsy' }, 'no new tag for one already on');
+  assert.deepEqual(plain(suggest('#Sci   fi')).labels, ['new:Sci fi'], 'cleaned as it will be stored');
+  const lots = Array.from({ length: 40 }, (_, i) => tag(`tag ${i}`, 1));
+  assert.equal(TagInput.suggest('tag', lots, new Set()).options.length, TagInput.MAX_SUGGESTIONS + 1, 'a short menu, plus new');
+});
+
+test('tag field: a typed comma takes the highlighted suggestion; a pasted list is kept as written', () => {
+  const { TagInput } = load([...SHARED, 'js/app/tag-input.js'], 'TagInput, Store');
+  const field = (value, options, active, hidden = false) => {
+    const added = [];
+    const f = Object.assign(Object.create(TagInput), {
+      input: { value }, menu: { hidden }, options, active, disarm() {}, refresh() {}, add(tag) { added.push(tag); }
+    });
+    f.typed();
+    return [added, f.input.value];
+  };
+  const family = { label: 'family' }, fresh = { label: 'fam', isNew: true };
+  assert.deepEqual(plain(field('fam,', [family, fresh], 0)), [['family'], ''], 'the suggestion');
+  assert.deepEqual(plain(field('fam,', [family, fresh], 1)), [['fam'], ''], 'arrowed to the new tag');
+  assert.deepEqual(plain(field('fam,', [family, fresh], 0, true)), [['fam'], ''], 'menu closed with Esc: as typed');
+  assert.deepEqual(plain(field(',', [], -1)), [[], ''], 'a comma alone adds nothing');
+  assert.deepEqual(plain(field('fam, gen', [family], 0)), [['fam'], 'gen'], 'pasted: as written, the last word left in the field');
+  assert.deepEqual(plain(field('fam, gen,', [family], 0)), [['fam, gen'], ''], 'pasted with a trailing comma: all as written');
+});
+
 test('tags are stored in one spelling on every add, edit and import', () => {
   const app = withTitles([
     { id: 'a', title: 'A', want: true, tag: 'Art' },
@@ -316,22 +381,22 @@ test('tags are stored in one spelling on every add, edit and import', () => {
   ]);
   const { ItemManager, Library } = app;
   ItemManager.add({ title: 'New', tag: '#ART' });
-  assert.equal(Library.all()[0].tag, 'Art', 'add');
+  assert.deepEqual(plain(Library.all()[0].tags), ['Art'], 'add');
   ItemManager.update('b', { priority: 'high' });
-  assert.equal(Library.get('b').tag, 'Art', 'editing anything tidies an old spelling');
-  ItemManager.update('a', { tag: 'BRITBOX' });
-  assert.equal(Library.get('a').tag, 'Britbox', 'edit: a tag others use keeps their spelling');
-  ItemManager.update('c', { tag: 'BritBox' });
-  assert.equal(Library.get('c').tag, 'Britbox', 'still used by A, so it stays');
+  assert.deepEqual(plain(Library.get('b').tags), ['Art'], 'editing anything tidies an old spelling');
+  ItemManager.update('a', { tags: ['BRITBOX', 'britbox', 'ART'] });
+  assert.deepEqual(plain(Library.get('a').tags), ['Britbox', 'Art'], 'edit: tags others use keep their spelling, each once');
+  ItemManager.update('c', { tags: ['BritBox'] });
+  assert.deepEqual(plain(Library.get('c').tags), ['Britbox'], 'still used by A, so it stays');
 
   Library.import({ app: 'titles', version: 2, titles: [
     { title: 'D', tag: 'art', want: true }, { title: 'E', tag: 'family', want: true }, { title: 'F', tag: 'FAMILY', want: true },
     { title: 'G', platform: 'netflix', want: true }
   ] });
   const tag = name => Library.all().find(t => t.title === name);
-  assert.deepEqual(plain(['D', 'E', 'F'].map(n => tag(n).tag)), ['Art', 'family', 'family'], 'import, within the file too');
+  assert.deepEqual(plain(['D', 'E', 'F'].map(n => tag(n).tags[0])), ['Art', 'family', 'family'], 'import, within the file too');
   assert.equal(tag('G').platform, 'Netflix', 'a new platform matches the known list');
-  const spellings = new Set(Library.all().map(t => t.tag).filter(Boolean));
+  const spellings = new Set(Library.all().flatMap(t => t.tags));
   assert.deepEqual([...spellings].sort(), ['Art', 'Britbox', 'family']);
 });
 
@@ -345,7 +410,7 @@ test('cleanup: one spelling per tag, repaired records, merged copies, unique IDs
   ]);
   const { Library, Store } = app;
   // What an older version or a hand-edited file could leave in memory
-  Library.titles.push({ ...Library.get('a'), id: 'a', imdbID: 'tt0000099', title: 'A again', tag: '#ART' });
+  Library.titles.push({ ...Library.get('a'), id: 'a', imdbID: 'tt0000099', title: 'A again', tags: ['#ART'] });
   Library.titles.push({ ...Library.get('c'), imdbRating: 99 });
   const report = plain(Library.cleanup());
   assert.equal(report.titles, 7);
@@ -353,7 +418,7 @@ test('cleanup: one spelling per tag, repaired records, merged copies, unique IDs
   assert.equal(report.merged, 1, 'the second copy of C');
   assert.equal(report.renumbered, 1, 'the second title with ID a');
   assert.deepEqual(report.renamed.map(r => `${r.change} (${r.count})`), ['art → Art (2)', 'ART → Art (1)', 'netflix → Netflix (1)']);
-  assert.deepEqual(plain([...new Set(Library.all().map(t => t.tag).filter(Boolean))]), ['Art']);
+  assert.deepEqual(plain([...new Set(Library.all().flatMap(t => t.tags))]), ['Art']);
   assert.equal(Library.get('a').updatedDate, '2026-01-01T00:00:00.000Z', 'tidying is not an edit');
   assert.equal(Store.saved.get('titles_v2').length, 6, 'saved once');
   assert.equal(Library.cleanup().changed, false, 'a second run finds nothing');
@@ -409,12 +474,12 @@ test('edits date the review only when the review changes, and undo restores ever
   const app = withTitles([{ id: 'a', title: 'A', want: true }]);
   const { ItemManager, UndoManager, Library } = app;
   const a = Library.get('a');
-  ItemManager.update('a', { tag: 'x', priority: 'high' });
+  ItemManager.update('a', { tags: ['x'], priority: 'high' });
   assert.equal(a.reviewDate, '', 'organising is not reviewing');
   ItemManager.update('a', { stars: 4 });
   assert.ok(a.reviewDate);
   UndoManager.undo();
-  assert.deepEqual(plain([a.stars, a.reviewDate, a.tag]), [0, '', 'x']);
+  assert.deepEqual(plain([a.stars, a.reviewDate, a.tags]), [0, '', ['x']]);
 });
 
 test('delete removes the title, and undo puts it back where it was', () => {
@@ -527,9 +592,9 @@ test('taking an unrated title off the watchlist keeps it, with its details, off 
   const { ItemManager, Library, UndoManager } = app;
   const inList = list => plain(ItemManager.getFiltered({ list, filter: 'all', quickSearch: '', verdict: 'all' }).map(t => t.id));
   assert.deepEqual(inList('queue'), ['u']);
-  ItemManager.update('u', { want: false, verdict: '', priority: 'high', tag: 'from Sam', platform: 'Netflix' }, 'Removed from your watchlist');
+  ItemManager.update('u', { want: false, verdict: '', priority: 'high', tags: ['from Sam'], platform: 'Netflix' }, 'Removed from your watchlist');
   const t = Library.get('u');
-  assert.deepEqual(plain([t.want, t.verdict, t.tag, t.platform, t.priority]), [false, '', 'from Sam', 'Netflix', 'high']);
+  assert.deepEqual(plain([t.want, t.verdict, t.tags, t.platform, t.priority]), [false, '', ['from Sam'], 'Netflix', 'high']);
   assert.deepEqual(inList('queue'), [], 'off the watchlist');
   assert.deepEqual(inList('rated'), [], 'and not rated');
   assert.deepEqual(plain(ItemManager.elsewhere('maybe later', []).map(x => x.id)), ['u'], 'still found by search');

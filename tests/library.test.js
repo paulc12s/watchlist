@@ -93,7 +93,7 @@ test('change dates every change, and the review date only when the review change
   const { Library } = loadLists();
   const { title } = Library.add({ title: 'A' });
   title.updatedDate = OLD;
-  Library.change(title, { tag: 'x' });
+  Library.change(title, { tags: ['x'] });
   assert.ok(title.updatedDate > OLD);
   assert.equal(title.reviewDate, '', 'organising is not reviewing');
   Library.change(title, { stars: 4 });
@@ -126,9 +126,9 @@ test('merge: the more recently reviewed copy’s review wins', () => {
 test('merge: the more recently changed copy’s other fields win; the older copy changes nothing', () => {
   const local = { title: 'A', imdbID: 'tt0000001', tag: 'old', want: true, priority: 'low', reviewDate: OLD, updatedDate: MID };
   const newer = merged(local, { ...local, tag: 'new', want: false, priority: 'high', updatedDate: NEW });
-  assert.deepEqual([newer.tag, newer.want, newer.priority, newer.updatedDate], ['new', false, 'high', NEW]);
+  assert.deepEqual([newer.tags, newer.want, newer.priority, newer.updatedDate], [['new'], false, 'high', NEW]);
   const older = merged(local, { ...local, tag: 'older', updatedDate: OLD });
-  assert.deepEqual([older.tag, older.updatedDate], ['old', MID]);
+  assert.deepEqual([older.tags, older.updatedDate], [['old'], MID]);
 });
 
 test('merge: a copy without dates (an old file) only fills blanks', () => {
@@ -136,7 +136,7 @@ test('merge: a copy without dates (an old file) only fills blanks', () => {
     { title: 'A', imdbID: 'tt0000001', verdict: 'up', tag: 'mine', stars: 0, review: '', updatedDate: MID, reviewDate: MID },
     { title: 'A', imdbID: 'tt0000001', watched: true, thumb: 'down', tag: 'theirs', platform: 'Netflix', stars: 2, review: 'meh' }
   );
-  assert.deepEqual([result.verdict, result.tag, result.platform, result.review], ['up', 'mine', 'Netflix', 'meh']);
+  assert.deepEqual([result.verdict, result.tags, result.platform, result.review], ['up', ['mine'], 'Netflix', 'meh']);
   assert.equal(result.stars, 2);
   assert.equal(result.updatedDate, MID, 'merging is not an edit');
 });
@@ -147,7 +147,7 @@ test('merge: fields a file doesn’t carry are kept, even when it is newer', () 
     { title: 'A', imdbID: 'tt0000001', tag: 'family', platform: 'Max', priority: 'high', updatedDate: OLD },
     { title: 'A', imdbID: 'tt0000001', verdict: 'up', want: false, updatedAt: NEW, ratedAt: NEW }
   );
-  assert.deepEqual([result.tag, result.platform, result.priority, result.verdict], ['family', 'Max', 'high', 'up']);
+  assert.deepEqual([result.tags, result.platform, result.priority, result.verdict], [['family'], 'Max', 'high', 'up']);
 });
 
 test('merge: a thumb settles a skip; "want" only fills in for titles you haven’t seen', () => {
@@ -193,7 +193,7 @@ test('merge: a review date comes with the review it belongs to', () => {
     { title: 'A', imdbID: 'tt0000001', stars: 5, reviewDate: MID, updatedDate: MID },
     { title: 'A', imdbID: 'tt0000001', tag: 'x' }
   );
-  assert.deepEqual([kept.stars, kept.reviewDate, kept.tag], [5, MID, 'x'], 'an undated file leaves the review and its date');
+  assert.deepEqual([kept.stars, kept.reviewDate, kept.tags], [5, MID, ['x']], 'an undated file leaves the review and its date');
   const newer = merged(
     { title: 'A', imdbID: 'tt0000001', stars: 5, reviewDate: MID, updatedDate: MID },
     { title: 'A', imdbID: 'tt0000001', stars: 3, reviewDate: NEW }
@@ -261,7 +261,7 @@ test('a change on one page carries to the other through a file, in both directio
   Object.assign(ratings.Ratings.get('tt0000001'), { updatedDate: '2999-01-01T00:00:00.000Z', reviewDate: '2999-01-01T00:00:00.000Z' });
   watchlist.Library.import(JSON.parse(ratings.Library.exportText()));
   const item = watchlist.Library.byImdb('tt0000001');
-  assert.deepEqual([item.verdict, item.want, item.tag], ['up', false, 'family']);
+  assert.deepEqual(plain([item.verdict, item.want, item.tags]), ['up', false, ['family']]);
 
   ratings.Ratings.update(film(1), { verdict: 'down' });
   Object.assign(ratings.Ratings.get('tt0000001'), { updatedDate: '2999-02-01T00:00:00.000Z', reviewDate: '2999-02-01T00:00:00.000Z' });
@@ -297,7 +297,7 @@ test('two stored copies of one title are merged, not dropped', () => {
   const { Library } = loadLists();
   Library.load([{ title: 'A', imdbID: 'tt0000001', tag: 'x' }, { title: 'A', imdbID: 'tt0000001', platform: 'Max' }]);
   assert.equal(Library.all().length, 1);
-  assert.deepEqual(plain([Library.all()[0].tag, Library.all()[0].platform]), ['x', 'Max']);
+  assert.deepEqual(plain([Library.all()[0].tags, Library.all()[0].platform]), [['x'], 'Max']);
 });
 
 // ---- Files written by earlier versions ------------------------------------------------
@@ -313,6 +313,7 @@ const FIELD_NOW = {
   thumb: (old, t) => !old || t.verdict === old,
   watched: (old, t) => t.want === !old,
   genre: (old, t) => t.genres.join(', ') === old,
+  tag: (old, t) => t.tags.join(', ') === old,
   rating: (old, t) => (old ? t.imdbRating === Number(old) : t.imdbRating === null),
   ratedAt: (old, t) => t.reviewDate === old,
   updatedAt: (old, t) => t.updatedDate === old,
@@ -328,6 +329,7 @@ function assertKeeps(old, now, label) {
 }
 
 function recordsOf(file) {
+  if (file.titles) return file.titles;
   if (file.ratings) return file.ratings;
   if (Array.isArray(file)) return file;
   return [...file.unwatched.map(i => ({ ...i, watched: false })), ...file.watched.map(i => ({ ...i, watched: true }))];
@@ -347,6 +349,40 @@ test('every old export imports into both pages with nothing lost', () => {
       }
     }
   }
+});
+
+test('tags: from a list, comma-separated text or an old single tag; cleaned, each once', () => {
+  const { Title } = loadLists();
+  const tags = raw => plain(Title.sanitize({ title: 'A', ...raw }).tags);
+  assert.deepEqual(tags({ tags: ['art', 'Family'] }), ['art', 'Family']);
+  assert.deepEqual(tags({ tags: ' #art,  sci   fi ,ART,, ' }), ['art', 'sci fi'], 'text is split and cleaned');
+  assert.deepEqual(tags({ tags: ['a, b', 'c', 7, null, {}] }), ['a', 'b', 'c', '7'], 'no tag holds a comma; non-text is dropped');
+  assert.deepEqual(tags({ tag: 'family, friends' }), ['family', 'friends'], 'an old tag');
+  assert.deepEqual(tags({ tag: 'old', tags: ['new'] }), ['new'], 'tags wins over an old tag');
+  assert.deepEqual(tags({}), []);
+  const many = Array.from({ length: 50 }, (_, i) => `t${i}`);
+  assert.equal(tags({ tags: many }).length, 30, 'kept to the limit');
+  assert.equal(tags({ tags: ['x'.repeat(500)] })[0].length, 100, 'each to its length');
+});
+
+test('tags round-trip through a file; a newer copy replaces them, so removing one sticks', () => {
+  const { Library } = loadLists();
+  Library.load([{ id: 'a', title: 'A', imdbID: 'tt0000001', want: true, tags: ['art', 'family'], updatedDate: MID }]);
+  const file = JSON.parse(Library.exportText('test'));
+  assert.deepEqual(plain(file.titles[0].tags), ['art', 'family']);
+  assert.equal('tag' in file.titles[0], false, 'one field, not two');
+  const other = loadLists().Library;
+  other.import(file);
+  assert.deepEqual(plain(other.all()[0].tags), ['art', 'family']);
+
+  file.titles[0].tags = ['art'];
+  file.titles[0].updatedDate = NEW;
+  other.import(file);
+  assert.deepEqual(plain(other.all()[0].tags), ['art'], 'newer file wins, whole');
+  file.titles[0].tags = ['stale'];
+  file.titles[0].updatedDate = OLD;
+  assert.equal(other.import(file).unchanged, 1, 'an older file changes nothing');
+  assert.deepEqual(plain(other.all()[0].tags), ['art']);
 });
 
 test('every old stored list loads the same way its exports import', () => {

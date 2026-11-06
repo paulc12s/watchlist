@@ -145,8 +145,9 @@ const Library = {
   },
 
   // ---- Tags and platforms ------------------------------------------------------
-  // Each tag and platform is stored in one spelling, whatever was typed or
-  // imported: "art", "#Art " and "ART" are all stored as the spelling already
+  // A title has any number of tags and one platform. Each label is stored in
+  // one spelling, whatever was typed or imported: "art", "#Art " and "ART" are
+  // all stored as the spelling already
   // in use, so the same tag is never kept in several forms. A new label is
   // stored as typed, cleaned (no #, single spaces); a new platform also
   // matches the known list (CONFIG.PLATFORMS).
@@ -158,12 +159,15 @@ const Library = {
   labels(field, titles = this.titles, except = null) {
     const spellings = new Map();
     for (const t of titles) {
-      const value = Title.cleanLabel(t[field]);
-      if (!value || t === except) continue;
-      const key = value.toLowerCase();
-      if (!spellings.has(key)) spellings.set(key, new Map());
-      const forms = spellings.get(key);
-      forms.set(value, (forms.get(value) || 0) + 1);
+      if (t === except) continue;
+      for (const raw of Title.labelsOf(t, field)) {
+        const value = Title.cleanLabel(raw);
+        if (!value) continue;
+        const key = value.toLowerCase();
+        if (!spellings.has(key)) spellings.set(key, new Map());
+        const forms = spellings.get(key);
+        forms.set(value, (forms.get(value) || 0) + 1);
+      }
     }
     const result = new Map();
     for (const [key, forms] of spellings) {
@@ -184,14 +188,21 @@ const Library = {
     return platform || clean;
   },
 
-  // Gives a record's tag and platform their stored spellings, in place.
+  // Gives a record's tags and platform their stored spellings, in place.
   // except: the title being edited; known: label maps to use and extend
   nameLabels(t, except = null, known = null) {
-    for (const field of ['tag', 'platform']) {
-      if (!t[field]) continue;
-      const labels = known ? known[field] : this.labels(field, this.titles, except);
-      t[field] = this.labelName(field, t[field], labels);
-      if (known) labels.set(t[field].toLowerCase(), { label: t[field], count: 1 });
+    const spell = (field, value, labels) => {
+      const name = this.labelName(field, value, labels);
+      if (known) labels.set(name.toLowerCase(), { label: name, count: 1 });
+      return name;
+    };
+    if (t.tags.length) {
+      const labels = known ? known.tag : this.labels('tag', this.titles, except);
+      t.tags = Title.parseTags(t.tags.map(tag => spell('tag', tag, labels)));
+    }
+    if (t.platform) {
+      const labels = known ? known.platform : this.labels('platform', this.titles, except);
+      t.platform = spell('platform', t.platform, labels);
     }
   },
 
@@ -234,13 +245,17 @@ const Library = {
     for (const field of ['tag', 'platform']) {
       const labels = this.labels(field);
       const renamed = new Map();
+      const spelled = value => {
+        const label = labels.get(Title.cleanLabel(value).toLowerCase()).label;
+        if (value !== label) {
+          const change = `${value} → ${label}`;
+          renamed.set(change, (renamed.get(change) || 0) + 1);
+        }
+        return label;
+      };
       for (const t of this.titles) {
-        if (!t[field]) continue;
-        const label = labels.get(Title.cleanLabel(t[field]).toLowerCase()).label;
-        if (t[field] === label) continue;
-        const change = `${t[field]} → ${label}`;
-        renamed.set(change, (renamed.get(change) || 0) + 1);
-        t[field] = label;
+        if (field === 'tag') t.tags = t.tags.map(spelled);
+        else if (t.platform) t.platform = spelled(t.platform);
       }
       for (const [change, count] of renamed) report.renamed.push({ field, change, count });
     }

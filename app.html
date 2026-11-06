@@ -135,7 +135,6 @@
   <button type="button" id="undoButton">Undo</button>
 </div>
 
-<datalist id="tagOptions"></datalist>
 <datalist id="platformOptions"></datalist>
 
 <dialog class="sheet search-sheet" id="categorySheet" aria-labelledby="categoryTitle">
@@ -233,10 +232,8 @@
           <button type="button" role="radio" data-priority="medium">Medium</button>
           <button type="button" role="radio" data-priority="low">Low</button>
         </div>
-      <div class="field-row">
-        <input type="text" id="addTag" list="tagOptions" placeholder="Tag" maxlength="100" aria-label="Tag">
-        <input type="text" id="addPlatform" list="platformOptions" placeholder="Where to watch" maxlength="100" aria-label="Where to watch">
-      </div>
+      <div class="tag-field" id="addTags"></div>
+      <input type="text" class="platform-field" id="addPlatform" list="platformOptions" placeholder="Where to watch" maxlength="100" aria-label="Where to watch">
       <div class="sheet-actions add-actions">
         <div class="seen-thumbs" role="group" aria-label="Already seen it? Rate it">
           <button type="button" class="thumb love" id="addSeenLove" title="Seen it: loved it" aria-label="Seen it: loved it"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg></button>
@@ -281,10 +278,8 @@
           <button type="button" role="radio" data-priority="medium">Medium</button>
           <button type="button" role="radio" data-priority="low">Low</button>
         </div>
-    <div class="field-row">
-      <input type="text" id="titleTag" list="tagOptions" placeholder="Tag" maxlength="100" aria-label="Tag">
-      <input type="text" id="titlePlatform" list="platformOptions" placeholder="Where to watch" maxlength="100" aria-label="Where to watch">
-    </div>
+    <div class="tag-field" id="titleTags"></div>
+    <input type="text" class="platform-field" id="titlePlatform" list="platformOptions" placeholder="Where to watch" maxlength="100" aria-label="Where to watch">
     <div class="sheet-actions">
       <button type="button" class="button danger" id="titleDelete"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>Delete</button>
       <button type="button" class="button" id="titleWeb"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>Search the web</button>
@@ -418,6 +413,7 @@
 <script src="js/review/ui.js?v=__APP_VERSION__"></script>
 <script src="js/review/app.js?v=__APP_VERSION__"></script>
 <script src="js/app/list-view.js?v=__APP_VERSION__"></script>
+<script src="js/app/tag-input.js?v=__APP_VERSION__"></script>
 <script src="js/app/sheets.js?v=__APP_VERSION__"></script>
 <script src="js/app/old-pages.js?v=__APP_VERSION__"></script>
 <script src="js/app/settings.js?v=__APP_VERSION__"></script>

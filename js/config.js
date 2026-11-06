@@ -63,6 +63,7 @@ const CONFIG = {
   LIMITS: {
     MAX_TITLE_LENGTH: 500,
     MAX_TAG_LENGTH: 100,
+    MAX_TAGS: 30,        // On one title
     MAX_PLATFORM_LENGTH: 100,
     MAX_REVIEW_LENGTH: 1000,
     MAX_FILE_SIZE: 20 * 1024 * 1024,

@@ -16,14 +16,15 @@ const UI = {
 
   init() {
     const ids = ['addButton', 'undoBar', 'undoMessage', 'undoButton',
-      'tagOptions', 'platformOptions', 'addSheet', 'addModes', 'addSearch', 'addType', 'addResults', 'manualTitle',
-      'manualType', 'manualGenre', 'youtubeUrl', 'youtubeTitle', 'addOptions', 'addChosen', 'addPriority', 'addTag',
+      'platformOptions', 'addSheet', 'addModes', 'addSearch', 'addType', 'addResults', 'manualTitle',
+      'manualType', 'manualGenre', 'youtubeUrl', 'youtubeTitle', 'addOptions', 'addChosen', 'addPriority', 'addTags',
       'addPlatform', 'addSeenLove', 'addSeenUp', 'addSeenDown', 'addToList', 'titleSheet', 'titleName', 'titleDetails', 'titleThumbs',
-      'titleWant', 'titleRewatch', 'titleStars', 'titleNotes', 'titlePriority', 'titleTag', 'titlePlatform',
+      'titleWant', 'titleRewatch', 'titleStars', 'titleNotes', 'titlePriority', 'titleTags', 'titlePlatform',
       'titleDelete', 'titleWeb', 'titleSave'];
     ids.forEach(id => { this.elements[id] = document.getElementById(id); });
     const els = this.elements;
     this.add.searcher = TitleSearch.searcher(found => this.showFound(found));
+    this.tagFields = { add: TagInput.create(els.addTags), title: TagInput.create(els.titleTags) };
 
     this.views = {
       watchlist: ListView.create({
@@ -72,14 +73,12 @@ const UI = {
     window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank', 'noopener');
   },
 
-  // Suggestions for the tag and platform fields
+  // Suggestions for the platform field (the tag fields read theirs when opened)
   renderOptions() {
     // One suggestion per label, in its usual spelling, so entries match
-    const names = field => [...Library.labels(field).values()].map(({ label }) => label);
-    const tags = names('tag').sort((a, b) => a.localeCompare(b));
-    const used = new Set(names('platform').map(p => p.toLowerCase()));
-    const platforms = [...names('platform'), ...CONFIG.PLATFORMS.filter(p => !used.has(p.toLowerCase()))];
-    this.elements.tagOptions.innerHTML = html`${tags.map(t => html`<option value="${t}">`)}`;
+    const names = [...Library.labels('platform').values()].map(({ label }) => label);
+    const used = new Set(names.map(p => p.toLowerCase()));
+    const platforms = [...names, ...CONFIG.PLATFORMS.filter(p => !used.has(p.toLowerCase()))];
     this.elements.platformOptions.innerHTML = html`${platforms.map(p => html`<option value="${p}">`)}`;
   },
 
@@ -130,7 +129,8 @@ const UI = {
     this.add.results = [];
     this.add.state = '';
     els.addSearch.value = query;
-    [els.manualTitle, els.manualGenre, els.youtubeUrl, els.youtubeTitle, els.addTag, els.addPlatform].forEach(input => { input.value = ''; });
+    [els.manualTitle, els.manualGenre, els.youtubeUrl, els.youtubeTitle, els.addPlatform].forEach(input => { input.value = ''; });
+    this.tagFields.add.set([]);
     setChecked(els.addPriority, 'priority', 'medium');
     setChecked(els.manualType, 'type', 'movie');
     this.setAddMode('search');
@@ -308,7 +308,7 @@ const UI = {
     const added = ItemManager.add({
       ...fields,
       priority: checked(els.addPriority, 'priority'),
-      tag: els.addTag.value.trim(),
+      tags: this.tagFields.add.values(),
       platform: els.addPlatform.value.trim() || fields.platform || '',
       ...verdict
     });
@@ -385,7 +385,7 @@ const UI = {
     els.titleDetails.innerHTML = this.chosenHTML(t);
     els.titleNotes.value = t.review;
     // In their usual spelling, so saving tidies an odd one
-    els.titleTag.value = Library.labelName('tag', t.tag);
+    this.tagFields.title.set(t.tags);
     els.titlePlatform.value = Library.labelName('platform', t.platform);
     this.renderDraft();
     els.titleSheet.showModal();
@@ -425,7 +425,7 @@ const UI = {
       stars: draft.stars,
       review: els.titleNotes.value.trim(),
       priority: draft.priority,
-      tag: els.titleTag.value,
+      tags: this.tagFields.title.values(),
       platform: els.titlePlatform.value
     }, message);
     els.titleSheet.close();

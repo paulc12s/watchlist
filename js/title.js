@@ -8,7 +8,7 @@
 //   id, title, type ('movie' | 'series' | 'youtube'), year,
 //   imdbID, youtubeID, tmdbId, genres[], director, actors, plot, poster,
 //   imdbRating (0-10), duration                     details
-//   priority, tag, platform                          how you organise it
+//   priority, tags[], platform                       how you organise it
 //   want      on your list to watch
 //   verdict   'up' | 'down' (seen, with your thumb), 'skip' (not seen, don't
 //             offer again), 'pass' (not seen, and not interested) or '' (not
@@ -20,7 +20,7 @@
 //   guessPct  where the recommender ranked it when you first rated it
 //
 // sanitize() also reads every field name earlier versions used (thumb,
-// watched, genre, rating, ratedAt, updatedAt), so every old file and stored
+// watched, genre, tag, rating, ratedAt, updatedAt), so every old file and stored
 // list still loads.
 // ============================================================================
 
@@ -54,6 +54,30 @@ const Title = {
   // gives each label one spelling on every save
   cleanLabel(value) {
     return String(value || '').trim().replace(/^#+/, '').replace(/\s+/g, ' ').trim();
+  },
+
+  // A title's tags from a list or comma-separated text ("art, Family"):
+  // cleaned, each once whatever its capitals, so no tag ever holds a comma
+  parseTags(value) {
+    const seen = new Set();
+    const tags = [];
+    for (const item of Array.isArray(value) ? value : [value]) {
+      if (typeof item !== 'string' && typeof item !== 'number') continue;
+      for (const part of String(item).split(',')) {
+        const tag = this.cleanLabel(part.substring(0, CONFIG.LIMITS.MAX_TAG_LENGTH));
+        const key = tag.toLowerCase();
+        if (!tag || seen.has(key)) continue;
+        seen.add(key);
+        tags.push(tag);
+      }
+    }
+    return tags.slice(0, CONFIG.LIMITS.MAX_TAGS);
+  },
+
+  // The labels a title carries for 'tag' or 'platform'
+  labelsOf(t, field) {
+    if (field === 'tag') return t.tags;
+    return t[field] ? [t[field]] : [];
   },
 
   // How each type shows: its icon in the sprite, and its name
@@ -137,7 +161,7 @@ const Title = {
       // Keep priorities this version doesn't know (written by a newer version)
       // so an out-of-date copy of the app can't silently downgrade them
       priority: typeof raw.priority === 'string' && /^[a-z-]{1,20}$/.test(raw.priority) ? raw.priority : '',
-      tag: this.cleanLabel(text(raw.tag, CONFIG.LIMITS.MAX_TAG_LENGTH)),
+      tags: this.parseTags(raw.tags !== undefined ? raw.tags : raw.tag),
       platform: this.cleanLabel(text(raw.platform, CONFIG.LIMITS.MAX_PLATFORM_LENGTH)),
       want,
       verdict,
@@ -170,7 +194,7 @@ const Title = {
   // Field names a raw record supplies, in today's names. Files from older
   // versions lack some fields; those are never taken from them.
   suppliedFields(raw) {
-    const renamed = { thumb: 'verdict', watched: 'want', genre: 'genres', rating: 'imdbRating', ratedAt: 'reviewDate', updatedAt: 'updatedDate' };
+    const renamed = { thumb: 'verdict', watched: 'want', genre: 'genres', tag: 'tags', rating: 'imdbRating', ratedAt: 'reviewDate', updatedAt: 'updatedDate' };
     const fields = new Set(Object.keys(raw).map(name => renamed[name] || name));
     // Old watchlist files said "watched" without a thumb: that implies one
     if (fields.has('want') && 'watched' in raw) fields.add('verdict');

@@ -27,7 +27,7 @@
 //     "Dune (2021) | 4/5", "Arrival, 👍". Blank lines and lines starting # are skipped
 //   - a CSV with a header row. Recognised columns (any order, any case):
 //     title/name/film/movie, year, rating/score/stars/verdict/your rating,
-//     notes/review/comment, tag, platform/service, priority, date/watched/date rated,
+//     notes/review/comment, tag/tags (separated by commas), platform/service, priority, date/watched/date rated,
 //     rewatch, imdb/imdbid/const, type/title type.
 //     IMDb's ratings and watchlist exports and Letterboxd's ratings, diary and
 //     watchlist exports are CSVs like this, so they work as they are; IMDb's
@@ -710,7 +710,7 @@ async function build(kind, text, { lookup = true, type = '', app = loadApp(), ca
     const date = Date.parse(row.date);
     const record = app.Title.sanitize({
       ...base,
-      tag: row.tag, platform: row.platform, review: row.review,
+      tags: row.tag, platform: row.platform, review: row.review,
       priority: ['watching', 'high', 'medium', 'low'].includes(row.priority) ? row.priority : '',
       ...(kind === 'watchlist'
         ? { want: true }
