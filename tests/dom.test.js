@@ -124,3 +124,25 @@ test('rows long out of view are let go once there are many', () => {
   updateRows(list, [many[0]]);
   assert.deepEqual(parsed, ['<i>k0</i>'], 'parsed again: it had been let go');
 });
+
+test('a poster that fails in a search row or a whole-list row asks for a replacement', () => {
+  const calls = [];
+  const context = vm.createContext({
+    UI: { fillPictures: () => calls.push('search') },
+    ReviewUI: { listPosterFailed: key => calls.push(`list:${key}`) },
+    Library: { get: () => undefined }
+  });
+  vm.runInContext(`${read('js/posters.js')}\nthis.Posters = Posters;`, context);
+  const { Posters } = context;
+  Posters.standIn = () => ({});
+
+  // Like a real element: once replaced it has no ancestors to find
+  const image = ancestors => ({
+    tagName: 'IMG', src: 'https://example.com/a.jpg', getAttribute: () => 'https://example.com/a.jpg',
+    closest(selector) { return ancestors[selector] || null; },
+    replaceWith() { ancestors = {}; }
+  });
+  Posters.failed(image({ '.result': {} }));
+  Posters.failed(image({ '[data-list-key]': { dataset: { listKey: 'tt0000001' } } }));
+  assert.deepEqual(calls, ['search', 'list:tt0000001']);
+});

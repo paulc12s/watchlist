@@ -40,11 +40,13 @@ const Posters = {
   failed(img) {
     if (img.tagName !== 'IMG' || !/^https?:/.test(img.src)) return;
     this.broken.add(img.getAttribute('src'));
+    // Where it was, while it's still there
     const row = img.closest('[data-id]');
+    const result = img.closest('.result');
+    const listed = img.closest('[data-list-key]');
     img.replaceWith(this.standIn(img));
     if (row) this.repair(Library.get(row.dataset.id));
-    if (img.closest('.result')) UI.fillPictures();
-    const listed = img.closest('[data-list-key]');
+    if (result) UI.fillPictures();
     if (listed) ReviewUI.listPosterFailed(listed.dataset.listKey);
   },
 
