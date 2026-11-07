@@ -67,14 +67,15 @@ const Main = {
     document.getElementById('bringIn').addEventListener('click', () => this.bringIn());
 
     // A change in either mode (or an import) shows in watchlist mode; it
-    // re-renders once per frame however many titles changed
+    // re-renders once per frame however many titles changed, and not at all
+    // if whatever made the change has already redrawn
     let pending = false;
     Library.onChange = () => {
       if (pending) return;
       pending = true;
       requestAnimationFrame(() => {
         pending = false;
-        UI.render();
+        if (UI.renderedRevision !== Library.revision) UI.render();
         ReviewUI.updateHeader();
       });
     };

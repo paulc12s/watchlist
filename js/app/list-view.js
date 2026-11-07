@@ -184,11 +184,12 @@ const ListView = {
     const names = { tag: Library.labels('tag'), platform: Library.labels('platform') };
     // Searching finds your titles wherever they are: these are the ones this view doesn't show
     const others = s.quickSearch ? ItemManager.elsewhere(s.quickSearch, titles) : [];
-    const othersHTML = others.length ? html`
-      <h2 class="group-label">Elsewhere in your titles</h2>
-      ${others.map(t => this.foundRowHTML(t))}` : '';
+    const label = text => ({ key: `label:${text}`, html: html`<h2 class="group-label">${text}</h2>` });
+    const othersRows = others.length ? [label('Elsewhere in your titles'),
+      ...others.map(t => ({ key: `found:${t.id}`, html: this.foundRowHTML(t) }))] : [];
     if (!titles.length && others.length) {
-      list.innerHTML = html`<p class="hint list-note">Nothing in this list matches “${s.quickSearch}”.</p>${othersHTML}`;
+      const note = { key: 'note', html: html`<p class="hint list-note">Nothing in this list matches “${s.quickSearch}”.</p>` };
+      updateRows(list, [note, ...othersRows]);
       return;
     }
     if (!titles.length) {
@@ -204,18 +205,19 @@ const ListView = {
       return;
     }
 
+    const row = t => ({ key: t.id, html: this.compact ? this.compactRowHTML(t) : this.rowHTML(t, names) });
     if (s.filter === 'recent') {
       // Newest first, the Library's own order, rather than by priority
-      list.innerHTML = html`<h2 class="group-label">Recently added</h2>${titles.map(t => this.rowHTML(t, names))}${othersHTML}`;
+      updateRows(list, [label('Recently added'), ...titles.map(row), ...othersRows]);
     } else if (s.list === 'queue') {
       // Grouped by priority, in the order CONFIG.PRIORITIES gives
       const groups = CONFIG.PRIORITIES.map(p => [p, titles.filter(t => Title.displayPriority(t) === p)]).filter(([, g]) => g.length);
-      list.innerHTML = html`${groups.map(([p, group]) => html`
-        <h2 class="group-label">${p === 'watching' ? 'Watching now' : `${CONFIG.PRIORITY_LABELS[p]} priority`}</h2>
-        ${group.map(t => this.rowHTML(t, names))}`)}${othersHTML}`;
+      updateRows(list, [...groups.flatMap(([p, group]) => [
+        label(p === 'watching' ? 'Watching now' : `${CONFIG.PRIORITY_LABELS[p]} priority`),
+        ...group.map(row)
+      ]), ...othersRows]);
     } else {
-      const row = this.compact ? t => this.compactRowHTML(t) : t => this.rowHTML(t, names);
-      list.innerHTML = html`${ItemManager.sorted(titles, s.sort).map(row)}${othersHTML}`;
+      updateRows(list, [...ItemManager.sorted(titles, s.sort).map(row), ...othersRows]);
     }
   },
 

@@ -188,9 +188,8 @@ const ReviewUI = {
     this.els.listSummary.innerHTML = html`<span>${rated} of ${total} rated</span>
       ${tally(loved, 'heart', 'loved')}${tally(up, 'thumb-up', 'liked')}${tally(down, 'thumb-down', 'not for me')}`;
     const scrolled = this.els.listBody.scrollTop;
-    this.els.listRows.innerHTML = rows.length
-      ? html`${rows.map(row => this.listRowHTML(row))}`
-      : html`<li class="hint">Nothing in this list yet.</li>`;
+    if (rows.length) updateRows(this.els.listRows, rows.map(row => ({ key: row.key, html: this.listRowHTML(row) })));
+    else this.els.listRows.innerHTML = html`<li class="hint">Nothing in this list yet.</li>`;
     this.els.listBody.scrollTop = scrolled;
     if (this.els.listSheet.open) this.watchListRows();
   },
@@ -205,7 +204,7 @@ const ReviewUI = {
     const picture = Posters.usable(poster, Posters.picture({ imdbID: MovieInfo.imdbID(key) }));
     const stars = entry && entry.stars > 0 && !Title.isLoved(entry) ? `${entry.stars}★` : '';
     return html`
-      <li><button type="button" class="film-row list-row" data-list-key="${key}" aria-label="${rank}. ${title}: ${status || 'not rated'}">
+      <li class="list-row-item"><button type="button" class="film-row list-row" data-list-key="${key}" aria-label="${rank}. ${title}: ${status || 'not rated'}">
         <span class="list-rank">${rank}</span>
         ${picture ? html`<img src="${picture}" alt="" loading="lazy">` : html`<span class="thumb"></span>`}
         <span class="film-text">
@@ -238,9 +237,7 @@ const ReviewUI = {
       }
       next();
     }, { root: this.els.listBody, rootMargin: REVIEW.LIST_VIEW_MARGIN });
-    this.els.listRows.querySelectorAll('[data-list-key]').forEach(row => {
-      if (row.querySelector('.thumb')) this.listObserver.observe(row);
-    });
+    this.els.listRows.querySelectorAll('[data-list-key] > .thumb').forEach(thumb => this.listObserver.observe(thumb.parentElement));
   },
 
   // Details for one row, from OMDb or what's kept; Wikipedia or TMDB if OMDb
@@ -265,8 +262,8 @@ const ReviewUI = {
   redrawListRow(key) {
     if (!this.els.listSheet.open) return;
     const row = this.els.listRows.querySelector(`[data-list-key="${CSS.escape(key)}"]`);
-    const data = Catalog.listRows(Feed.categoryId).find(r => r.key === key);
     if (!row) return;
+    const data = Catalog.listRow(key, Catalog.get(Feed.categoryId).keys.indexOf(key));
     if (data) row.closest('li').outerHTML = this.listRowHTML(data);
     else row.closest('li').remove();
   },
@@ -299,6 +296,7 @@ const ReviewUI = {
         })}
       </section>`);
     this.els.categoryList.innerHTML = html`${groups}`;
+    TitleSearch.loadLists();
     this.clearTitleSearch();
     this.els.categorySheet.showModal();
   },

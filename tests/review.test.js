@@ -998,3 +998,39 @@ test('data/honors.json: every entry names a real category, and known results hol
   assert.ok(names(titles.tt0903747[0]).includes('Emmys: Drama Series'), 'Breaking Bad');
   assert.ok(names(titles.tt6751668[0]).includes('Festivals: Cannes Palme d’Or'), 'Parasite');
 });
+
+test('a whole list and its single rows agree, leaving out titles that are not what the list expected', () => {
+  const app = loadReview();
+  app.Ratings.update(film(1, { imdbID: 'tt0000001', title: 'Alpha' }), { verdict: 'up' });
+  app.MovieInfo.load([['tt0000002', { imdbID: 'tt0000002', type: 'series' }]]);
+  const rows = plain(app.Catalog.listRows('one'));
+  assert.deepEqual(rows.map(({ key, rank }) => [key, rank]), [['tt0000001', 1]]);
+  assert.deepEqual(plain(app.Catalog.listRow('tt0000001', 0)), rows[0]);
+  assert.equal(app.Catalog.listRow('tt0000002', 1), null);
+});
+
+test('the bundled lists are fetched once, when first needed, by search and review alike', async () => {
+  const app = loadReview();
+  const asked = [];
+  app.setFetch(async url => {
+    asked.push(url);
+    return { ok: true, json: async () => ({ movies: { tt0000009: ['Zeta', 2000, ''] }, categories: [] }) };
+  });
+  await app.TitleSearch.init();
+  assert.deepEqual(asked, [], 'starting the app fetches nothing');
+  await Promise.all([app.TitleSearch.loadLists(), app.TitleSearch.loadLists()]);
+  await app.Catalog.load();
+  await app.TitleSearch.loadLists();
+  assert.deepEqual(asked, ['data/categories.json']);
+  assert.ok(app.TitleSearch.lists.tt0000009);
+});
+
+test('search still suggests when the bundled lists can’t load, and tries them again next time', async () => {
+  const app = loadReview();
+  app.setFetch(async () => { throw new Error('offline'); });
+  await app.TitleSearch.loadLists();
+  assert.deepEqual(plain(app.TitleSearch.lists), {});
+  app.setFetch(async () => ({ ok: true, json: async () => ({ movies: { tt0000009: ['Zeta', 2000, ''] } }) }));
+  await app.TitleSearch.loadLists();
+  assert.ok(app.TitleSearch.lists.tt0000009);
+});

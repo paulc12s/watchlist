@@ -1413,3 +1413,20 @@
   margin: 0;
   accent-color: var(--accent);
 }
+
+/* Rows off screen skip style, layout and paint. Long lists otherwise make every
+   sheet opening and mode switch restyle hundreds of rows. A row is sized by
+   this estimate until first seen, then by what the browser remembers of it */
+.title-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 102px;
+}
+
+.title-row.rated-row {
+  contain-intrinsic-size: auto 63px;
+}
+
+.list-row-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}

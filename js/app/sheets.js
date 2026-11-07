@@ -49,8 +49,9 @@ const UI = {
 
   // Every view, after any change; hidden ones catch up when shown
   render() {
+    // Library.onChange's redraw (js/app/main.js) skips a change already shown
+    this.renderedRevision = Library.revision;
     Object.values(this.views).forEach(view => view.render());
-    this.renderOptions();
   },
 
   // Which list view is on screen (null: neither, e.g. review mode)
@@ -75,7 +76,7 @@ const UI = {
     window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank', 'noopener');
   },
 
-  // Suggestions for the platform field (the tag fields read theirs when opened)
+  // Suggestions for the platform field, read when a sheet opens, as the tag fields' are
   renderOptions() {
     // One suggestion per label, in its usual spelling, so entries match
     const names = [...Library.labels('platform').values()].map(({ label }) => label);
@@ -136,9 +137,12 @@ const UI = {
     setChecked(els.addPriority, 'priority', 'medium');
     setChecked(els.manualType, 'type', 'movie');
     this.setAddMode('search');
+    this.renderOptions();
     els.addSheet.showModal();
     els.addSearch.focus();
-    if (query) this.searchSoon(0);
+    // The bundled films load the first time they could be suggested
+    const lists = TitleSearch.loadLists();
+    if (query) lists.then(() => { if (els.addSheet.open) this.searchSoon(0); });
   },
 
   setAddMode(mode) {
@@ -311,7 +315,8 @@ const UI = {
   // An icon says it was recognised; what for shows on a tap, or while a mouse
   // is over it. Gold means it won
   showHonors(slot, groups) {
-    if (!groups.length) return;
+    // A sheet redrawn while the files loaded has its own slot by now
+    if (!groups.length || !slot.isConnected) return;
     slot.innerHTML = html`
       ${groups.map((group, index) => html`
         <button type="button" class="honor${group.won ? ' won' : ''}" data-honor="${index}" aria-expanded="false" aria-label="${group.name}: ${group.lines.join('. ')}">${icon(group.id)}</button>`)}
@@ -337,13 +342,13 @@ const UI = {
     slot.addEventListener('pointerleave', event => {
       if (event.pointerType === 'mouse') show(pinned);
     });
-    // A tap anywhere else closes it
-    const sheet = slot.closest('dialog');
-    sheet.addEventListener('click', event => {
+    // A tap anywhere else closes it. A property, not a listener: the sheet
+    // outlives this slot, so each title's handler replaces the one before
+    slot.closest('dialog').onclick = event => {
       if (slot.contains(event.target) || !pinned) return;
       pinned = null;
       show(null);
-    });
+    };
   },
 
   // The fields to add from whichever pane is open, or null if something's missing
@@ -460,6 +465,7 @@ const UI = {
     // In their usual spelling, so saving tidies an odd one
     this.tagFields.title.set(t.tags);
     els.titlePlatform.value = Library.labelName('platform', t.platform);
+    this.renderOptions();
     this.renderDraft();
     els.titleSheet.showModal();
   },

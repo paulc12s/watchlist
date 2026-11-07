@@ -45,6 +45,7 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Performance pass, measured in Chromium and WebKit on a real export: a change redraws the lists once rather than twice; lists keep the elements of unchanged rows (updateRows in js/dom.js), so pictures don't reload; rows off screen skip style and layout (content-visibility); a whole-list row redraws on its own; data/categories.json loads once, when a search first opens, not on every launch; the honors handler no longer piles up on the sheet.
 - Recognition icons on a title's details, in the title and add sheets: Oscars, Golden Globes, Emmys, festival prizes (every year, data/honors.json) and critics' lists, with Lucide icons, with the categories or rank on a tap or hover.
 - Review: a button shows the whole list with how you rated each title, in place of the button that skipped to the next list. Critics' rankings as lists (data/critics.json, from text files in tools/lists/ by tools/build-lists.js).
 - Posters: an image that won't load becomes a card with the title, and is replaced from OMDb, Wikipedia or TMDB once a replacement has loaded (js/posters.js, js/wikipedia.js). Searches also cover Wikidata, and TMDB with a key; OMDb details are used only if they describe that film.

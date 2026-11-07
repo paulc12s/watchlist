@@ -34,9 +34,7 @@ const TitleSearch = {
   index: null,
   indexVersion: '',
 
-  // Loads the saved recent titles (fetching them again when a week old) and
-  // the bundled film lists. Read separately from Catalog's copy, so loading
-  // them here can't race review mode's start-up.
+  // Loads the saved recent titles, fetching them again when a week old
   async init() {
     try {
       const saved = await Store.load(this.RECENT_KEY);
@@ -45,9 +43,14 @@ const TitleSearch = {
       // Suggestions work without them
     }
     this.refreshRecent();
+  },
+
+  // The bundled film lists, when a search first opens rather than on every
+  // launch; the same fetch as Catalog's. Always resolves
+  async loadLists() {
+    if (Object.keys(this.lists).length) return;
     try {
-      const response = await fetch(REVIEW.CATEGORIES_URL);
-      if (response.ok) this.lists = (await response.json()).movies || {};
+      this.lists = (await Catalog.loadListFile(REVIEW.CATEGORIES_URL)).movies || {};
       this.index = null;
     } catch (error) {
       // Offline: your titles and recent ones still suggest

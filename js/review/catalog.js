@@ -94,9 +94,7 @@ const Catalog = {
   onTvListsChange() {},
 
   async load() {
-    const response = await fetch(REVIEW.CATEGORIES_URL);
-    if (!response.ok) throw new Error('Could not load the film lists');
-    this.use(await response.json());
+    this.use(await this.loadListFile(REVIEW.CATEGORIES_URL));
   },
 
   use(data) {
@@ -117,8 +115,8 @@ const Catalog = {
     this.categories = [...films, ...tv];
   },
 
-  // A list's data file (data/awards.json, data/critics.json), fetched once,
-  // the first time one of its lists is opened
+  // A data file (data/categories.json, awards.json, critics.json, honors.json),
+  // fetched once, the first time something needs it
   listFiles: new Map(),
   loadListFile(url) {
     if (!this.listFiles.has(url)) {
@@ -279,14 +277,17 @@ const Catalog = {
   // Everything in a list, in its order, with where you stand on each. Titles
   // whose details say they aren't what the list expected are left out
   listRows(id) {
-    return this.get(id).keys.flatMap((key, index) => {
-      const info = MovieInfo.get(key);
-      if (info && !MovieInfo.isUsable(info, key)) return [];
-      const { title, year } = this.basics(key);
-      const imdbID = MovieInfo.imdbID(key);
-      const entry = (imdbID && Library.byImdb(imdbID)) || null;
-      return [{ key, rank: index + 1, title, year, entry, poster: (entry && entry.poster) || (info && info.poster) || '' }];
-    });
+    return this.get(id).keys.map((key, index) => this.listRow(key, index)).filter(Boolean);
+  },
+
+  // One of those rows, by its place in the list; null if it's left out
+  listRow(key, index) {
+    const info = MovieInfo.get(key);
+    if (info && !MovieInfo.isUsable(info, key)) return null;
+    const { title, year } = this.basics(key);
+    const imdbID = MovieInfo.imdbID(key);
+    const entry = (imdbID && Library.byImdb(imdbID)) || null;
+    return { key, rank: index + 1, title, year, entry, poster: (entry && entry.poster) || (info && info.poster) || '' };
   },
 
   // How many of those rows you've rated, and how
