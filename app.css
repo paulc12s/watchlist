@@ -345,6 +345,69 @@
   color: var(--ink-2);
 }
 
+.honors {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+
+.honors:empty {
+  display: none;
+}
+
+.honor {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.honor .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.honor.won {
+  border-color: color-mix(in srgb, var(--star) 45%, transparent);
+  background: color-mix(in srgb, var(--star) 12%, transparent);
+  color: var(--star);
+}
+
+.honor[aria-expanded="true"] {
+  border-color: var(--accent-edge);
+  background: var(--accent-soft);
+}
+
+.honor-note {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  max-height: 45vh;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--sheet-top);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.honor-note p {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+}
+
 .row-tags {
   display: flex;
   flex-wrap: wrap;
@@ -920,7 +983,8 @@
   width: 44px;
 }
 
-.sheet.tag-focus .chosen .plot {
+.sheet.tag-focus .chosen .plot,
+.sheet.tag-focus .chosen .honors {
   display: none;
 }
 

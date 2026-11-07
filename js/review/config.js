@@ -18,6 +18,7 @@ const REVIEW = {
   AWARDS_URL: 'data/awards.json',
   // Critics' rankings (tools/build-lists.js), the same way
   CRITICS_URL: 'data/critics.json',
+  HONORS_URL: 'data/honors.json',
   // Rows of a whole list that look up details at once (posters), and how far
   // ahead of the screen they start
   LIST_VIEW_LOOKUPS: 2,
@@ -68,9 +69,9 @@ const TMDB_CONFIG = {
 // Critics' ranked lists: names here, titles in data/critics.json, built by
 // tools/build-lists.js from the text files in tools/lists/
 const CRITIC_LISTS = [
-  { id: 'critics-nyt-movies', name: 'NYT: best movies of the 21st century', note: 'The New York Times top 100, in rank order', type: 'movie' },
-  { id: 'critics-nyt-tv', name: 'NYT: best TV shows of the 21st century', note: 'The New York Times top 100, in rank order. No TMDB key needed', type: 'series' },
-  { id: 'critics-letterboxd-21st', name: 'Letterboxd: top 100 of the 21st century', note: 'Brian Formo’s ranking, in order', type: 'movie' }
+  { id: 'critics-nyt-movies', short: 'NYT', name: 'NYT: best movies of the 21st century', note: 'The New York Times top 100, in rank order', type: 'movie' },
+  { id: 'critics-nyt-tv', short: 'NYT', name: 'NYT: best TV shows of the 21st century', note: 'The New York Times top 100, in rank order. No TMDB key needed', type: 'series' },
+  { id: 'critics-letterboxd-21st', short: 'Letterboxd', name: 'Letterboxd: top 100 of the 21st century', note: 'Brian Formo’s ranking, in order', type: 'movie' }
 ];
 
 const AWARD_LISTS = [

@@ -942,3 +942,59 @@ test('one search routine for both searches: suggestions at once, OMDb after a pa
   searcher.search('  ');
   assert.equal(seen.at(-1).state, '', 'nothing typed');
 });
+
+test('critic ranks: a title’s place on each critics’ list, by IMDb ID', async () => {
+  const app = loadReview();
+  let fetches = 0;
+  app.setFetch(async url => {
+    fetches++;
+    return { ok: true, json: async () => JSON.parse(read(url)) };
+  });
+  const data = JSON.parse(read('data/critics.json'));
+  const nyt = data.lists.find(l => l.id === 'critics-nyt-movies').keys;
+  const letterboxd = data.lists.find(l => l.id === 'critics-letterboxd-21st').keys;
+  const both = nyt.find(key => letterboxd.includes(key));
+  assert.deepEqual(plain((await app.Catalog.criticRanks(both)).map(r => [r.short, r.rank])),
+    [['NYT', nyt.indexOf(both) + 1], ['Letterboxd', letterboxd.indexOf(both) + 1]]);
+  assert.deepEqual(plain(await app.Catalog.criticRanks('tt0000001')), [], 'on no list');
+  assert.deepEqual(plain(await app.Catalog.criticRanks('')), [], 'no IMDb ID, and nothing fetched for it');
+  assert.equal(fetches, 1, 'one fetch, however many titles');
+});
+
+test('recognition: an entry for each kind, with what it was for', async () => {
+  const app = loadReview();
+  const files = {
+    'data/honors.json': { awards: [['Oscars', 'Best Picture'], ['Oscars', 'Best Sound'], ['Golden Globes', 'Best Director']], titles: { tt0000001: [[0], [1, 2]], tt0000002: [[], [1]] } },
+    'data/critics.json': { lists: [{ id: 'critics-nyt-movies', keys: ['tt0000009', 'tt0000001'] }] }
+  };
+  app.setFetch(async url => ({ ok: true, json: async () => files[url] }));
+  assert.deepEqual(plain(await app.Catalog.recognition('tt0000001')), [
+    { id: 'oscars', name: 'Oscars', won: true, lines: ['Won: Best Picture', 'Nominated: Best Sound'] },
+    { id: 'globes', name: 'Golden Globes', won: false, lines: ['Nominated: Best Director'] },
+    { id: 'critics', name: 'Critics', won: false, lines: ['NYT: best movies of the 21st century: #2'] }
+  ]);
+  assert.deepEqual(plain(await app.Catalog.recognition('tt0000003')), [], 'none');
+});
+
+test('recognition: a file that won’t load leaves the other', async () => {
+  const app = loadReview();
+  app.setFetch(async url => {
+    if (url === 'data/honors.json') return { ok: false };
+    return { ok: true, json: async () => ({ lists: [{ id: 'critics-nyt-tv', keys: ['tt0000001'] }] }) };
+  });
+  assert.deepEqual(plain((await app.Catalog.recognition('tt0000001')).map(g => g.id)), ['critics']);
+});
+
+test('data/honors.json: every entry names a real category, and known results hold', () => {
+  const { awards, titles } = JSON.parse(read('data/honors.json'));
+  for (const [imdb, [won, nominated]] of Object.entries(titles)) {
+    assert.match(imdb, /^tt\d{7,10}$/);
+    for (const at of [...won, ...nominated]) assert.ok(awards[at], `${imdb} ${at}`);
+    assert.equal(won.filter(at => nominated.includes(at)).length, 0, `${imdb} has a category once`);
+  }
+  const names = list => list.map(at => awards[at].join(': '));
+  assert.ok(names(titles.tt6751668[0]).includes('Oscars: Best Picture'), 'Parasite');
+  assert.ok(names(titles.tt0068646[0]).includes('Oscars: Best Picture'), 'The Godfather');
+  assert.ok(names(titles.tt0903747[0]).includes('Emmys: Drama Series'), 'Breaking Bad');
+  assert.ok(names(titles.tt6751668[0]).includes('Festivals: Cannes Palme d’Or'), 'Parasite');
+});

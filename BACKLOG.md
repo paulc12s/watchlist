@@ -45,6 +45,7 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Recognition icons on a title's details, in the title and add sheets: Oscars, Golden Globes, Emmys, festival prizes (every year, data/honors.json) and critics' lists, with Lucide icons, with the categories or rank on a tap or hover.
 - Review: a button shows the whole list with how you rated each title, in place of the button that skipped to the next list. Critics' rankings as lists (data/critics.json, from text files in tools/lists/ by tools/build-lists.js).
 - Posters: an image that won't load becomes a card with the title, and is replaced from OMDb, Wikipedia or TMDB once a replacement has loaded (js/posters.js, js/wikipedia.js). Searches also cover Wikidata, and TMDB with a key; OMDb details are used only if they describe that film.
 - Several tags on a title: `tags` replaces `tag` in records and files (old files still read; comma-separated text is split, in imports, CSVs and batch upload). A tag field of removable chips with suggestions, in the add and title sheets; typing doesn't touch the page behind the sheet. Chip counts now take one pass over the titles.

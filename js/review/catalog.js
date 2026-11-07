@@ -135,6 +135,37 @@ const Catalog = {
     return this.listFiles.get(url);
   },
 
+  // Where a title stands on the critics' lists: [{ short, name, rank }]
+  async criticRanks(imdbID) {
+    if (!imdbID) return [];
+    const data = await this.loadListFile(REVIEW.CRITICS_URL);
+    return CRITIC_LISTS.flatMap(({ id, short, name }) => {
+      const list = (data.lists || []).find(l => l.id === id);
+      const at = list && Array.isArray(list.keys) ? list.keys.indexOf(imdbID) : -1;
+      return at === -1 ? [] : [{ short, name, rank: at + 1 }];
+    });
+  },
+
+  // What a title was recognised with, one entry for each icon on its details:
+  // [{ id, name, won, lines }]. A file that won't load just adds nothing
+  async recognition(imdbID) {
+    if (!imdbID) return [];
+    const [honors, ranks] = await Promise.all([
+      this.loadListFile(REVIEW.HONORS_URL).catch(() => ({})),
+      this.criticRanks(imdbID).catch(() => [])
+    ]);
+    const [won, nominated] = (honors.titles && honors.titles[imdbID]) || [[], []];
+    const groups = [['oscars', 'Oscars'], ['globes', 'Golden Globes'], ['emmys', 'Emmys'], ['festivals', 'Festivals']].flatMap(([id, name]) => {
+      const inGroup = list => list.map(at => honors.awards[at]).filter(award => award && award[0] === name).map(award => award[1]);
+      const wins = inGroup(won);
+      const nominations = inGroup(nominated);
+      const lines = [wins.length && `Won: ${wins.join(', ')}`, nominations.length && `Nominated: ${nominations.join(', ')}`].filter(Boolean);
+      return lines.length ? [{ id, name, won: wins.length > 0, lines }] : [];
+    });
+    if (ranks.length) groups.push({ id: 'critics', name: 'Critics', won: false, lines: ranks.map(({ name, rank }) => `${name}: #${rank}`) });
+    return groups;
+  },
+
   async prepareFromFile(category) {
     const data = await this.loadListFile(category.listFile);
     const list = (data.lists || []).find(l => l.id === category.id);

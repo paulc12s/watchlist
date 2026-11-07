@@ -266,7 +266,7 @@ const UI = {
       const found = (await TitleSearch.details(result)) || result;
       const details = { ...found, poster: Posters.usable(found.poster, result.poster, Posters.picture(result)) };
       this.add.chosen = details;
-      els.addChosen.innerHTML = this.chosenHTML(details);
+      this.showChosen(els.addChosen, details);
       els.addResults.innerHTML = html`<button type="button" class="link-button" data-back>${icon('back', 'tiny')}Other results</button>`;
       els.addResults.querySelector('[data-back]').addEventListener('click', () => {
         this.add.chosen = null;
@@ -295,8 +295,55 @@ const UI = {
         <p class="row-title">${t.title}${t.year ? ` (${t.year})` : ''}</p>
         <p class="row-meta">${[Title.TYPE_NAMES[t.type], genres, t.imdbRating && `★ ${Title.formatRating(t.imdbRating)}`].filter(Boolean).join(' · ')}</p>
         ${this.credits(t) && html`<p class="row-meta">${this.credits(t)}</p>`}
+        <div class="honors"></div>
         ${t.plot && html`<p class="plot">${t.plot}</p>`}
       </div>`;
+  },
+
+  // The details, then an icon for each kind of recognition once its files are
+  // here (they're fetched once). A sheet redrawn by then keeps its own icons
+  showChosen(container, t) {
+    container.innerHTML = this.chosenHTML(t);
+    const slot = container.querySelector('.honors');
+    Catalog.recognition(t.imdbID).then(groups => this.showHonors(slot, groups));
+  },
+
+  // An icon says it was recognised; what for shows on a tap, or while a mouse
+  // is over it. Gold means it won
+  showHonors(slot, groups) {
+    if (!groups.length) return;
+    slot.innerHTML = html`
+      ${groups.map((group, index) => html`
+        <button type="button" class="honor${group.won ? ' won' : ''}" data-honor="${index}" aria-expanded="false" aria-label="${group.name}: ${group.lines.join('. ')}">${icon(group.id)}</button>`)}
+      <div class="honor-note" hidden></div>`;
+    const note = slot.querySelector('.honor-note');
+    let pinned = null;
+    const show = button => {
+      const group = button && groups[Number(button.dataset.honor)];
+      note.hidden = !group;
+      note.innerHTML = group ? html`<strong>${group.name}</strong>${group.lines.map(line => html`<p>${line}</p>`)}` : '';
+      slot.querySelectorAll('.honor').forEach(other => other.setAttribute('aria-expanded', String(other === button)));
+    };
+    slot.addEventListener('click', event => {
+      const button = event.target.closest('.honor');
+      if (!button) return;
+      pinned = pinned === button ? null : button;
+      show(pinned);
+    });
+    slot.addEventListener('pointerover', event => {
+      const button = event.target.closest('.honor');
+      if (button && event.pointerType === 'mouse') show(button);
+    });
+    slot.addEventListener('pointerleave', event => {
+      if (event.pointerType === 'mouse') show(pinned);
+    });
+    // A tap anywhere else closes it
+    const sheet = slot.closest('dialog');
+    sheet.addEventListener('click', event => {
+      if (slot.contains(event.target) || !pinned) return;
+      pinned = null;
+      show(null);
+    });
   },
 
   // The fields to add from whichever pane is open, or null if something's missing
@@ -408,7 +455,7 @@ const UI = {
     };
     els.titleName.textContent = t.title;
     els.titleDetails.dataset.id = t.id;
-    els.titleDetails.innerHTML = this.chosenHTML(t);
+    this.showChosen(els.titleDetails, t);
     els.titleNotes.value = t.review;
     // In their usual spelling, so saving tidies an odd one
     this.tagFields.title.set(t.tags);

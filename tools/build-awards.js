@@ -90,7 +90,7 @@ const WIKIPEDIA = 'https://en.wikipedia.org/w/api.php';
 
 async function wikipedia(params) {
   const url = `${WIKIPEDIA}?${new URLSearchParams({ format: 'json', formatversion: '2', ...params })}`;
-  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(60000) });
   if (!response.ok) throw new Error(`Wikipedia ${response.status}`);
   return response.json();
 }
@@ -379,4 +379,4 @@ if (require.main === module) {
     .catch(error => { console.error(error); process.exit(1); });
 }
 
-module.exports = { LISTS, parseNominees, wikipedia };
+module.exports = { LISTS, parseNominees, wikipedia, articleItems };
