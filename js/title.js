@@ -7,7 +7,8 @@
 //
 //   id, title, type ('movie' | 'series' | 'youtube'), year,
 //   imdbID, youtubeID, tmdbId, genres[], director, actors, plot, poster,
-//   imdbRating (0-10), duration                     details
+//   imdbRating (0-10), duration,
+//   rated ("PG-13", "TV-MA"), rottenTomatoes (0-100) details
 //   priority, tags[], platform                       how you organise it
 //   want      on your list to watch
 //   verdict   'up' | 'down' (seen, with your thumb), 'skip' (not seen, don't
@@ -157,6 +158,8 @@ const Title = {
       plot,
       poster: Security.isSafeUrl(raw.poster) ? raw.poster.trim() : '',
       imdbRating: rating > 0 && rating <= 10 ? Math.round(rating * 10) / 10 : null,
+      rated: text(raw.rated, 20),
+      rottenTomatoes: Number.isInteger(raw.rottenTomatoes) && raw.rottenTomatoes >= 0 && raw.rottenTomatoes <= 100 ? raw.rottenTomatoes : null,
       duration: text(raw.duration, 20),
       // Keep priorities this version doesn't know (written by a newer version)
       // so an out-of-date copy of the app can't silently downgrade them

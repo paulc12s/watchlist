@@ -96,13 +96,29 @@ const Library = {
   // Creates the title from looked-up details on first touch, then applies
   // changes. Fresh details win over the stored ones, but blanks don't erase them.
   upsert(details, changes = {}) {
-    const fields = ['imdbID', 'title', 'year', 'genres', 'director', 'actors', 'plot', 'poster', 'imdbRating', 'type', 'tmdbId'];
+    const fields = ['imdbID', 'title', 'year', 'genres', 'director', 'actors', 'plot', 'poster', 'imdbRating', 'rated', 'rottenTomatoes', 'type', 'tmdbId'];
     const fresh = Object.fromEntries(fields
       .filter(field => details[field] !== undefined && details[field] !== null && String(details[field]).length)
       .map(field => [field, details[field]]));
     const existing = this.find(fresh);
     if (existing) return this.change(existing, { ...fresh, ...changes });
     return this.add({ ...fresh, ...changes }).title || null;
+  },
+
+  // Fills in the certificate and Rotten Tomatoes score of a title saved
+  // before they were kept, from details looked up for it. Only blanks are
+  // filled, and it isn't an edit: dates stay, so it can't win a merge.
+  // Returns whether anything changed.
+  fillDetails(t, details) {
+    if (!details || this.get(t.id) !== t) return false;
+    const filled = Title.sanitize({ ...t, rated: details.rated, rottenTomatoes: details.rottenTomatoes });
+    const changes = {};
+    if (!t.rated && filled.rated) changes.rated = filled.rated;
+    if (t.rottenTomatoes === null && filled.rottenTomatoes !== null) changes.rottenTomatoes = filled.rottenTomatoes;
+    if (!Object.keys(changes).length) return false;
+    Object.assign(t, changes);
+    this.changed();
+    return true;
   },
 
   // Deletes are local to this page: files never remove anything

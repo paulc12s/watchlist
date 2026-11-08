@@ -174,6 +174,9 @@ const OMDb = {
     if (!data || !this.isImdbID(data.imdbID) || data.Type === 'game') return null;
     const year = parseInt(this.text(data.Year, 20), 10);
     const rating = Number(this.text(data.imdbRating, 10));
+    const tomatoes = (Array.isArray(data.Ratings) ? data.Ratings : [])
+      .find(r => r && r.Source === 'Rotten Tomatoes' && /^\d{1,3}%$/.test(this.text(r.Value, 5)));
+    const tomatoScore = tomatoes ? parseInt(tomatoes.Value, 10) : null;
     return {
       imdbID: data.imdbID,
       title: this.text(data.Title, 500) || 'Unknown',
@@ -186,6 +189,10 @@ const OMDb = {
       plot: this.text(data.Plot, 1000),
       runtime: this.text(data.Runtime, 20),
       imdbRating: rating > 0 && rating <= 10 ? rating : null,
+      // The film's certificate or TV guideline ("PG-13", "TV-MA"), and the
+      // Rotten Tomatoes critics' score (0-100), which OMDb has for films only
+      rated: this.text(data.Rated, 20),
+      rottenTomatoes: tomatoScore !== null && tomatoScore <= 100 ? tomatoScore : null,
       poster: this.url(data.Poster)
     };
   },

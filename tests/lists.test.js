@@ -79,6 +79,46 @@ test('OMDb details: non-strings dropped, lengths capped, bad ratings and unsafe 
   assert.equal(OMDb.parseDetails({ ...hostileOmdb, Type: 'episode' }).type, 'series');
 });
 
+test('OMDb details: the certificate or TV rating, and the Rotten Tomatoes score when OMDb has one', () => {
+  const { OMDb, Title } = loadLists();
+  const film = OMDb.parseDetails({ ...hostileOmdb, Rated: 'PG-13', Ratings: [
+    { Source: 'Internet Movie Database', Value: '9.3/10' }, { Source: 'Rotten Tomatoes', Value: '89%' }] });
+  assert.deepEqual(plain([film.rated, film.rottenTomatoes]), ['PG-13', 89]);
+  // Series have a TV rating and no Rotten Tomatoes score on OMDb
+  const show = OMDb.parseDetails({ ...hostileOmdb, Type: 'series', Rated: 'TV-MA', Ratings: [{ Source: 'Internet Movie Database', Value: '8.6/10' }] });
+  assert.deepEqual(plain([show.rated, show.rottenTomatoes]), ['TV-MA', null]);
+  for (const odd of [{ Rated: 'N/A' }, { Rated: 42, Ratings: 'x' }, { Ratings: [{ Source: 'Rotten Tomatoes', Value: '150%' }] },
+    { Ratings: [{ Source: 'Rotten Tomatoes', Value: '<b>' }] }, { Ratings: [null] }]) {
+    const details = OMDb.parseDetails({ ...hostileOmdb, ...odd });
+    assert.deepEqual(plain([details.rated, details.rottenTomatoes]), ['', null], JSON.stringify(odd));
+  }
+  // Stored records are checked the same way
+  const t = Title.sanitize({ title: 'A', rated: 'x'.repeat(50), rottenTomatoes: 101 });
+  assert.deepEqual(plain([t.rated.length, t.rottenTomatoes]), [20, null]);
+  assert.equal(Title.sanitize({ title: 'A', rottenTomatoes: 0 }).rottenTomatoes, 0);
+});
+
+test('a title saved before they were kept gets its certificate and score, without counting as an edit', () => {
+  const { Library } = loadLists();
+  const { title: t } = Library.add({ title: 'Heat', imdbID: 'tt0113277', year: 1995 });
+  t.updatedDate = '2020-01-01T00:00:00.000Z';
+  assert.equal(Library.fillDetails(t, { rated: 'R', rottenTomatoes: 83 }), true);
+  assert.deepEqual(plain([t.rated, t.rottenTomatoes, t.updatedDate]), ['R', 83, '2020-01-01T00:00:00.000Z']);
+  // Only blanks are filled, and nothing new means no change
+  assert.equal(Library.fillDetails(t, { rated: 'PG', rottenTomatoes: 10 }), false);
+  assert.deepEqual(plain([t.rated, t.rottenTomatoes]), ['R', 83]);
+  // A title removed meanwhile is left alone
+  const { title: gone } = Library.add({ title: 'Gone', imdbID: 'tt0000099' });
+  Library.remove(gone);
+  assert.equal(Library.fillDetails(gone, { rated: 'R', rottenTomatoes: 5 }), false);
+});
+
+test('a title added from looked-up details keeps its certificate and score', () => {
+  const { Library } = loadLists();
+  const t = Library.upsert({ imdbID: 'tt0111161', title: 'The Shawshank Redemption', year: 1994, type: 'movie', rated: 'R', rottenTomatoes: 89 }, { verdict: 'up' });
+  assert.deepEqual(plain([t.rated, t.rottenTomatoes]), ['R', 89]);
+});
+
 test('OMDb details and search results without a real IMDb ID are dropped', async () => {
   const app = loadLists();
   assert.equal(app.OMDb.parseDetails({ ...hostileOmdb, imdbID: '../../evil' }), null);

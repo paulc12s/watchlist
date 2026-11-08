@@ -1414,6 +1414,20 @@
   accent-color: var(--accent);
 }
 
+/* A title's certificate or TV rating, as it's printed on a poster */
+.certificate {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 5px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
 /* Rows off screen skip style, layout and paint. Long lists otherwise make every
    sheet opening and mode switch restyle hundreds of rows. A row is sized by
    this estimate until first seen, then by what the browser remembers of it */

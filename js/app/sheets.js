@@ -297,7 +297,11 @@ const UI = {
       ${posterHTML(t)}
       <div>
         <p class="row-title">${t.title}${t.year ? ` (${t.year})` : ''}</p>
-        <p class="row-meta">${[Title.TYPE_NAMES[t.type], genres, t.imdbRating && `★ ${Title.formatRating(t.imdbRating)}`].filter(Boolean).join(' · ')}</p>
+        <p class="row-meta">
+          ${t.rated && html`<span class="certificate" title="${t.type === 'series' ? 'TV rating' : 'Rated'}">${t.rated}</span>`}
+          ${[Title.TYPE_NAMES[t.type], genres, t.imdbRating && `★ ${Title.formatRating(t.imdbRating)}`,
+            Number.isInteger(t.rottenTomatoes) && `🍅\u00a0${t.rottenTomatoes}%`].filter(Boolean).join(' · ')}
+        </p>
         ${this.credits(t) && html`<p class="row-meta">${this.credits(t)}</p>`}
         <div class="honors"></div>
         ${t.plot && html`<p class="plot">${t.plot}</p>`}
@@ -358,7 +362,7 @@ const UI = {
       const d = this.add.chosen;
       if (!d) return null;
       return { title: d.title, year: d.year, type: d.type, genres: d.genres, director: d.director, actors: d.actors,
-        imdbRating: d.imdbRating, plot: d.plot, poster: d.poster, imdbID: d.imdbID };
+        imdbRating: d.imdbRating, rated: d.rated, rottenTomatoes: d.rottenTomatoes, plot: d.plot, poster: d.poster, imdbID: d.imdbID };
     }
     if (this.add.mode === 'manual') {
       const title = els.manualTitle.value.trim();
@@ -461,6 +465,7 @@ const UI = {
     els.titleName.textContent = t.title;
     els.titleDetails.dataset.id = t.id;
     this.showChosen(els.titleDetails, t);
+    this.fillDetails(t);
     els.titleNotes.value = t.review;
     // In their usual spelling, so saving tidies an odd one
     this.tagFields.title.set(t.tags);
@@ -468,6 +473,20 @@ const UI = {
     this.renderOptions();
     this.renderDraft();
     els.titleSheet.showModal();
+  },
+
+  // A title saved before certificates and Rotten Tomatoes scores were kept
+  // gets them from OMDb (once a visit) and shows them if its sheet is still open.
+  // OMDb's record for an ID can describe another film, so the title must agree
+  fillDetails(t) {
+    if (!t.imdbID || t.type === 'youtube' || (t.rated && (t.rottenTomatoes !== null || t.type === 'series'))) return;
+    MovieAPI.getDetails(t.imdbID).then(details => {
+      if (!details || !MovieAPI.sameTitle(details, t) || !Library.fillDetails(t, details)) return;
+      const els = this.elements;
+      if (els.titleSheet.open && els.titleDetails.dataset.id === t.id) this.showChosen(els.titleDetails, t);
+    }).catch(() => {
+      // Offline or out of quota: tried again next visit
+    });
   },
 
   renderDraft() {
