@@ -114,11 +114,24 @@ const Title = {
     return typeof rating === 'number' ? rating.toFixed(1) : '';
   },
 
+  // How far ahead of this device's clock a date may be (another device's
+  // clock, a little fast)
+  CLOCK_SLACK_MS: 24 * 60 * 60 * 1000,
+
   sanitize(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const text = (value, max) => (typeof value === 'string' || typeof value === 'number'
       ? String(value).trim().substring(0, max) : '');
-    const date = value => (typeof value === 'string' && value.length <= 40 && !isNaN(Date.parse(value)) ? value : '');
+    // Dates are compared as text (merge, sorting), so every one is kept in the
+    // same form, UTC as toISOString writes it, whatever form a file used. A
+    // date from the future (a wrong clock, or a file made to win every merge)
+    // is dropped: an undated copy never wins, it only fills blanks
+    const latest = Date.now() + this.CLOCK_SLACK_MS;
+    const date = value => {
+      if (typeof value !== 'string' || value.length > 40) return '';
+      const time = Date.parse(value);
+      return isNaN(time) || time > latest ? '' : new Date(time).toISOString();
+    };
     const title = text(raw.title, CONFIG.LIMITS.MAX_TITLE_LENGTH);
     if (!title) return null;
 

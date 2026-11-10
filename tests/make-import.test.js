@@ -59,7 +59,7 @@ test('make-import: a reviewed list becomes rated titles the app imports unchange
   const text = 'Title,Year,Rating,Date\nDune,2021,4/5,2024-03-01\nCats,2019,2,\nArrival,2016,,\nHeat,1995,maybe,\nDune,2021,5,\n';
   const { text: file, count, report } = await build('reviewed', text, { lookup: false, app });
   const data = JSON.parse(file);
-  assert.equal(data.app, 'titles');
+  assert.equal(data.app, 'watchlist');
   assert.equal(count, 3);
   assert.deepEqual(plain(report.badRatings), ['Heat (1995): can\'t read the rating "maybe"']);
   assert.deepEqual(plain(report.duplicates), ['Dune (2021): the same title as "Dune (2021)", which came first and is kept']);

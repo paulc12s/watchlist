@@ -96,6 +96,30 @@ const AppSettings = {
     return this.clean(settings).settings;
   },
 
+  // Settings → Import: merges a file's titles in and applies its settings.
+  // file: anything with a size and text(), as a chosen File has. Returns
+  // { added, updated, applied: [names] }; throws with a message to show
+  async importFile(file) {
+    // Otherwise it would look imported, and be gone on the next visit
+    if (Store.blocked) throw new Error(`Nothing can be saved right now. ${Store.blocked}`);
+    if (file.size > CONFIG.LIMITS.MAX_FILE_SIZE) throw new Error('File is too large');
+    let data;
+    try {
+      data = JSON.parse(await file.text());
+    } catch (error) {
+      throw new Error('not a JSON file');
+    }
+    // Settings are left alone while Include settings is off
+    const fileSettings = this.included() && data ? data.settings : undefined;
+    const usable = this.clean(fileSettings).settings;
+    // A file of settings and no titles (an export from an empty app) still applies
+    const settingsOnly = Library.isExport(data) && !data.titles.length &&
+      Object.keys(usable).length > 0;
+    const { added, updated } = settingsOnly ? { added: 0, updated: 0 } : Library.import(data);
+    const { applied } = this.apply(fileSettings);
+    return { added, updated, applied };
+  },
+
   // Applies a file's settings; returns { applied: [names], skipped: [names] }
   apply(raw) {
     const { settings, skipped } = this.clean(raw);

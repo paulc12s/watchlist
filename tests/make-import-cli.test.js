@@ -45,8 +45,9 @@ function sandbox() {
 // The file is the app's export format, every record is already in the app's
 // own shape, and the app imports all of it
 function assertImportable(data, kind) {
-  assert.deepEqual(Object.keys(data).sort(), ['app', 'exportDate', 'from', 'titles', 'version']);
-  assert.deepEqual([data.app, data.version, data.from], ['titles', 2, `make-import-${kind}`]);
+  assert.deepEqual(Object.keys(data).sort(), ['app', 'appVersion', 'browser', 'count', 'exportDate', 'from', 'titles', 'version']);
+  assert.deepEqual([data.app, data.version, data.from], ['watchlist', 3, `make-import-${kind}`]);
+  assert.deepEqual([data.count, data.browser.name], [data.titles.length, 'Unknown'], 'written by the tool, not a browser');
   assert.ok(!Number.isNaN(Date.parse(data.exportDate)), 'exportDate is a date');
   const { Title, Library } = loadLists();
   for (const t of data.titles) assert.deepEqual(plain(Title.sanitize(t)), plain(t), `${t.title} is as the app stores it`);

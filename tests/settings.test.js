@@ -28,6 +28,16 @@ function loadSettings(globals = {}) {
     TMDB: { key: '' },
     OMDb: { personalKey: '', KEY_SHAPE: /^[0-9a-f]{8}$/i, setPersonalKey(key) { this.personalKey = key; calls.push(['omdbKey', key]); } },
     TitleSearch: { refreshRecent: () => calls.push(['refreshRecent']) },
+    CONFIG: { LIMITS: { MAX_FILE_SIZE: 1000 } },
+    Store: { blocked: '' },
+    Library: {
+      isExport: data => Boolean(data) && ['watchlist', 'titles'].includes(data.app) && Array.isArray(data.titles),
+      import(data) {
+        if (!data || !Array.isArray(data.titles)) throw new Error('Not a watchlist or ratings export');
+        calls.push(['import', data.titles.length]);
+        return { added: data.titles.length, updated: 0, unchanged: 0 };
+      }
+    },
     ...globals
   });
   vm.runInContext(`${read('js/app/settings.js')}\nthis.AppSettings = AppSettings;`, context);
@@ -136,4 +146,46 @@ test('settings: an OMDb key comes in only in its exact shape, and a file without
   app.AppSettings.apply({ omdbKey: 'ccccdddd' });
   assert.equal(app.OMDb.personalKey, 'ccccdddd');
   assert.equal(plain(app.AppSettings.collect()).omdbKey, 'ccccdddd', 'exported');
+});
+
+// A chosen file, as the import reads it
+const fileOf = (content, size) => {
+  const text = typeof content === 'string' ? content : JSON.stringify(content);
+  return { size: size === undefined ? text.length : size, text: async () => text };
+};
+
+test('import: a file’s titles are merged and its settings applied, in one step', async () => {
+  const app = loadSettings();
+  const result = await app.AppSettings.importFile(fileOf({ app: 'titles', titles: [{ title: 'A' }, { title: 'B' }], settings: { theme: 'pride', appearance: 'sepia' } }));
+  assert.deepEqual(plain(result), { added: 2, updated: 0, applied: ['theme'] });
+  assert.deepEqual(plain(app.calls), [['import', 2], ['theme', 'pride']]);
+});
+
+test('import: settings alone still apply; with Include settings off they are left alone', async () => {
+  const app = loadSettings();
+  const result = await app.AppSettings.importFile(fileOf({ app: 'watchlist', titles: [], settings: { theme: 'pastel' } }));
+  assert.deepEqual(plain(result), { added: 0, updated: 0, applied: ['theme'] });
+  assert.deepEqual(plain(app.calls), [['theme', 'pastel']], 'the empty list isn’t imported, which would be an error');
+
+  const off = loadSettings({ localStorage: { getItem: () => 'no', setItem() {} } });
+  const kept = await off.AppSettings.importFile(fileOf({ app: 'titles', titles: [{ title: 'A' }], settings: { theme: 'pride' } }));
+  assert.deepEqual(plain(kept), { added: 1, updated: 0, applied: [] });
+  assert.deepEqual(plain(off.calls), [['import', 1]]);
+});
+
+test('import: a file that’s too large, not JSON, or not an export is refused with a reason, changing nothing', async () => {
+  const app = loadSettings();
+  const { AppSettings } = app;
+  await assert.rejects(AppSettings.importFile(fileOf({ app: 'titles', titles: [] }, 1001)), /too large/);
+  await assert.rejects(AppSettings.importFile(fileOf('{ "titles": [')), /not a JSON file/);
+  await assert.rejects(AppSettings.importFile(fileOf('null')), /Not a watchlist or ratings export/);
+  await assert.rejects(AppSettings.importFile(fileOf({ settings: { theme: 'pride' } })), /Not a watchlist or ratings export/);
+  assert.deepEqual(plain(app.calls), [], 'not even the settings of a file whose titles were refused');
+});
+
+test('import: refused while nothing can be saved, rather than looking imported and vanishing', async () => {
+  const app = loadSettings();
+  app.Store.blocked = 'This page is open in another tab.';
+  await assert.rejects(app.AppSettings.importFile(fileOf({ app: 'titles', titles: [{ title: 'A' }] })), /Nothing can be saved right now. This page is open in another tab/);
+  assert.deepEqual(plain(app.calls), []);
 });

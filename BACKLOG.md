@@ -41,10 +41,19 @@ A native app hosting this page in a web view, with native helpers. Decide after 
 - CSS: a z-index scale as tokens.
 - Taste over time, now that reviews are dated (`reviewDate`).
 - In the watchlist import, flag conflicting verdicts (an existing 👎 alongside imported 4★) instead of keeping both.
-- Undo for imports.
 - Check TMDB genre and network IDs and endpoint behaviour against the live API. They were written from memory.
 
 ## Done
+- Export is named for the app: `watchlist-….json`, headed `"app": "watchlist"`, version 3 (version 2 files, headed `titles`, still import). It says what wrote it (`appVersion`, the deployed commit; `browser`, from what the browser reports) and how many titles it holds (`count`); an import refuses a file holding a different number.
+- Storage and data safety pass, checked in Chromium and WebKit against real IndexedDB:
+  - Saves: each loaded value has a revision beside it, read and written in the save's own transaction, so a tab holding an older copy can't overwrite a newer one (with or without localStorage); one save per key at a time; flush waits for a save under way; saves that fail together share one reopen; a database that never opens is a failure after 10 seconds, not a blank page.
+  - A stored-shape version (CONFIG.STORAGE.SCHEMA): a copy of the app older than what's stored shows the titles and saves nothing. Raise it when a version stores something an older one would strip. Stored records that can't be read as titles are set aside under their own key.
+  - Undo for imports and cleanup: the titles as they were are kept (Library.keepSnapshot), with a button in Settings to put them back.
+  - Dates are normalised to UTC on the way in, and future dates dropped, so merges compare rightly and no file can win every merge.
+  - Backups (js/backup.js): asks the browser to keep its storage, notices titles that have gone since the last visit, shows when you last exported, and says so at launch after a month.
+  - Review mode's details cache is one record per title (was one list rewritten on every lookup; moved across on first use), and a title nobody had is asked about again after a month.
+  - Importing is refused while nothing can be saved. Its logic moved to AppSettings.importFile, with tests.
+  - Tests: a closer stand-in for IndexedDB; every page script compiles and every element looked up exists; the version check; data-file tests in their own file.
 - A title's details show its certificate or TV rating and its Rotten Tomatoes score (from OMDb; films only for the score), kept as `rated` and `rottenTomatoes` and filled in for older titles when their sheet opens.
 - Performance pass, measured in Chromium and WebKit on a real export: a change redraws the lists once rather than twice; lists keep the elements of unchanged rows (updateRows in js/dom.js), so pictures don't reload; rows off screen skip style and layout (content-visibility); a whole-list row redraws on its own; data/categories.json loads once, when a search first opens, not on every launch; the honors handler no longer piles up on the sheet.
 - Recognition icons on a title's details, in the title and add sheets: Oscars, Golden Globes, Emmys, festival prizes (every year, data/honors.json) and critics' lists, with Lucide icons, with the categories or rank on a tap or hover.

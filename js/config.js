@@ -16,30 +16,19 @@ const CONFIG = {
     WATCHLIST: { name: 'WatchlistDB', storeName: 'items', legacyKey: 'watchlist_v1' },
     RATINGS: { name: 'RatingsDB', storeName: 'kv', legacyKey: 'ratings_v1' },
     TITLES_KEY: 'titles_v2',
+    // The shape of what's stored. Raise it when a version starts storing
+    // something an older copy of the app would strip or misread (a new field,
+    // a new type): a copy that finds a higher number than its own saves nothing
+    SCHEMA: 1,
+    SCHEMA_KEY: 'schema',
+    // The titles as they were before the last import, cleanup or restore
+    SNAPSHOT_KEY: 'titles_snapshot',
+    // Stored records that couldn't be read as titles, kept aside (plus a date)
+    UNREADABLE_PREFIX: 'titles_unreadable:',
     SAVE_DELAY_MS: 300
   },
   API: {
-    // API OPTIONS FOR MOVIE DATA:
-    //
-    // 1. OMDb API (current) - http://www.omdbapi.com/
-    //    - Pros: Simple, reliable, good basic data
-    //    - Cons: No streaming platform data, 1000 requests/day on free tier
-    //    - Get free key: http://www.omdbapi.com/apikey.aspx
-    //
-    // 2. TMDB API (recommended alternative) - https://www.themoviedb.org/
-    //    - Pros: Free, 50 requests/sec, better data, some streaming info via "watch providers"
-    //    - Cons: Streaming data limited to certain countries
-    //    - Get free key: https://www.themoviedb.org/settings/api
-    //
-    // 3. Watchmode API - https://api.watchmode.com/
-    //    - Pros: Dedicated streaming availability data
-    //    - Cons: 1000 requests/month on free tier
-    //
-    // 4. Streaming Availability API - https://www.movieofthenight.com/about/api
-    //    - Pros: Comprehensive streaming data
-    //    - Cons: Paid only ($9.99/month)
-    //
-    // SECURITY NOTE: API keys are visible in client-side code, so anyone can
+    // OMDb (js/omdb.js). API keys are visible in client-side code, so anyone can
     // read this key and use up its quota. The worst case is an outage, and
     // js/omdb.js then falls back to the shared demo key. See SECURITY.md.
     // Anyone can add their own key in Settings instead (js/omdb.js).

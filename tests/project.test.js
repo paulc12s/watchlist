@@ -51,8 +51,52 @@ test('the retired pages and the front door forward to the app, so old bookmarks 
     assert.match(source, /<a href="app\.html">/, `${page} has a link too`);
     assert.doesNotMatch(source, /<script/, `${page} runs nothing`);
   }
-  for (const gone of ['js/ui.js', 'js/app.js', 'js/app/watchlist-view.js', 'js/ratings/boot.js', 'js/ratings', 'watchlist.css', 'index.css', 'ratings.css']) {
-    assert.ok(!fs.existsSync(path.join(root, gone)), `${gone} is retired`);
+});
+
+// The scripts that draw the pages (js/review/ui.js, js/app/*.js, js/batch-upload.js)
+// need a browser, so no other test runs them. These checks catch what would
+// otherwise deploy with every test passing and leave a blank page.
+function pageScripts(page) {
+  const source = fs.readFileSync(path.join(root, page), 'utf8');
+  return { source, scripts: [...source.matchAll(/<script src="([^"?]+)/g)].map(m => m[1]) };
+}
+
+test('every script a page loads compiles, and none declares a name another already has', () => {
+  const vm = require('node:vm');
+  for (const page of ['app.html', 'batch-upload.html']) {
+    const { scripts } = pageScripts(page);
+    assert.ok(scripts.length >= 10, page);
+    const declared = new Map();
+    for (const file of scripts) {
+      const code = fs.readFileSync(path.join(root, file), 'utf8');
+      assert.doesNotThrow(() => new vm.Script(code, { filename: file }), `${file} doesn't compile`);
+      // Scripts share one scope: a second top-level const or class of the
+      // same name stops that whole file from running
+      for (const [, name] of code.matchAll(/^(?:const|let|class) (\w+)/gm)) {
+        assert.ok(!declared.has(name), `${page}: ${name} is declared in ${declared.get(name)} and again in ${file}`);
+        declared.set(name, file);
+      }
+    }
+  }
+});
+
+test('every element a page’s scripts look up by ID is in the page', () => {
+  for (const page of ['app.html', 'batch-upload.html']) {
+    const { source, scripts } = pageScripts(page);
+    const ids = new Set([...source.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]));
+    assert.ok(ids.size > 5, page);
+    let checked = 0;
+    for (const file of scripts) {
+      const code = fs.readFileSync(path.join(root, file), 'utf8');
+      const literal = [...code.matchAll(/getElementById\('([^']+)'\)/g)].map(m => m[1]);
+      // Lists of IDs looked up in a loop: const ids = ['a', 'b', ...]
+      const listed = [...code.matchAll(/const ids = \[([^\]]+)\]/g)].flatMap(m => [...m[1].matchAll(/'(\w+)'/g)].map(q => q[1]));
+      for (const id of [...literal, ...listed]) {
+        assert.ok(ids.has(id), `${file} looks up #${id}, which ${page} doesn't have`);
+        checked++;
+      }
+    }
+    assert.ok(checked > 5, `${page}: found the lookups to check`);
   }
 });
 

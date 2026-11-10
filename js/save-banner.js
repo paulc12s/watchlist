@@ -1,32 +1,55 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// Save banner: a message that stays on screen while your changes can't be
-// saved (see Store.onProblem), with a Reload button. Toasts vanish; this
-// doesn't, until saving works again.
+// Save banner: a message that stays on screen. Toasts vanish; this doesn't.
+//   - While your changes can't be saved (see Store.onProblem), with a Reload
+//     button, until saving works again.
+//   - For something you need to know that no save will put right, such as
+//     titles the browser has cleared (hold): it stays until you dismiss it
+//     or it's released, and a saving problem shows in its place meanwhile.
 // ============================================================================
 
 const SaveBanner = {
   el: null,
+  problem: '',
+  held: '',
 
   show(message) {
-    if (!this.el) {
-      this.el = document.createElement('div');
-      this.el.className = 'save-banner';
-      this.el.setAttribute('role', 'alert');
-      const text = document.createElement('span');
-      const reload = document.createElement('button');
-      reload.type = 'button';
-      reload.textContent = 'Reload';
-      reload.addEventListener('click', () => location.reload());
-      this.el.append(text, reload);
-      document.body.append(this.el);
-    }
-    this.el.firstChild.textContent = message;
-    this.el.hidden = false;
+    this.problem = message;
+    this.draw();
   },
 
   hide() {
-    if (this.el) this.el.hidden = true;
+    this.problem = '';
+    this.draw();
+  },
+
+  hold(message) {
+    this.held = message;
+    this.draw();
+  },
+
+  release() {
+    this.held = '';
+    this.draw();
+  },
+
+  draw() {
+    const message = this.problem || this.held;
+    if (!this.el) {
+      if (!message) return;
+      this.el = document.createElement('div');
+      this.el.className = 'save-banner';
+      this.el.setAttribute('role', 'alert');
+      const button = document.createElement('button');
+      button.type = 'button';
+      // Reload retries a save that's stuck; a held message is only dismissed
+      button.addEventListener('click', () => (this.problem ? location.reload() : this.release()));
+      this.el.append(document.createElement('span'), button);
+      document.body.append(this.el);
+    }
+    this.el.firstChild.textContent = message;
+    this.el.lastChild.textContent = this.problem ? 'Reload' : 'OK';
+    this.el.hidden = !message;
   }
 };
 
