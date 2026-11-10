@@ -310,7 +310,7 @@
     <button type="button" class="icon-button" data-close aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button>
   </header>
   <div class="sheet-body">
-    <p class="hint">Settings and API keys are stored on this device. To move them to another, export with <b>Include settings and API keys</b> ticked.</p>
+    <p class="hint">These settings and API keys are saved in the browser These will be exported when <b>Include settings and API keys</b> is checked</p>
     <section class="setting">
       <h3>Backup and sharing</h3>
       <div class="button-row">
@@ -322,7 +322,7 @@
         <input type="checkbox" id="includeSettings" checked>
         <span>Include settings and API keys</span>
       </label>
-      <p class="hint">Export saves your titles to a file, as a backup or to move them to another browser or device. Import merges a file in, including files from earlier versions. Nothing is removed: the more recently reviewed or changed copy of a title wins, and undated copies only fill blanks. <b>Include settings and API keys</b> adds your theme, sort orders, review choices and OMDb and TMDB keys to an export, and applies a file’s settings on import. Keep exported files private, since they hold your keys. Taste profile for AI copies a summary to paste into Claude.</p>
+      <p class="hint">Export titles (and optionally settings) to JSON. Import merges the selected JSON file, including earlier versions. Nothing is removed: the more recently reviewed or changed copy of a title is saved. <b>Include settings and API keys</b> adds your theme, sort orders, review choices and OMDb and TMDB keys to an export, and applies a file’s settings on import. Keep exported files private, since they hold your keys. Taste profile for AI copies a summary to paste into Claude.</p>
       <p class="hint" id="backupStatus"></p>
       <button type="button" class="button" id="restoreSnapshot" hidden></button>
       <p class="import-error" id="importError" role="alert" hidden></p>
