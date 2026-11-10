@@ -65,6 +65,7 @@ const Main = {
 
     document.getElementById('runCleanup').addEventListener('click', () => this.runCleanup());
     document.getElementById('bringIn').addEventListener('click', () => this.bringIn());
+    document.getElementById('restoreSnapshot').addEventListener('click', () => this.restoreSnapshot());
 
     // A change in either mode (or an import) shows in watchlist mode; it
     // re-renders once per frame however many titles changed, and not at all
@@ -77,10 +78,14 @@ const Main = {
         pending = false;
         if (UI.renderedRevision !== Library.revision) UI.render();
         ReviewUI.updateHeader();
+        Backup.noteCount(Library.all().length);
+        // Titles are back (an import): the notice that they'd gone has done its job
+        if (Library.all().length) SaveBanner.release();
       });
     };
 
     await ItemManager.load(CONFIG.STORAGE.APP);
+    this.checkBackup();
     await ReviewApp.loadPrefs();
     TitleSearch.init();
     Posters.sweep();
@@ -94,6 +99,57 @@ const Main = {
     }
     this.setMode(this.MODES.includes(saved) ? saved : 'watchlist');
     VersionCheck.start();
+  },
+
+  // At launch: titles that were here and are gone get a banner that stays
+  // until you dismiss it or import some; a
+  // backup that's overdue gets a word (js/backup.js). Neither if the titles
+  // couldn't be loaded, which has its own banner and says nothing of the kind
+  checkBackup() {
+    if (Store.blocked) return;
+    const count = Library.all().length;
+    const lost = Backup.missing(count);
+    if (lost) {
+      SaveBanner.hold(`The ${lost} title${lost === 1 ? '' : 's'} kept on this device ${lost === 1 ? 'is' : 'are'} gone: the browser may have cleared this site’s storage. Import your latest backup in Settings.`);
+      return;
+    }
+    Backup.noteCount(count);
+    const nudge = Backup.nudge(count);
+    if (nudge) ReviewUI.toast(nudge);
+  },
+
+  // Settings → Backup: when you last exported, and the way back from the last
+  // import, cleanup or restore, if there is one (Library.restoreSnapshot)
+  SNAPSHOT_NAMES: { import: 'import', cleanup: 'cleanup', restore: 'restore' },
+  async showBackup() {
+    document.getElementById('backupStatus').textContent = Backup.status();
+    const button = document.getElementById('restoreSnapshot');
+    let snapshot = null;
+    try {
+      snapshot = Store.blocked ? null : await Library.snapshot();
+    } catch (error) {
+      console.error('Could not read the snapshot:', error);
+    }
+    button.hidden = !snapshot;
+    if (!snapshot) return;
+    const when = new Date(snapshot.date).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+    button.textContent = `Undo the last ${this.SNAPSHOT_NAMES[snapshot.reason] || 'change'} (${when})`;
+  },
+
+  async restoreSnapshot() {
+    const button = document.getElementById('restoreSnapshot');
+    button.disabled = true;
+    try {
+      const count = await Library.restoreSnapshot();
+      await Store.flush();
+      ReviewUI.toast(`Put back as before: ${count} title${count === 1 ? '' : 's'}`, 'check');
+      UI.render();
+    } catch (error) {
+      ReviewUI.toast(`Couldn’t undo it: ${error.message}`);
+    } finally {
+      button.disabled = false;
+      this.showBackup();
+    }
   },
 
   // Settings → Run cleanup: tidy and repair (Library.cleanup), save, then
@@ -127,6 +183,7 @@ const Main = {
       if (!report.changed) lines.push('Nothing needed tidying.');
       if (odd) lines.push(`${plural(odd, 'title')} rated 👎 with 4 or 5 stars; check them in Rated.`);
       if (hidden) lines.push(`${plural(hidden, 'title')} kept for review history only (not on a list, no verdict).`);
+      if (Library.unreadable.length) lines.push(`${plural(Library.unreadable.length, 'stored record')} couldn’t be read as a title this visit and ${Library.unreadable.length === 1 ? 'was' : 'were'} set aside, not deleted.`);
       lines.push(matches
         ? `Saved on this device: ${plural((stored || []).length, 'title')}, matching what you see.`
         : 'What’s saved on this device doesn’t match what you see. Export a backup, then reload.');
@@ -136,6 +193,7 @@ const Main = {
         lines.push(`Storage: ${(usage / 1e6).toFixed(1)} MB used of ${(quota / 1e9).toFixed(1)} GB${persisted ? ', kept by the browser' : ''}.`);
       }
       show(lines, matches);
+      this.showBackup();
       ReviewUI.toast(report.changed ? 'Cleanup done' : 'Everything was already tidy', 'check');
     } catch (error) {
       console.error('Cleanup failed:', error);

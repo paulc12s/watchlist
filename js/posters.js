@@ -193,15 +193,21 @@ const Posters = {
 
   // ---- Which titles came up empty: kept on this device only ------------------
 
+  // Read once a visit: a sweep asks about every title without a poster
+  checks: null,
   readChecks() {
-    try {
-      return JSON.parse(localStorage.getItem(this.CHECKS_KEY)) || {};
-    } catch (error) {
-      return {};
+    if (!this.checks) {
+      try {
+        this.checks = JSON.parse(localStorage.getItem(this.CHECKS_KEY)) || {};
+      } catch (error) {
+        this.checks = {};
+      }
     }
+    return this.checks;
   },
 
   saveChecks(checks) {
+    this.checks = checks;
     try {
       localStorage.setItem(this.CHECKS_KEY, JSON.stringify(checks));
     } catch (error) {

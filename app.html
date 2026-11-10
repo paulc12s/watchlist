@@ -322,6 +322,8 @@
         <span>Include settings</span>
       </label>
       <p class="hint">Export saves all your titles to a file: keep it as a backup, or import it in another browser or on another device. Import reads it back, along with files from earlier versions. Imports merge: nothing is removed, a title reviewed or changed more recently in the file takes the file’s version, and anything else only fills in what’s blank here. With <b>Include settings</b> ticked, export also saves your theme, sort orders, review choices and OMDb and TMDB keys (so keep the file private), and import applies any settings a file has. Taste profile for AI copies a summary you can paste into Claude.</p>
+      <p class="hint" id="backupStatus"></p>
+      <button type="button" class="button" id="restoreSnapshot" hidden></button>
       <p class="import-error" id="importError" role="alert" hidden></p>
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </section>
@@ -408,6 +410,7 @@
 <script src="js/title.js?v=__APP_VERSION__"></script>
 <script src="js/store.js?v=__APP_VERSION__"></script>
 <script src="js/save-banner.js?v=__APP_VERSION__"></script>
+<script src="js/backup.js?v=__APP_VERSION__"></script>
 <script src="js/library.js?v=__APP_VERSION__"></script>
 <script src="js/omdb.js?v=__APP_VERSION__"></script>
 <script src="js/version-check.js?v=__APP_VERSION__"></script>

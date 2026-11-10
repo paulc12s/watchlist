@@ -1,13 +1,18 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// Library: the titles one page keeps, and the only way they change
+// Library: your titles, and the only way they change
 //
-// Both pages use this same code on their own database (see CONFIG.STORAGE):
-// every add, change, removal, import and export goes through here, so the
-// rules are the same everywhere. Records have the shape in js/title.js.
+// Every add, change, removal, import and export goes through here, so the
+// rules are the same in every mode. Records have the shape in js/title.js,
+// and are stored as one list in the app's database (see CONFIG.STORAGE).
 //
-// Files: export() writes { app: 'titles', version: 2, titles: [...] }.
-// import() also reads every format earlier versions wrote: watchlist exports
+// Before an import, cleanup or restore changes anything, the titles as they
+// were are kept as a snapshot (one, the latest), which restoreSnapshot puts back.
+//
+// Files: export() writes { app: 'watchlist', version: 3, titles: [...] }, with
+// what wrote it (appVersion, browser) and how many titles it holds (count).
+// import() also reads every format earlier versions wrote: version 2, the
+// same but headed { app: 'titles' } and without those; watchlist exports
 // ({ unwatched, watched }), ratings backups ({ app: 'ratings', ratings }),
 // and plain arrays (Export for Watchlist, want-to-watch, batch upload).
 // ============================================================================
@@ -20,26 +25,48 @@ const Library = {
   // Called after every change, import and removal
   onChange() {},
 
+  // Stored records that couldn't be read as titles this visit (see open)
+  unreadable: [],
+  NEWER_VERSION: 'Your titles were saved by a newer version of the app, so this older copy won’t change them. Reload to get the latest version.',
+
   // Opens the app's database and loads its titles
   async open(database) {
+    const { TITLES_KEY, SCHEMA_KEY, SCHEMA, UNREADABLE_PREFIX } = CONFIG.STORAGE;
     await Store.open(database);
-    this.load(await Store.load(CONFIG.STORAGE.TITLES_KEY));
+    const [list, schema] = await Promise.all([Store.load(TITLES_KEY), Store.load(SCHEMA_KEY)]);
+    this.unreadable = this.load(list);
+    this.storedSchema = Number.isInteger(schema) ? schema : 0;
+    // A newer version may store what this one would strip: change nothing
+    if (this.storedSchema > SCHEMA) return Store.block(this.NEWER_VERSION);
+    // The next save of the titles leaves these out, so they're kept aside
+    // rather than lost without a word
+    if (this.unreadable.length) {
+      console.warn(`${this.unreadable.length} stored records couldn’t be read as titles; kept aside`);
+      const kept = this.unreadable;
+      Store.scheduleSave(`${UNREADABLE_PREFIX}${new Date().toISOString()}`, () => kept);
+    }
   },
 
   // Accepts an array of records in any version's shape (or nothing stored
-  // yet). Throws if the data isn't a list at all.
+  // yet). Throws if the data isn't a list at all. Returns the records it
+  // couldn't read as titles, which are left out.
   load(list) {
     if (list !== undefined && list !== null && !Array.isArray(list)) throw new Error('Stored titles are not a list');
     this.titles = [];
     this.index();
+    const unreadable = [];
     for (const raw of list || []) {
       const title = Title.sanitize(raw);
-      if (!title) continue;
+      if (!title) {
+        unreadable.push(raw);
+        continue;
+      }
       // Two stored copies of one title (shouldn't happen) are merged, not dropped
       const twin = this.find(title);
       if (twin) Object.assign(twin, Title.merge(twin, title, raw) || {});
       else this.insert(title, 'end');
     }
+    return unreadable;
   },
 
   // ---- Reading ---------------------------------------------------------------
@@ -157,7 +184,47 @@ const Library = {
   },
 
   save() {
-    Store.scheduleSave(CONFIG.STORAGE.TITLES_KEY, () => this.titles);
+    const { TITLES_KEY, SCHEMA_KEY, SCHEMA } = CONFIG.STORAGE;
+    Store.scheduleSave(TITLES_KEY, () => this.titles);
+    // With the first save, not on opening: opening writes nothing
+    if (this.storedSchema !== SCHEMA) {
+      this.storedSchema = SCHEMA;
+      Store.scheduleSave(SCHEMA_KEY, () => SCHEMA);
+    }
+  },
+
+  // ---- Snapshot: the titles before the last import, cleanup or restore --------
+  // One is kept, in the same database. Restoring keeps a snapshot too, so a
+  // restore can itself be undone.
+
+  // before: the titles as JSON text, taken before the change
+  keepSnapshot(reason, before) {
+    const snapshot = { reason, date: new Date().toISOString(), titles: JSON.parse(before) };
+    Store.scheduleSave(CONFIG.STORAGE.SNAPSHOT_KEY, () => snapshot, 0);
+  },
+
+  async readSnapshot() {
+    const saved = await Store.load(CONFIG.STORAGE.SNAPSHOT_KEY);
+    return saved && Array.isArray(saved.titles) && typeof saved.reason === 'string' && typeof saved.date === 'string' ? saved : null;
+  },
+
+  // What there is to restore: { reason, date, count }, or null
+  async snapshot() {
+    const saved = await this.readSnapshot();
+    return saved ? { reason: saved.reason, date: saved.date, count: saved.titles.length } : null;
+  },
+
+  // Puts the titles back as the snapshot has them; returns how many
+  async restoreSnapshot() {
+    if (Store.blocked) throw new Error(Store.blocked);
+    await Store.flush();
+    const saved = await this.readSnapshot();
+    if (!saved) throw new Error('Nothing to restore');
+    const before = JSON.stringify(this.titles);
+    this.load(saved.titles);
+    this.keepSnapshot('restore', before);
+    this.changed();
+    return this.titles.length;
   },
 
   // ---- Tags and platforms ------------------------------------------------------
@@ -233,6 +300,7 @@ const Library = {
   // win a merge it wouldn't otherwise. Returns what it did.
   cleanup() {
     const report = { titles: this.titles.length, repaired: 0, merged: 0, renumbered: 0, renamed: [] };
+    const asWas = JSON.stringify(this.titles);
 
     // Record rules
     for (const t of this.titles) {
@@ -277,7 +345,10 @@ const Library = {
     }
 
     report.changed = Boolean(report.repaired || report.merged || report.renumbered || report.renamed.length);
-    if (report.changed) this.changed();
+    if (report.changed) {
+      this.keepSnapshot('cleanup', asWas);
+      this.changed();
+    }
     return report;
   },
 
@@ -291,6 +362,7 @@ const Library = {
     if (raws.length > CONFIG.LIMITS.MAX_IMPORT) throw new Error(`Too many titles (max ${CONFIG.LIMITS.MAX_IMPORT.toLocaleString()})`);
     let updated = 0, unchanged = 0;
     const added = [];
+    const asWas = JSON.stringify(this.titles);
     // Labels so far, so a file's spellings join the ones already here (and
     // each other) as it's read, without a search per title
     const known = { tag: this.labels('tag'), platform: this.labels('platform') };
@@ -319,13 +391,22 @@ const Library = {
     if (!added.length && !updated && !unchanged) throw new Error('No titles found in this file');
     // New titles go to the top, in the file's order
     this.titles.unshift(...added);
-    if (added.length || updated) this.changed();
+    if (added.length || updated) {
+      this.keepSnapshot('import', asWas);
+      this.changed();
+    }
     return { added: added.length, updated, unchanged };
   },
 
   // The raw records in any file format the apps have written
   recordsIn(data) {
-    if (data && data.app === 'titles' && Array.isArray(data.titles)) return data.titles;
+    if (this.isExport(data)) {
+      // A file cut short in copying is still JSON only by chance, but check
+      if (Number.isInteger(data.count) && data.count !== data.titles.length) {
+        throw new Error(`This file is incomplete: it should hold ${data.count} titles and holds ${data.titles.length}`);
+      }
+      return data.titles;
+    }
     if (data && data.app === 'ratings' && Array.isArray(data.ratings)) return data.ratings;
     if (Array.isArray(data)) return data;
     if (data && (data.unwatched !== undefined || data.watched !== undefined)) {
@@ -340,6 +421,13 @@ const Library = {
     throw new Error('Not a watchlist or ratings export');
   },
 
+  // Whether data is a file this app exported: headed 'watchlist' (version 3
+  // on) or 'titles' (version 2)
+  FILE_APPS: ['watchlist', 'titles'],
+  isExport(data) {
+    return Boolean(data) && this.FILE_APPS.includes(data.app) && Array.isArray(data.titles);
+  },
+
   // extra: more top-level fields for the file, such as the app's settings
   exportText(from, extra = {}) {
     return Library.fileText(this.titles, from, extra);
@@ -347,7 +435,27 @@ const Library = {
 
   // The export file for any list of titles; also used by batch upload
   fileText(titles, from, extra = {}) {
-    return JSON.stringify({ app: 'titles', version: 2, from, exportDate: new Date().toISOString(), ...extra, titles }, null, 2);
+    return JSON.stringify({
+      app: 'watchlist', version: 3, from, exportDate: new Date().toISOString(),
+      // Which code wrote the file (the deployed commit; 'dev' when run from
+      // the branch), and on what, to tell files apart and trace a bad one
+      appVersion: CONFIG.APP_VERSION.startsWith('__') ? 'dev' : CONFIG.APP_VERSION,
+      browser: this.browserInfo(),
+      count: titles.length,
+      ...extra, titles
+    }, null, 2);
+  },
+
+  // What the browser says it is: { name: 'Safari on iPhone', userAgent }.
+  // Nothing is asked of the device beyond what every web request already sends
+  browserInfo(userAgent = typeof navigator === 'undefined' ? '' : String(navigator.userAgent || '')) {
+    const first = pairs => (pairs.find(([pattern]) => pattern.test(userAgent)) || [])[1] || '';
+    // Order matters: Edge and Chrome also say Safari, and iPads say Mac
+    const browser = first([[/Edg(e|A|iOS)?\//, 'Edge'], [/OPR\//, 'Opera'], [/Firefox\/|FxiOS\//, 'Firefox'],
+      [/Chrome\/|CriOS\//, 'Chrome'], [/Safari\//, 'Safari']]);
+    const device = first([[/iPhone/, 'iPhone'], [/iPad/, 'iPad'], [/Android/, 'Android'], [/Macintosh|Mac OS X/, 'Mac'],
+      [/Windows/, 'Windows'], [/CrOS/, 'ChromeOS'], [/Linux/, 'Linux']]);
+    return { name: [browser, device].filter(Boolean).join(' on ') || 'Unknown', userAgent: userAgent.substring(0, 300) };
   },
 
   // e.g. "watchlist-2026-10-31-1432.json": local date and time, so two

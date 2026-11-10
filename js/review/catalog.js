@@ -14,9 +14,11 @@
 const MIX_ID = 'mix';
 
 const MovieInfo = {
-  // key -> details, or { missing: true } when OMDb has no such film
+  // key -> details, or { missing: true, checked } when OMDb has no such film
+  // (checked: when it was asked, so it can be asked again one day)
   cache: new Map(),
   pending: new Map(),
+  // Called with each key whose details were just looked up, and the details
   onChange() {},
 
   get(key) {
@@ -51,11 +53,15 @@ const MovieInfo = {
     if (this.cache.has(key)) return Promise.resolve(this.cache.get(key));
     if (!this.pending.has(key)) {
       const request = this.request(key)
-        .then(info => {
+        .then(found => {
+          const info = found.missing ? { ...found, checked: Date.now() } : found;
           this.cache.set(key, info);
+          this.onChange(key, info);
           // Films found by title can then be looked up by ID too
-          if (info.imdbID && info.imdbID !== key) this.cache.set(info.imdbID, info);
-          this.onChange();
+          if (info.imdbID && info.imdbID !== key) {
+            this.cache.set(info.imdbID, info);
+            this.onChange(info.imdbID, info);
+          }
           return info;
         })
         .finally(() => this.pending.delete(key));
@@ -77,12 +83,18 @@ const MovieInfo = {
     return (await OMDb.details(params)) || { missing: true };
   },
 
-  load(entries) {
-    this.cache = new Map(Array.isArray(entries) ? entries : []);
-  },
-
-  dump() {
-    return [...this.cache.entries()];
+  // Takes stored [key, details] entries, adding to what's here. A title that
+  // was missing long ago (or at a time unknown) is left out, to be asked
+  // about again; returns the keys left out
+  load(entries, now = Date.now()) {
+    const expired = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      if (!Array.isArray(entry) || typeof entry[0] !== 'string' || !entry[1] || typeof entry[1] !== 'object') continue;
+      const [key, info] = entry;
+      if (info.missing && !(now - info.checked < REVIEW.MISSING_MAX_AGE_MS)) expired.push(key);
+      else this.cache.set(key, info);
+    }
+    return expired;
   }
 };
 

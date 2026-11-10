@@ -36,6 +36,13 @@ function memoryStore(Store) {
     if (!Store.blocked) data.set(key, JSON.parse(JSON.stringify(write())));
   };
   Store.flush = async () => {};
+  Store.loadAll = async prefix => [...data].filter(([key]) => key.startsWith(prefix)).map(entry => JSON.parse(JSON.stringify(entry)));
+  Store.batch = async ({ put = [], remove = [] }) => {
+    if (Store.blocked) return false;
+    for (const [key, value] of put) data.set(key, JSON.parse(JSON.stringify(value)));
+    for (const key of remove) data.delete(key);
+    return true;
+  };
   return data;
 }
 

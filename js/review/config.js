@@ -1,18 +1,25 @@
 // Copyright (c) 2026 Paul Constantinides. Licensed under the MIT License; see LICENSE.
 // ============================================================================
-// Ratings page settings
-// Shares CONFIG (OMDb key, app version, limits, its database) from
-// js/config.js. Titles are kept by js/library.js; these are the page's other
-// stored keys, in the same database.
+// Review mode's settings
+// Shares CONFIG (OMDb key, app version, limits, the database) from
+// js/config.js. Titles are kept by js/library.js; these are review mode's
+// other stored keys, in the same database.
 // ============================================================================
 
 const REVIEW = {
   STORAGE: {
+    // Details of each film or show dealt, one record each ("info:tt0111161"),
+    // so looking one up stores one small record. Earlier versions kept them
+    // all as one list under INFO_KEY, rewritten whole each time; it's moved
+    // across the first time review mode opens
+    INFO_PREFIX: 'info:',
     INFO_KEY: 'movie_info_v1',
     PREFS_KEY: 'prefs_v1',
     TV_LISTS_KEY: 'tv_lists_v1',
     TV_RECS_KEY: 'tv_recs_v1'
   },
+  // A title nobody had is asked about again after this long
+  MISSING_MAX_AGE_MS: 30 * 24 * 60 * 60 * 1000,
   CATEGORIES_URL: 'data/categories.json',
   // Award lists (tools/build-awards.js), fetched the first time one is opened
   AWARDS_URL: 'data/awards.json',

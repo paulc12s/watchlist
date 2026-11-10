@@ -10,20 +10,38 @@ const ReviewApp = {
   // preferences and TV lists from the same database, then deals the first card.
   // The combined page calls this the first time you switch to review mode.
   async start() {
-    const { INFO_KEY, TV_LISTS_KEY, TV_RECS_KEY } = REVIEW.STORAGE;
-    const [info, tvLists, tvRecs] = await Promise.all([
-      Store.load(INFO_KEY), Store.load(TV_LISTS_KEY), Store.load(TV_RECS_KEY), Catalog.load(), this.loadPrefs()
+    const { TV_LISTS_KEY, TV_RECS_KEY } = REVIEW.STORAGE;
+    const [tvLists, tvRecs] = await Promise.all([
+      Store.load(TV_LISTS_KEY), Store.load(TV_RECS_KEY), this.loadInfo(), Catalog.load(), this.loadPrefs()
     ]);
-    MovieInfo.load(info);
     Catalog.restoreTvLists(tvLists);
     TvRecs.load(tvRecs);
 
-    MovieInfo.onChange = () => Store.scheduleSave(INFO_KEY, () => MovieInfo.dump());
     Catalog.onTvListsChange = () => Store.scheduleSave(TV_LISTS_KEY, () => Catalog.tvLists);
     TvRecs.onChange = () => Store.scheduleSave(TV_RECS_KEY, () => TvRecs.cache);
     this.loadRecommender();
 
     ReviewUI.switchCategory(this.savedCategoryId || 'popular', { announce: false });
+  },
+
+  // The details of titles dealt before, each stored as its own record and
+  // saved as it's looked up
+  async loadInfo() {
+    const { INFO_PREFIX, INFO_KEY } = REVIEW.STORAGE;
+    const [records, oldList] = await Promise.all([Store.loadAll(INFO_PREFIX), Store.load(INFO_KEY)]);
+    MovieInfo.cache = new Map();
+    const expired = MovieInfo.load(records.map(([key, info]) => [key.slice(INFO_PREFIX.length), info]));
+    // Earlier versions kept every title's details as one list: each becomes
+    // its own record, and the list goes. If that can't be stored now, the list
+    // stays and is moved next time
+    if (Array.isArray(oldList)) {
+      const stored = new Set(records.map(([key]) => key));
+      MovieInfo.load(oldList);
+      const moved = [...MovieInfo.cache].map(([key, info]) => [INFO_PREFIX + key, info]).filter(([key]) => !stored.has(key));
+      await Store.batch({ put: moved, remove: [INFO_KEY, Store.revisionKey(INFO_KEY)] });
+    }
+    if (expired.length) await Store.batch({ remove: expired.map(key => INFO_PREFIX + key) });
+    MovieInfo.onChange = (key, info) => Store.scheduleSave(INFO_PREFIX + key, () => info);
   },
 
   // Order, TMDB key and last list. Loaded before anything can save them, so

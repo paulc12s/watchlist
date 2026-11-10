@@ -944,6 +944,7 @@ const ReviewUI = {
     this.els.omdbKey.value = OMDb.personalKey;
     this.els.omdbError.hidden = true;
     this.els.importError.hidden = true;
+    Main.showBackup();
     this.els.settingsSheet.showModal();
   },
 
@@ -1011,7 +1012,9 @@ const ReviewUI = {
 
     this.els.exportBackup.addEventListener('click', () => {
       const extra = AppSettings.included() ? { settings: AppSettings.collect() } : {};
-      this.download(Library.fileName('titles'), Library.exportText('titles', extra));
+      this.download(Library.fileName('watchlist'), Library.exportText('app', extra));
+      Backup.noteExport();
+      Main.showBackup();
     });
     this.els.exportAI.addEventListener('click', async () => {
       const text = Ratings.aiProfile(this.computeTaste());
@@ -1030,23 +1033,14 @@ const ReviewUI = {
       if (!file) return;
       this.els.importError.hidden = true;
       try {
-        if (file.size > CONFIG.LIMITS.MAX_FILE_SIZE) throw new Error('File is too large');
-        const data = JSON.parse(await file.text());
-        // A file of settings and no titles (an export from an empty app) still applies
-        // Settings Include settings is off for are left alone
-        const fileSettings = AppSettings.included() && data ? data.settings : undefined;
-        const usable = AppSettings.clean(fileSettings).settings;
-        const settingsOnly = data && data.app === 'titles' && Array.isArray(data.titles) && !data.titles.length &&
-          Object.keys(usable).length > 0;
-        const { added, updated } = settingsOnly ? { added: 0, updated: 0 } : Library.import(data);
-        const { applied } = AppSettings.apply(fileSettings);
+        const { added, updated, applied } = await AppSettings.importFile(file);
         const titles = added || updated ? `${added} new, ${updated} updated` : 'nothing new';
         this.toast(`Imported: ${titles}${applied.length ? `; ${applied.length} setting${applied.length === 1 ? '' : 's'} applied` : ''}`);
         this.els.settingsSheet.close();
         this.updateHeader();
       } catch (error) {
         // Shown in the sheet: a toast would sit behind the open dialog
-        this.els.importError.textContent = `Import failed: ${error instanceof SyntaxError ? 'not a JSON file' : error.message}`;
+        this.els.importError.textContent = `Import failed: ${error.message}`;
         this.els.importError.hidden = false;
       }
     });
